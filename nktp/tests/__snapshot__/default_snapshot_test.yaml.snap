@@ -3448,6 +3448,7 @@ matches the snapshot with default values:
     kind: ConfigMap
     metadata:
       name: lgtm-dashboard-provider
+      namespace: NAMESPACE
   73: |
     apiVersion: v1
     data:
@@ -13150,11 +13151,13 @@ matches the snapshot with default values:
     kind: ConfigMap
     metadata:
       name: lgtm-dashboards
+      namespace: NAMESPACE
   74: |
     apiVersion: v1
     kind: Service
     metadata:
       name: lgtm
+      namespace: NAMESPACE
     spec:
       ports:
         - name: prometheus
@@ -13180,6 +13183,7 @@ matches the snapshot with default values:
     kind: Deployment
     metadata:
       name: lgtm
+      namespace: NAMESPACE
     spec:
       replicas: 1
       selector:
