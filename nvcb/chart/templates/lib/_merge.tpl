@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All 
 SPDX-License-Identifier: Apache-2.0
 */}}
 
-{{/* Rewrite user references and merge completed blueprints into the copied config. */}}
+{{/* Rewrite user references and merge blueprint into the copied config. */}}
 {{- define "nvcb.lib.merge" -}}
     {{- $config := .config -}}
     {{- $blueprint := .blueprint -}}
@@ -33,7 +33,7 @@ SPDX-License-Identifier: Apache-2.0
         {{- $_ := set $config $section $target -}}
     {{- end -}}
 
-    {{/* Rewrite only user pipelines, before adding already-scoped blueprint pipelines. */}}
+    {{/* Rewrite the blueprint references with its forward connector name */}}
     {{- range $pipelineID, $pipeline := $pipelines -}}
         {{- range $kind := list "receivers" "exporters" -}}
             {{- if hasKey $pipeline $kind -}}
