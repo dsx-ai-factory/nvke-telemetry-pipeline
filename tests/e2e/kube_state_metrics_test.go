@@ -136,7 +136,6 @@ func TestKubeStateMetrics(t *testing.T) {
 			assert.NoError(t, err, "waiting for KSM metrics in LGTM")
 			return ctx
 		}).
-		Teardown(funcs.DeleteResources(FieldManager, "manifests/kube-state-metrics", "*.yaml", fixtureOptions...)).
 		Teardown(funcs.DeleteNamespace(ns)).
 		Feature()
 	testenv.Test(t, f)
