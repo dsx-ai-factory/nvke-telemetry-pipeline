@@ -3,11 +3,11 @@ SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All 
 SPDX-License-Identifier: Apache-2.0
 */}}
 
-{{/* collectBlueprints collects declared and referenced blueprints along with user-defined values, scope and its template */}}
+{{/* collectBlueprints finds and stores blueprints with data needed for future processing. */}}
 {{- define "nvcb.lib.collectBlueprints" -}}
-    {{- $config := . -}}
+    {{- $config := .config -}}
     {{- $definitions := get $config "blueprints" | default dict -}}
-    {{- $blueprints := dict "receivers" (dict) "exporters" (dict) -}}
+    {{- $blueprints := .blueprints -}}
     {{- $service := get $config "service" | default dict -}}
     {{- range $_, $pipeline := (get $service "pipelines" | default dict) -}}
         {{- range $kind := list "receivers" "exporters" -}}
@@ -42,5 +42,4 @@ SPDX-License-Identifier: Apache-2.0
             {{- end -}}
         {{- end -}}
     {{- end -}}
-    {{- toYaml $blueprints -}}
 {{- end -}}

@@ -11,7 +11,8 @@ SPDX-License-Identifier: Apache-2.0
     {{- include "nvcb.lib.validateConfig" . -}}
     {{- $config := deepCopy (. | default dict) -}}
 
-    {{- $blueprints := include "nvcb.lib.collectBlueprints" $config | fromYaml -}}
+    {{- $blueprints := dict "receivers" (dict) "exporters" (dict) -}}
+    {{- include "nvcb.lib.collectBlueprints" (dict "config" $config "blueprints" $blueprints) -}}
 
     {{- if or $blueprints.receivers $blueprints.exporters -}}
         {{- range $entries := $blueprints -}}
