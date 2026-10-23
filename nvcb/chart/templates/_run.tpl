@@ -13,17 +13,15 @@ SPDX-License-Identifier: Apache-2.0
 
     {{- $blueprints := include "nvcb.lib.collectBlueprints" $config | fromYaml -}}
 
-    {{- if not (or $blueprints.receivers $blueprints.exporters) -}}
-        {{- toYaml $config -}}
-    {{- else -}}
+    {{- if or $blueprints.receivers $blueprints.exporters -}}
         {{- range $entries := $blueprints -}}
             {{- range $blueprint := $entries -}}
                 {{- include "nvcb.lib.render" $blueprint -}}
                 {{- include "nvcb.lib.validateBlueprint" $blueprint -}}
                 {{- include "nvcb.lib.scope" $blueprint -}}
+                {{- include "nvcb.lib.merge" (dict "config" $config "blueprint" $blueprint) -}}
             {{- end -}}
         {{- end -}}
-
-        {{- include "nvcb.lib.merge" (dict "config" $config "blueprints" $blueprints) -}}
     {{- end -}}
+    {{- toYaml $config -}}
 {{- end -}}
