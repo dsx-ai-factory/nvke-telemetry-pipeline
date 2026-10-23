@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/klient/wait/conditions"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
+	"sigs.k8s.io/e2e-framework/pkg/envfuncs"
 	"sigs.k8s.io/e2e-framework/pkg/features"
 )
 
@@ -100,6 +101,22 @@ func DaemonsetReady(name string) features.Func {
 			wait.WithImmediate(),
 		)
 		require.NoError(t, err, "waiting for DaemonSet %s/%s to be ready on all nodes", c.Namespace(), name)
+		return ctx
+	}
+}
+
+func CreateNamespace(name string) features.Func {
+	return func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
+		ctx, err := envfuncs.CreateNamespace(name)(ctx, c)
+		require.NoError(t, err, "creating namespace %s", name)
+		return ctx
+	}
+}
+
+func DeleteNamespace(name string) features.Func {
+	return func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
+		ctx, err := envfuncs.DeleteNamespace(name)(ctx, c)
+		require.NoError(t, err, "deleting namespace %s", name)
 		return ctx
 	}
 }
