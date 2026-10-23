@@ -10,25 +10,23 @@ SPDX-License-Identifier: Apache-2.0
 */}}
 {{- define "nvcb.lib.scope" -}}
     {{- $blueprint := . -}}
-    {{- $body := deepCopy .fragment -}}
-    {{- $scope := .scope -}}
-    {{- $forward := .forward -}}
+    {{- $body := deepCopy $blueprint.fragment -}}
     {{- $sections := list "receivers" "processors" "exporters" "connectors" "extensions" -}}
     {{- $scopeMap := dict -}}
 
     {{/* Map top-level component IDs to their scoped equivalents. */}}
     {{- range $section := $sections -}}
         {{- range $component, $_ := (get $body $section | default dict) -}}
-            {{- $_ := set $scopeMap $component (printf "%s/%s" $component $scope) -}}
+            {{- $_ := set $scopeMap $component (printf "%s/%s" $component $blueprint.scope) -}}
         {{- end -}}
     {{- end -}}
     {{/* Map pipeline IDs to their scoped equivalents. */}}
     {{- range $pipelineID, $_ := (get $body "pipelines" | default dict) -}}
-        {{- $_ := set $scopeMap $pipelineID (printf "%s/%s" $pipelineID $scope) -}}
+        {{- $_ := set $scopeMap $pipelineID (printf "%s/%s" $pipelineID $blueprint.scope) -}}
     {{- end -}}
 
     {{/* Rewrite pipeline references; external IDs and .forward stay unchanged. */}}
-    {{- range $pipelineID, $pipeline := (get $body "pipelines" | default dict) -}}
+    {{- range $pipeline := (get $body "pipelines" | default dict) -}}
         {{- range $pipelineKind := list "receivers" "processors" "exporters" -}}
             {{- if hasKey $pipeline $pipelineKind -}}
                 {{- $scopedRefs := list -}}
@@ -56,7 +54,7 @@ SPDX-License-Identifier: Apache-2.0
 
     {{/* Add the unparenthesized interface connector after scoping the blueprint's components. */}}
     {{- $connectors := get $body "connectors" | default dict -}}
-    {{- $_ := set $connectors $forward (dict) -}}
+    {{- $_ := set $connectors $blueprint.forward (dict) -}}
     {{- $_ := set $body "connectors" $connectors -}}
 
     {{- $_ := set $blueprint "fragment" $body -}}

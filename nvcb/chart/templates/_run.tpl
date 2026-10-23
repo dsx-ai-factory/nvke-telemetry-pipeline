@@ -22,6 +22,13 @@ SPDX-License-Identifier: Apache-2.0
                 {{- include "nvcb.lib.merge" (dict "config" $config "blueprint" $blueprint) -}}
             {{- end -}}
         {{- end -}}
+
+        {{/* Finalize extensions once, after all blueprint additions. */}}
+        {{- $service := get $config "service" | default dict -}}
+        {{- $extensions := get $service "extensions" | default list -}}
+        {{- if $extensions -}}
+            {{- $_ := set $service "extensions" ($extensions | uniq | sortAlpha) -}}
+        {{- end -}}
     {{- end -}}
     {{- toYaml $config -}}
 {{- end -}}

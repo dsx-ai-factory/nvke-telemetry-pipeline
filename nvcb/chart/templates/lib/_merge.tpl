@@ -7,13 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 {{- define "nvcb.lib.merge" -}}
     {{- $config := .config -}}
     {{- $blueprint := .blueprint -}}
-    {{- $fragment := $blueprint.fragment -}}
     {{- $service := get $config "service" | default dict -}}
     {{- $pipelines := get $service "pipelines" | default dict -}}
     {{- $extensions := get $service "extensions" | default list -}}
 
     {{- range $section := list "receivers" "processors" "exporters" "connectors" "extensions" -}}
-        {{- $components := get $fragment $section | default dict -}}
+        {{- $components := get $blueprint.fragment $section | default dict -}}
         {{- if not $components -}}
             {{- continue -}}
         {{- end -}}
@@ -33,23 +32,21 @@ SPDX-License-Identifier: Apache-2.0
         {{- $_ := set $config $section $target -}}
     {{- end -}}
 
-    {{/* Rewrite the blueprint references with its forward connector name */}}
-    {{- range $pipelineID, $pipeline := $pipelines -}}
-        {{- range $kind := list "receivers" "exporters" -}}
-            {{- if hasKey $pipeline $kind -}}
-                {{- $resolved := list -}}
-                {{- range $reference := get $pipeline $kind -}}
-                      {{- if and (eq $kind $blueprint.kind) (eq $reference $blueprint.id) -}}
-                          {{- $reference = $blueprint.forward -}}
-                      {{- end -}}
-                    {{- $resolved = append $resolved $reference -}}
+    {{/* Rewrite references for this blueprint's kind only. */}}
+    {{- range $pipeline := $pipelines -}}
+        {{- if hasKey $pipeline $blueprint.kind -}}
+            {{- $resolved := list -}}
+            {{- range $reference := get $pipeline $blueprint.kind -}}
+                {{- if eq $reference $blueprint.id -}}
+                    {{- $reference = $blueprint.forward -}}
                 {{- end -}}
-                {{- $_ := set $pipeline $kind $resolved -}}
+                {{- $resolved = append $resolved $reference -}}
             {{- end -}}
+            {{- $_ := set $pipeline $blueprint.kind $resolved -}}
         {{- end -}}
     {{- end -}}
 
-    {{- range $pipelineID, $pipeline := (get $fragment "pipelines" | default dict) -}}
+    {{- range $pipelineID, $pipeline := (get $blueprint.fragment "pipelines" | default dict) -}}
         {{- if hasKey $pipelines $pipelineID -}}
             {{- fail (printf "nvcb: blueprint %q conflicts with pipeline %q" $blueprint.id $pipelineID) -}}
         {{- end -}}
@@ -57,9 +54,8 @@ SPDX-License-Identifier: Apache-2.0
     {{- end -}}
 
     {{- $_ := set $service "pipelines" $pipelines -}}
-    {{- $_ := set $config "service" $service -}}
-
     {{- if $extensions -}}
-        {{- $_ := set $service "extensions" ($extensions | uniq | sortAlpha) -}}
+        {{- $_ := set $service "extensions" $extensions -}}
     {{- end -}}
+    {{- $_ := set $config "service" $service -}}
 {{- end -}}
