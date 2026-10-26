@@ -48,8 +48,8 @@ func TestKubeStateMetrics(t *testing.T) {
 		}),
 	}
 	f := features.New("Kube-state metrics").
-		Setup(funcs.CreateNamespace(ns)).
-		Setup(func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
+		WithSetup("CreateNamespace", funcs.CreateNamespace(ns)).
+		WithSetup("EnsurePersistentVolumeName", func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
 			var volume corev1.PersistentVolume
 			for {
 				err := c.Client().Resources().Get(ctx, volumeName, "", &volume)
@@ -61,8 +61,8 @@ func TestKubeStateMetrics(t *testing.T) {
 			}
 			return ctx
 		}).
-		Setup(funcs.ApplyResources(FieldManager, "manifests/kube-state-metrics", "*.yaml", fixtureOptions...)).
-		Setup(func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
+		WithSetup("ApplyResources", funcs.ApplyResources(FieldManager, "manifests/kube-state-metrics", "*.yaml", fixtureOptions...)).
+		WithSetup("GenerateMetricQueries", func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
 			setupCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 			defer cancel()
 			var err error
@@ -109,7 +109,7 @@ func TestKubeStateMetrics(t *testing.T) {
 
 			return ctx
 		}).
-		Assess("Every collection group delivers recent fixture metrics", func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
+		AssessWithDescription("ValidateResourceMetricsArrived", "Every collection group delivers recent fixture metrics", func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
 			waitCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 			defer cancel()
 			found := make([]bool, len(checks))
@@ -136,7 +136,7 @@ func TestKubeStateMetrics(t *testing.T) {
 			assert.NoError(t, err, "waiting for KSM metrics in LGTM")
 			return ctx
 		}).
-		Teardown(funcs.DeleteNamespace(ns)).
+		WithTeardown("DeleteNamespace", funcs.DeleteNamespace(ns)).
 		Feature()
 	testenv.Test(t, f)
 }
