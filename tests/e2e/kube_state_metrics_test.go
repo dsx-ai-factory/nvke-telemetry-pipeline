@@ -24,10 +24,6 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/features"
 )
 
-// TestKubeStateMetrics checks recent fixture metrics from every default KSM
-// collection group, including node-local and unscheduled pods. The groups must
-// watch the fixture namespace. Its unbound PVC avoids provisioning or using
-// existing volumes. Cleanup requests deletion of the namespace and its objects.
 func TestKubeStateMetrics(t *testing.T) {
 	releaseNamespace := testenv.EnvConf().Namespace()
 	type metricCheck struct {
@@ -47,7 +43,7 @@ func TestKubeStateMetrics(t *testing.T) {
 			return nil
 		}),
 	}
-	f := features.New("Kube-state metrics").
+	f := features.NewWithDescription("Kube-state metrics", "Checks fixture metrics for every default KSM collection group").
 		WithSetup("CreateNamespace", funcs.CreateNamespace(ns)).
 		WithSetup("EnsurePersistentVolumeName", func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
 			var volume corev1.PersistentVolume
