@@ -20,7 +20,7 @@ permissions:
 jobs:
   publish:
     name: Publish ${{ inputs.chart }}
-    if: github.repository == 'NVIDIA-dev/nktp'
+    if: github.repository == 'dsx-ai-factory/nvke-telemetry-pipeline'
     runs-on: ubuntu-latest
     environment: nvcr
     timeout-minutes: 10
