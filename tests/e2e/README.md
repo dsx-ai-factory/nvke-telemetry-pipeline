@@ -51,7 +51,7 @@ point it only at a disposable cluster.
 2. If the test requires fixtures, add the necessary resources under `/manifests/<test-name>/`. Avoid using fixtures in directories other than the one you create for this test.
 3. Try reusing existing helpers from `tests/internal/*` if possible, or create new ones if necessary.
 4. Use the Fluent APIs to define features: `features.NewWithDescription(...).WithSetup(...).AssessWithDescription(...).WithTeardown(...)`
-5. Prefer the usage of `WithSetup` and `WithTeardown` to their unnamed counterparts. 
+5. Prefer the usage of `WithSetup` and `WithTeardown` to their unnamed counterparts (`Setup` and `Teardown`). 
 6. For the descriptions, use concise sentences in `CamelCase` e.g. `WithSetup("GeneratingMetricQueries")`
 7. Avoid using the available context to pass data between steps. Prefer test-level variables.
 8. Prefer using the established `Setup->Assess->Teardown` test flow and avoid using `t.Cleanup` to register clean up callbacks.
