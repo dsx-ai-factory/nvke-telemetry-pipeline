@@ -388,7 +388,7 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image
-          value: grafana/otel-lgtm:0.32.0
+          value: grafana/otel-lgtm:0.38.0
 
   - it: sets a custom image
     set:
@@ -411,7 +411,7 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image
-          value: mirror.example.com/grafana/otel-lgtm:0.32.0
+          value: mirror.example.com/grafana/otel-lgtm:0.38.0
 
   - it: applies backend resources and placement
     set:

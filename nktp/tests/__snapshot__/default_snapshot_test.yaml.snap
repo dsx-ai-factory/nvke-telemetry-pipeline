@@ -13204,7 +13204,7 @@ matches the snapshot with default values:
                   value: Admin
                 - name: PROMETHEUS_EXTRA_ARGS
                   value: --enable-feature=otlp-deltatocumulative
-              image: grafana/otel-lgtm:0.32.0
+              image: grafana/otel-lgtm:0.38.0
               name: lgtm
               ports:
                 - containerPort: 3000

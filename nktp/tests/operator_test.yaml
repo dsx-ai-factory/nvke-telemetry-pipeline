@@ -184,6 +184,9 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].args
           content: helm.sh/chart=opentelemetry-kube-stack-0.25.1
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: rancher/kubectl:v1.35.6
 
   - it: omits the upstream cleanup job and its access resources when disabled
     set:
