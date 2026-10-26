@@ -97,8 +97,6 @@ func TestKubeStateMetrics(t *testing.T) {
 			for _, node := range nodes.Items {
 				desiredNodes = append(desiredNodes, node.Name)
 			}
-			// The unique namespace isolates this run; generated pod names and UIDs
-			// are unnecessary when checking fixture coverage by node.
 			checks = append(checks, metricCheck{
 				name: "pods",
 				metric: fmt.Sprintf(`kube_pod_info{namespace=%q,pod=~"node-fixture-.+",job=%q,nktp_metrics_pool=""}`,
