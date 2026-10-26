@@ -42,6 +42,7 @@ func TestDCGMMetrics(t *testing.T) {
 			require.NoError(t, c.Client().Resources().List(setupCtx, &exporters,
 				resources.WithLabelSelector("app.kubernetes.io/name=dcgm-exporter")), "listing dcgm-exporter pods")
 			var exporter *corev1.Pod
+			var exporterNodes []string
 			for i := range exporters.Items {
 				candidate := &exporters.Items[i]
 				if candidate.Status.Phase != corev1.PodRunning || candidate.DeletionTimestamp != nil {
@@ -50,8 +51,10 @@ func TestDCGMMetrics(t *testing.T) {
 				if slices.ContainsFunc(candidate.Status.Conditions, func(condition corev1.PodCondition) bool {
 					return condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue
 				}) {
-					exporter = candidate
-					break
+					if exporter == nil {
+						exporter = candidate
+					}
+					exporterNodes = append(exporterNodes, candidate.Spec.NodeName)
 				}
 			}
 			if exporter == nil {
@@ -67,7 +70,7 @@ func TestDCGMMetrics(t *testing.T) {
 						NodeSelectorTerms: []corev1.NodeSelectorTerm{{
 							MatchFields: []corev1.NodeSelectorRequirement{{
 								Key: "metadata.name", Operator: corev1.NodeSelectorOpIn,
-								Values: []string{exporter.Spec.NodeName},
+								Values: exporterNodes,
 							}},
 						}},
 					},
