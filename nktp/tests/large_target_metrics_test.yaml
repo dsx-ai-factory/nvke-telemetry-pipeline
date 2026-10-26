@@ -288,3 +288,22 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: large_target_metrics.kubernetes.targetAllocator.enabled must be true to assign each scrape target to one Collector replica
+
+  - it: disables cert-manager for the Target Allocator mTLS certificates with certManager.targetAllocators.enabled
+    set:
+      certManager.targetAllocators.enabled: false
+    asserts:
+      - equal:
+          path: spec.targetAllocator.mtls
+          value: {enabled: true, useCertManager: false}
+        documentIndex: 0
+
+  - it: lets the allocator's own mtls.useCertManager override certManager.targetAllocators.enabled
+    set:
+      certManager.targetAllocators.enabled: false
+      large_target_metrics.kubernetes.targetAllocator.mtls.useCertManager: true
+    asserts:
+      - equal:
+          path: spec.targetAllocator.mtls
+          value: {enabled: true, useCertManager: true}
+        documentIndex: 0

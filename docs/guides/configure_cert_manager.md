@@ -98,6 +98,8 @@ certificates as described below; these values alone are not sufficient.
 certManager:
   internalTLS:
     enabled: false
+  targetAllocators:
+    enabled: false
 opentelemetry-kube-stack:
   opentelemetry-operator:
     admissionWebhooks:
@@ -120,9 +122,11 @@ together. You are responsible for issuing and renewing these certificates.
 
 ### User-provided Target Allocator certificates
 
-Set `useCertManager: false` and reference certificates that
-already exist in the release namespace. Apply the same `mtls` block under each
-enabled allocator at `watchdog.kubernetes.targetAllocator`,
+Set `certManager.targetAllocators.enabled: false`, which sets
+`mtls.useCertManager: false` on the watchdog, DaemonSet, and large-target
+allocators, and reference certificates that already exist in the release
+namespace. `mtls.enabled` stays a per-allocator setting. Apply the same `tls`
+block under each enabled allocator at `watchdog.kubernetes.targetAllocator`,
 `daemonset.kubernetes.targetAllocator`, and
 `large_target_metrics.kubernetes.targetAllocator`. For example:
 
@@ -132,7 +136,6 @@ daemonset:
     targetAllocator:
       mtls:
         enabled: true
-        useCertManager: false
         tls:
           certificateAuthorityCertificate:
             configMap:

@@ -793,3 +793,22 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: watchdog.kubernetes.targetAllocator.enabled must be true to assign each scrape target to one watchdog replica
+
+  - it: disables cert-manager for the Target Allocator mTLS certificates with certManager.targetAllocators.enabled
+    template: templates/watchdog.yaml
+    set:
+      certManager.targetAllocators.enabled: false
+    asserts:
+      - equal:
+          path: spec.targetAllocator.mtls
+          value: {enabled: true, useCertManager: false}
+
+  - it: lets the allocator's own mtls.useCertManager override certManager.targetAllocators.enabled
+    template: templates/watchdog.yaml
+    set:
+      certManager.targetAllocators.enabled: false
+      watchdog.kubernetes.targetAllocator.mtls.useCertManager: true
+    asserts:
+      - equal:
+          path: spec.targetAllocator.mtls
+          value: {enabled: true, useCertManager: true}
