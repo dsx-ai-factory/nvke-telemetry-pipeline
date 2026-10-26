@@ -48,7 +48,7 @@ point it only at a disposable cluster.
 ## Adding a new test
 
 1. Define a single `feature` per Test function.
-2. If the test requires fixtures, add the necessary resources under `/manifests/<test-name>/`. Avoid using fixtures in directories other than the one you create for this test.
+2. If the test requires fixtures, add the necessary resources under `tests/e2e/manifests/<test-name>/`. Avoid using fixtures in directories other than the one you create for this test.
 3. Try reusing existing helpers from `tests/internal/*` if possible, or create new ones if necessary.
 4. Use the Fluent APIs to define features: `features.NewWithDescription(...).WithSetup(...).AssessWithDescription(...).WithTeardown(...)`
 5. Prefer the usage of `WithSetup` and `WithTeardown` to their unnamed counterparts (`Setup` and `Teardown`). 
