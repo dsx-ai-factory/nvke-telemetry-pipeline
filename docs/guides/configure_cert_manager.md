@@ -70,13 +70,14 @@ certManager:
 
 ### Target Allocators
 
-cert-manager creates a CA and issues and renews server and client certificates
-for each Collector–Target Allocator pair, as described in
+cert-manager creates a separate CA for each Collector–Target Allocator pair and
+issues and renews its server and client certificates, as described in
 [With cert-manager (default)](https://github.com/open-telemetry/opentelemetry-operator/blob/v0.161.0/docs/target-allocator/README.md#with-cert-manager-default).
 
 ### Admission webhook
 
-cert-manager issues and renews the Operator's admission webhook certificate.
+cert-manager issues and renews the Operator's self-signed admission webhook
+certificate, independently of the internal and Target Allocator CAs.
 
 ### Expected outcome
 
@@ -147,15 +148,15 @@ connection endpoints. The `nktp-local-` names distinguish user-provided resource
 from cert-manager-managed resources. Internal Collector Secrets retain their
 default names to match the existing mounts.
 
-| TLS connection | Certificate | Component or signal | Server DNS SAN | Extended key usage | Secret name |
-| --- | --- | --- | --- | --- | --- |
-| Internal mTLS | Watchdog server | `watchdog` | `nktp-watchdog-collector` | `serverAuth` | `nktp-watchdog-server-tls` |
-| Internal mTLS | Gateway server | `<signal>`: `logs`, `metrics`, `traces` | `nktp-gateway-<signal>-collector` | `serverAuth` | `nktp-gateway-<signal>-server-tls` |
-| Internal mTLS | Collector client | `<component>`: `daemonset`, `large-target-metrics`, `cluster-events` | — | `clientAuth` | `nktp-<component>-client-tls` |
-| Internal mTLS | Gateway sidecar client | `<signal>`: `logs`, `metrics`, `traces` | — | `clientAuth` | `nktp-gateway-<signal>-client-tls` |
-| Target Allocators | Target Allocator server | `<component>`: `watchdog`, `daemonset`, `large-target-metrics` | `nktp-<component>-targetallocator.<namespace>.svc` | `serverAuth` | `nktp-local-<component>-targetallocator-server` |
-| Target Allocators | Target Allocator client | `<component>`: `watchdog`, `daemonset`, `large-target-metrics` | — | `clientAuth` | `nktp-local-<component>-targetallocator-client` |
-| Admission webhook | Admission webhook server | Operator | `nktp-operator-webhook.<namespace>.svc` | `serverAuth` | `nktp-local-webhook-tls` |
+| TLS connection | CA identifier | Certificate | Component or signal | Server DNS SAN | Extended key usage | Secret name |
+| --- | --- | --- | --- | --- | --- | --- |
+| Internal mTLS | `internal` | Watchdog server | `watchdog` | `nktp-watchdog-collector` | `serverAuth` | `nktp-watchdog-server-tls` |
+| Internal mTLS | `internal` | Gateway server | `<signal>`: `logs`, `metrics`, `traces` | `nktp-gateway-<signal>-collector` | `serverAuth` | `nktp-gateway-<signal>-server-tls` |
+| Internal mTLS | `internal` | Collector client | `<component>`: `daemonset`, `large-target-metrics`, `cluster-events` | — | `clientAuth` | `nktp-<component>-client-tls` |
+| Internal mTLS | `internal` | Gateway sidecar client | `<signal>`: `logs`, `metrics`, `traces` | — | `clientAuth` | `nktp-gateway-<signal>-client-tls` |
+| Target Allocators | `ta-<component>` | Target Allocator server | `<component>`: `watchdog`, `daemonset`, `large-target-metrics` | `nktp-<component>-targetallocator.<namespace>.svc` | `serverAuth` | `nktp-local-<component>-targetallocator-server` |
+| Target Allocators | `ta-<component>` | Target Allocator client | `<component>`: `watchdog`, `daemonset`, `large-target-metrics` | — | `clientAuth` | `nktp-local-<component>-targetallocator-client` |
+| Admission webhook | `webhook` | Admission webhook server | Operator | `nktp-operator-webhook.<namespace>.svc` | `serverAuth` | `nktp-local-webhook-tls` |
 
 ### Prepare certificates
 
@@ -171,7 +172,6 @@ NAMESPACE=nktp
 RELEASE=nktp
 umask 077
 CERT_DIR="$(mktemp -d /tmp/nktp-tls.XXXXXX)"
-CA_FILE="$CERT_DIR/ca.pem"
 
 k() {
   kubectl --kubeconfig "$KUBECONFIG_FILE" --context "$CONTEXT" \
@@ -200,16 +200,19 @@ opentelemetry-kube-stack:
         nktp.nvidia.io/local-certificates: "true"
 ```
 
-Create the CA and signing profiles:
+Create separate CAs for internal mTLS, each Target Allocator pair, and the webhook,
+matching the trust separation of the cert-manager setup:
 
 ```bash
-cfssl genkey -initca - <<'EOF' | cfssljson -bare "$CERT_DIR/ca"
+for ca in internal ta-watchdog ta-daemonset ta-large-target-metrics webhook; do
+  cfssl genkey -initca - <<EOF | cfssljson -bare "$CERT_DIR/$ca-ca"
 {
-  "CN": "nktp-example-ca",
+  "CN": "nktp-example-$ca-ca",
   "key": {"algo": "rsa", "size": 2048},
   "ca": {"expiry": "168h"}
 }
 EOF
+done
 
 cat > "$CERT_DIR/signing.json" <<'EOF'
 {
@@ -229,12 +232,13 @@ cat > "$CERT_DIR/signing.json" <<'EOF'
 EOF
 ```
 
-Define helpers that use the Secret name as the certificate's filename prefix:
+Define helpers that sign with the selected CA and include only that CA in the
+Secret:
 
 ```bash
 issue_certificate() {
-  local name="$1" usage="$2" san="${3:-}"
-  cfssl gencert -ca "$CA_FILE" -ca-key "$CERT_DIR/ca-key.pem" \
+  local ca="$1" name="$2" usage="$3" san="${4:-}"
+  cfssl gencert -ca "$CERT_DIR/$ca-ca.pem" -ca-key "$CERT_DIR/$ca-ca-key.pem" \
     -config "$CERT_DIR/signing.json" -profile "$usage" \
     -hostname "$san" - <<EOF | cfssljson -bare "$CERT_DIR/$name"
 {
@@ -246,9 +250,9 @@ EOF
 }
 
 create_tls_secret() {
-  local name="$1"
+  local ca="$1" name="$2"
   k create secret generic "$name" --type=kubernetes.io/tls \
-    --from-file="ca.crt=$CA_FILE" \
+    --from-file="ca.crt=$CERT_DIR/$ca-ca.pem" \
     --from-file="tls.crt=$CERT_DIR/$name.pem" \
     --from-file="tls.key=$CERT_DIR/$name-key.pem"
   k label secret "$name" nktp.nvidia.io/local-certificates=true
@@ -258,13 +262,15 @@ create_tls_secret() {
 For the watchdog server row, generate its certificate and create its Secret:
 
 ```bash
+CA_NAME=internal
 SECRET_NAME=nktp-watchdog-server-tls
-issue_certificate "$SECRET_NAME" serverAuth nktp-watchdog-collector
-create_tls_secret "$SECRET_NAME"
+issue_certificate "$CA_NAME" "$SECRET_NAME" serverAuth nktp-watchdog-collector
+create_tls_secret "$CA_NAME" "$SECRET_NAME"
 ```
 
-Repeat for all remaining table entries using their Secret name, usage, and SAN.
-For client certificates, omit the third argument to `issue_certificate`.
+Repeat for all remaining table entries using their CA identifier, Secret name,
+usage, and SAN. For client certificates, omit the fourth argument to
+`issue_certificate`.
 
 ### Internal mTLS
 
@@ -282,18 +288,21 @@ sidecar client) become unused and may be deleted.
 
 ### Target Allocators
 
-Create the shared CA ConfigMap using `CA_FILE` from above:
+Create a CA ConfigMap for each Collector–Target Allocator pair:
 
 ```bash
-k create configmap nktp-local-ta-ca --from-file="ca.crt=$CA_FILE"
-k label configmap nktp-local-ta-ca nktp.nvidia.io/local-certificates=true
+for component in watchdog daemonset large-target-metrics; do
+  k create configmap "nktp-local-$component-ta-ca" \
+    --from-file="ca.crt=$CERT_DIR/ta-$component-ca.pem"
+  k label configmap "nktp-local-$component-ta-ca" nktp.nvidia.io/local-certificates=true
+done
 ```
 
 Configure `mtls` for each workload at `watchdog.kubernetes.targetAllocator`,
 `daemonset.kubernetes.targetAllocator`, and
 `large_target_metrics.kubernetes.targetAllocator`, using the corresponding Secret
-names from the table. For example, include this DaemonSet configuration in your
-values file:
+names from the table and the matching CA ConfigMap. For example, include this
+DaemonSet configuration in your values file:
 
 ```yaml
 daemonset:
@@ -304,7 +313,7 @@ daemonset:
         tls:
           certificateAuthorityCertificate:
             configMap:
-              name: nktp-local-ta-ca
+              name: nktp-local-daemonset-ta-ca
               key: ca.crt
           serverCertificate:
             certificateSecret:
@@ -337,7 +346,7 @@ keep it disabled here.
 
 For HTTP, replace the allocator settings above for each of `watchdog`, `daemonset`,
 and `large_target_metrics` with this pattern (DaemonSet shown). The Secrets in the
-two table rows labeled **Target Allocators** and the `nktp-local-ta-ca` ConfigMap
+two table rows labeled **Target Allocators** and the three allocator CA ConfigMaps
 become unused and may be deleted.
 
 ```yaml
@@ -380,7 +389,7 @@ and is not renewed automatically.
 ### Expected outcome
 
 After installing NKTP with user-provided certificates for all components, expect
-the following certificate Secrets and CA ConfigMap:
+the following certificate Secrets and CA ConfigMaps:
 
 ```bash
 k get secrets -l nktp.nvidia.io/local-certificates=true
@@ -409,6 +418,8 @@ nktp-local-watchdog-targetallocator-server               kubernetes.io/tls   3  
 nktp-local-webhook-tls                                   kubernetes.io/tls   3      14s
 nktp-watchdog-server-tls                                 kubernetes.io/tls   3      14s
 
-NAME               DATA   AGE
-nktp-local-ta-ca   1      14s
+NAME                                     DATA   AGE
+nktp-local-daemonset-ta-ca                 1      14s
+nktp-local-large-target-metrics-ta-ca      1      14s
+nktp-local-watchdog-ta-ca                  1      14s
 ```
