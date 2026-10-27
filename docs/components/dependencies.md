@@ -36,7 +36,7 @@ Override the Operator image with
 `opentelemetry-kube-stack.opentelemetry-operator.manager.image.tag`.
 
 The Operator's admission webhook certificate comes from cert-manager by default.
-See [Configure cert-manager](../guides/configure_cert_manager.md#admission-webhook) for the
+See [Configure cert-manager](../guides/configure_cert_manager.md#installing-nktp-without-cert-manager) for the
 alternative.
 
 ## Node exporter
