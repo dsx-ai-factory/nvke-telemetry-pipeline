@@ -2919,7 +2919,7 @@ opentelemetry-kube-stack:
       enabled: false
   clusterRole:
     enabled: false
-  # Uninstall hook. The chart's default kubectl tag lags upstream security fixes.
+  # Uninstall hook. opentelemetry-kube-stack's default kubectl tag lags upstream security fixes.
   cleanupJob:
     image:
       tag: v1.35.6
