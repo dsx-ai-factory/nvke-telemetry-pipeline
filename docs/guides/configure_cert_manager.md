@@ -138,9 +138,14 @@ this setup; otherwise, continue to the next section.
 
 The certificate commands are based on
 [OpenTelemetry's certificate-generation example](https://opentelemetry.io/docs/collector/configuration/#configuring-certificates).
-**The certificates are for illustration only and expire after seven days.**
-You are responsible for key storage and renewal. Never commit generated keys,
-Secrets, or rendered manifests.
+
+> **WARNING: The certificates are for illustration only and expire after seven days.**
+> For production, use your organization's PKI or a managed private CA for issuance
+> and renewal, with automated Secret delivery such as
+> [External Secrets Operator](https://external-secrets.io/latest/). These commands
+> do not provide automatic renewal or certificate reloads.
+
+Never commit generated keys, Secrets, or rendered manifests.
 
 Replace `<namespace>` with the release namespace and create a separate certificate
 and Secret for each component or signal listed. The SANs match the chart's default
@@ -203,6 +208,9 @@ opentelemetry-kube-stack:
 Create separate CAs for internal mTLS, each Target Allocator pair, and the webhook,
 matching the trust separation of the cert-manager setup:
 
+> **WARNING: The certificates are for illustration only and expire after seven days.**
+> Use managed issuance, renewal, and Secret delivery for production.
+
 ```bash
 for ca in internal ta-watchdog ta-daemonset ta-large-target-metrics webhook; do
   cfssl genkey -initca - <<EOF | cfssljson -bare "$CERT_DIR/$ca-ca"
@@ -260,6 +268,8 @@ create_tls_secret() {
 ```
 
 For the watchdog server row, generate its certificate and create its Secret:
+
+> **WARNING: The certificates are for illustration only and expire after seven days.**
 
 ```bash
 CA_NAME=internal
