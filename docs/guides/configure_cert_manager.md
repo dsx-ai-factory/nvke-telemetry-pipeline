@@ -74,10 +74,34 @@ cert-manager creates a separate CA for each Collector–Target Allocator pair an
 issues and renews its server and client certificates, as described in
 [With cert-manager (default)](https://github.com/open-telemetry/opentelemetry-operator/blob/v0.161.0/docs/target-allocator/README.md#with-cert-manager-default).
 
+`certManager.targetAllocators.enabled` sets `mtls.useCertManager` for the
+`watchdog`, `daemonset`, and `large_target_metrics` Target Allocators. Its default
+of `true` makes `mtls.useCertManager` default to `true` for all three; each
+allocator can override it. Separately, `mtls.enabled` defaults to `true` per
+allocator and is unaffected by this setting.
+
+Default values:
+
+```yaml
+certManager:
+  targetAllocators:
+    enabled: true
+```
+
 ### Admission webhook
 
 cert-manager issues and renews the Operator's self-signed admission webhook
 certificate, independently of the internal and Target Allocator CAs.
+
+Default values:
+
+```yaml
+opentelemetry-kube-stack:
+  opentelemetry-operator:
+    admissionWebhooks:
+      certManager:
+        enabled: true
+```
 
 ### Expected outcome
 
