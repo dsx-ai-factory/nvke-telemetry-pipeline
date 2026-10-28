@@ -119,6 +119,7 @@ jobs:
           printf '%s  %s\n' "${NGC_SHA256}" "${archive}" | sha256sum --check
           unzip -q "${archive}" -d "${RUNNER_TEMP}/ngc-install"
           chmod u+x "${RUNNER_TEMP}/ngc-install/ngc-cli/ngc"
+          "${RUNNER_TEMP}/ngc-install/ngc-cli/ngc" --version
           echo "${RUNNER_TEMP}/ngc-install/ngc-cli" >> "${GITHUB_PATH}"
 
       - name: Publish native Helm chart
@@ -148,9 +149,10 @@ jobs:
             export NGC_CLI_TEAM="${NKTP_NGC_ORG#*/}"
           fi
           chart_ref="${NKTP_NGC_ORG}/${CHART}"
-          # Create only on NGC's explicit 404; fail closed on access errors or outages.
-          if ! ngc registry chart info "${chart_ref}" > "${NGC_CLI_HOME}/chart-info.log" 2>&1; then
-            if ! grep -q '^Client Error: 404 Response:' "${NGC_CLI_HOME}/chart-info.log"; then
+          lookup_log="${NGC_CLI_HOME}/chart-info.log"
+          # Accept missing target or HTTP 404 messages regardless of case or surrounding text.
+          if ! ngc registry chart info "${chart_ref}" > "${lookup_log}" 2>&1; then
+            if ! grep -Eiq 'target.*not.*found|client error:[[:space:]]*404[[:space:]]+response' "${lookup_log}"; then
               echo "::error::NGC chart lookup failed; check service-key permissions and registry availability"
               exit 1
             fi
