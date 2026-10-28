@@ -8,7 +8,7 @@ a verification backend down for one minute before measuring recovery. The
 scrape templates are based on real-world samples of kube-state-metrics and
 dcgm-exporter scrapes. The default mixed template combines 192 text bytes with
 ten labels to exercise the higher memory cost of many short attributes; see
-[Estimate queue storage overhead](#estimate-queue-storage-overhead).
+[Measure in-memory queue heap overhead](#measure-in-memory-queue-heap-overhead).
 
 If your metrics differ from these scrape templates, supply a representative
 `.prom` template, measure its overhead, and size the queue with room for baseline heap
@@ -199,7 +199,7 @@ Heaps are saved every 30s in `heaps/`; change `-outage-heap-interval`, or set it
 
 Temporary workloads are removed on completion, failure, or Ctrl+C.
 
-## Measure a persistent gateway queue
+## Measure persistent queue volume usage and I/O
 
 Use `-outage-gateway-storage` to measure volume usage and gateway read/write
 activity during normal operation, a backend outage, and recovery. It puts the
@@ -242,7 +242,7 @@ Other processes can still cause storage contention, and caching can hide physica
 reads or delay writes. Treat the results as observations of this workload;
 Kind local storage does not establish production-volume requirements.
 
-## Estimate queue storage overhead
+## Measure in-memory queue heap overhead
 
 A text sample such as `metric{label="value"} 1` does not occupy only that many
 bytes in an in-memory sending queue. The queue counts serialized OTLP bytes,

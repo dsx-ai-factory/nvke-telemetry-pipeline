@@ -108,7 +108,7 @@ queues: `queue_size` applies to each signal, not their combined size.
 Although its configuration defines `otlp` only once, using that exporter in
 the logs, metrics, and traces pipelines creates three independent queues,
 each with the full `queue_size` capacity.
-In the [persistent gateway queue test](../../tests/scale/backend-outage/README.md#measure-a-persistent-gateway-queue),
+In the [persistent gateway queue test](../../tests/scale/backend-outage/README.md#measure-persistent-queue-volume-usage-and-io),
 a 128MiB queue reached 114.9MiB of serialized telemetry and peak allocated
 storage of 138.3MiB, about 20% above peak queue occupancy. Using 20% overhead as
 an estimate, watchdog needs `3 × 515396076 × 1.2` bytes, about 1.728GiB,
