@@ -51,4 +51,4 @@ updates:
     ignore:
       # Must match the Operator bundled by opentelemetry-kube-stack. Update
       # this image deliberately alongside that chart, rather than independently.
-      - dependency-name: open-telemetry/opentelemetry-operator/target-allocator
+      - dependency-name: ghcr.io/open-telemetry/opentelemetry-operator/target-allocator
