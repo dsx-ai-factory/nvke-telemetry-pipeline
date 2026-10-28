@@ -169,6 +169,15 @@ The certificate commands are based on
 > [External Secrets Operator](https://external-secrets.io/latest/). These commands
 > do not provide automatic renewal or certificate reloads.
 
+For user-provided Target Allocator certificates, the Operator
+[mounts TLS files using `subPath`](https://github.com/open-telemetry/opentelemetry-operator/blob/v0.161.0/docs/target-allocator/README.md#without-cert-manager-user-provided-certificates),
+so running Pods do not receive rotated files. Configure your Secret delivery
+system or associated rollout automation to restart:
+
+- Both affected Collector and Target Allocator Pods after CA ConfigMap rotation.
+- Only affected Collector Pods after client Secret rotation.
+- Only affected Target Allocator Pods after server Secret rotation.
+
 Never commit generated keys, Secrets, or rendered manifests.
 
 Replace `<namespace>` with the release namespace and create a separate certificate
