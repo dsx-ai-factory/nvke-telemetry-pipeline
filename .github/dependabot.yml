@@ -35,3 +35,20 @@ updates:
         exclude-patterns:
           - k8s.io/*
           - sigs.k8s.io/*
+
+  # Helm v3 dependencies and image references in the chart's values.yaml.
+  # Keep updates separate: bundled chart versions are deliberate pins, and
+  # each bump needs its rendered output, snapshots, and documentation reviewed.
+  # This does not maintain versions embedded in Taskfiles or Go source.
+  - package-ecosystem: helm
+    directory: /nktp
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: build
+      include: scope
+    ignore:
+      # Must match the Operator bundled by opentelemetry-kube-stack. Update
+      # this image deliberately alongside that chart, rather than independently.
+      - dependency-name: open-telemetry/opentelemetry-operator/target-allocator
