@@ -20,13 +20,24 @@ type monitor struct {
 	cancel                 context.CancelFunc
 	phase, backendEndpoint string
 	samples, captures      []map[string]any
+	volume                 *volumeMonitor
 }
 
 // startMonitor samples metrics every two seconds and captures heaps at
 // the requested interval; a zero interval disables periodic heap capture.
-func startMonitor(ctx context.Context, output string, gateway, scraper, backend map[int]string, interval time.Duration) *monitor {
+func startMonitor(ctx context.Context, output string, gateway, scraper, backend map[int]string, interval time.Duration, volume *volumeMonitor) *monitor {
 	monitorCtx, cancel := context.WithCancel(ctx)
-	m := &monitor{cancel: cancel, phase: "baseline", backendEndpoint: backend[1777]}
+	m := &monitor{cancel: cancel, phase: "baseline", backendEndpoint: backend[1777], volume: volume}
+	if volume != nil {
+		m.workers.Go(func() {
+			for sleep(monitorCtx, 5*time.Second) == nil {
+				m.mu.Lock()
+				phase := m.phase
+				m.mu.Unlock()
+				volume.sample(monitorCtx, phase)
+			}
+		})
+	}
 	names := []string{"otelcol_exporter_queue_size", "otelcol_exporter_queue_capacity", "otelcol_process_runtime_heap_alloc_bytes", "otelcol_process_memory_rss", "otelcol_process_cpu_seconds", "otelcol_receiver_refused_metric_points", "otelcol_exporter_enqueue_failed_metric_points", "otelcol_exporter_send_failed_metric_points", "otelcol_exporter_sent_metric_points"}
 	m.workers.Go(func() {
 		for {
@@ -99,6 +110,12 @@ func (m *monitor) setBackend(endpoint string) {
 func (m *monitor) stop(report map[string]any) {
 	m.cancel()
 	m.workers.Wait()
+	if m.volume != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		m.volume.sample(ctx, m.phase)
+		report["gateway_volume"] = m.volume.report()
+	}
 	report["samples"], report["heap_captures"] = m.samples, m.captures
 	report["resource_summary"] = resourceSummary(m.samples)
 }

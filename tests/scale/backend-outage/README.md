@@ -199,6 +199,49 @@ Heaps are saved every 30s in `heaps/`; change `-outage-heap-interval`, or set it
 
 Temporary workloads are removed on completion, failure, or Ctrl+C.
 
+## Measure a persistent gateway queue
+
+Use `-outage-gateway-storage` to measure volume usage and gateway read/write
+activity during normal operation, a backend outage, and recovery. It puts the
+gateway queue on a PVC without changing its capacity. This requires outage
+mode, a provisioning StorageClass, and kubeconfig permissions for `pods/exec`
+and `nodes/proxy`.
+
+After the [scale cluster setup](../README.md#setup), run from the repository
+root. Edit the output directory and storage size for your experiment:
+
+```sh
+OUTPUT_DIR=/tmp/nktp-outage-volume
+QUEUE_STORAGE=1Gi
+
+task scale:outage KUBECONFIG="$PWD/tests/scale/.kubeconfig" -- \
+  -outage-gateway-storage "$QUEUE_STORAGE" \
+  -outage-output "$OUTPUT_DIR"
+```
+
+The claim uses the default StorageClass; add
+`-outage-gateway-storage-class local-path` to select Kind's class explicitly.
+Cleanup removes the claim, but a StorageClass with a `Retain` reclaim policy
+leaves the PV for you to delete.
+
+Read `.gateway_volume` in `report.json`:
+
+- `peak_allocated_bytes` shows peak queue volume usage; `peak_growth_bytes`
+  shows growth above the initial allocation. `samples` tracks usage over time.
+  Apparent file size can differ from allocated volume space.
+- `phases` shows average and peak sampled read/write bytes per second and
+  IOPS per device. Compare these with queue occupancy and recovery time to
+  assess storage demand. Recovery drains the backlog with input paused.
+- Check `usage_errors`, `io_errors`, and `counter_resets` before using the
+  measurements. Missing metrics are unavailable, not zero. If
+  `io_activity_observed` is false, gateway I/O attribution remains unverified.
+  A delivery PASS alone does not establish valid volume measurements.
+
+I/O counters cover the gateway container, excluding other workloads' activity.
+Other processes can still cause storage contention, and caching can hide physical
+reads or delay writes. Treat the results as observations of this workload;
+Kind local storage does not establish production-volume requirements.
+
 ## Estimate queue storage overhead
 
 A text sample such as `metric{label="value"} 1` does not occupy only that many

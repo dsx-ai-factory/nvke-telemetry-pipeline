@@ -40,6 +40,7 @@ type Report struct {
 	VerificationComplete       *bool                       `json:"verification_complete"`
 	VerificationError          string                      `json:"verification_error"`
 	QueueOnlyOverheadEstimate  *QueueOverhead              `json:"queue_only_overhead_estimate"`
+	GatewayVolume              *VolumeReport               `json:"gateway_volume"`
 }
 
 // Metrics preserves presence information for counters and limiter settings.

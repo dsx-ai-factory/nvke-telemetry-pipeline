@@ -36,6 +36,7 @@ type run struct {
 	gateway, scraper, backend          map[int]string
 	report, phaseMetrics               map[string]any
 	monitor                            *monitor
+	volume                             *volumeMonitor
 	baseline, expected                 map[int]int
 	baselineHeapPath                   string
 	gatewayStart, clientStart          map[string]*dto.MetricFamily
@@ -79,6 +80,11 @@ func (r *run) setup() {
 	require.NoError(r.t, err)
 	gateway, err := deriveGateway(gatewaySource, r.config.Gateway)
 	require.NoError(r.t, err)
+	var claim *corev1.PersistentVolumeClaim
+	if r.config.GatewayStorage != "" {
+		claim, err = configureGatewayStorage(gateway, r.config.GatewayStorage, r.config.GatewayStorageClass)
+		require.NoError(r.t, err)
+	}
 	limiter, err := configureGatewaySpike(gateway, r.config.GatewaySpike)
 	require.NoError(r.t, err)
 	backendSource, err := readCollector(r.config.BackendManifest)
@@ -105,6 +111,13 @@ func (r *run) setup() {
 	require.NoError(r.t, err)
 	r.cluster.namespace = r.id
 	r.t.Cleanup(r.cleanup)
+	if claim != nil {
+		claim.Namespace = r.id
+		require.NoError(r.t, r.cluster.client.Resources(r.id).Create(r.ctx, claim))
+		data, err := json.MarshalIndent(claim, "", "  ")
+		require.NoError(r.t, err)
+		require.NoError(r.t, os.WriteFile(filepath.Join(r.output, "manifests", "gateway-pvc.json"), data, 0600))
+	}
 	require.NoError(r.t, r.cluster.installScrapeServer(r.ctx, scrapePath))
 	for _, collector := range collectors {
 		require.NoError(r.t, r.cluster.createCollector(r.ctx, collector))
@@ -116,6 +129,11 @@ func (r *run) setup() {
 	r.scraper = r.cluster.forward(r.t, r.ctx, "outage-scraper", 8888, 8889, 1777)
 	r.backend = r.cluster.forward(r.t, r.ctx, "outage-blackhole", 8888, 8889, 1777)
 	r.describeCollectors(gateway, scraper, backend, limiter, scrapeBytes)
+	if claim != nil {
+		r.volume, err = newVolumeMonitor(r.ctx, r.cluster, claim)
+		require.NoError(r.t, err)
+		r.volume.sample(r.ctx, "baseline")
+	}
 }
 
 func (r *run) describeCollectors(gateway, scraper, backend *otelv1.OpenTelemetryCollector, limiter map[string]float64, scrapeBytes int64) {

@@ -6,6 +6,7 @@ package outagereport
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 )
 
@@ -163,6 +164,32 @@ func Summary(path string, r Report) string {
 			fmt.Fprintf(&out, "\nqueue overhead after GC (.queue_only_overhead_estimate): %s", overheadStatus(q))
 			if q != nil && q.Reason != "" {
 				fmt.Fprintf(&out, " (%s)", q.Reason)
+			}
+		}
+	}
+	if d := r.GatewayVolume; d != nil {
+		fmt.Fprintf(&out, "\ngateway volume (.gateway_volume): peak allocated %s; peak growth %s; peak apparent %s; usage errors %d; I/O errors %d; counter resets %d; I/O activity observed %t",
+			number(d.PeakAllocatedBytes, mib), number(d.PeakGrowthBytes, mib), number(d.PeakApparentBytes, mib), d.UsageErrors, d.IOErrors, d.CounterResets, d.IOActivityObserved)
+		phases := make([]string, 0, len(d.Phases))
+		for phase := range d.Phases {
+			phases = append(phases, phase)
+		}
+		slices.Sort(phases)
+		for _, phase := range phases {
+			devices := make([]string, 0, len(d.Phases[phase]))
+			for device := range d.Phases[phase] {
+				devices = append(devices, device)
+			}
+			slices.Sort(devices)
+			for _, device := range devices {
+				io := d.Phases[phase][device]
+				fmt.Fprintf(&out, "\n  %s %s (%.1fs sampled):", phase, device, io.Seconds)
+				for _, field := range []struct{ key, label string }{
+					{"container_fs_reads_bytes_total", "read bytes/s"}, {"container_fs_writes_bytes_total", "write bytes/s"},
+					{"container_fs_reads_total", "read IOPS"}, {"container_fs_writes_total", "write IOPS"},
+				} {
+					fmt.Fprintf(&out, " %s avg %.1f peak %.1f;", field.label, io.Average[field.key], io.Peak[field.key])
+				}
 			}
 		}
 	}
