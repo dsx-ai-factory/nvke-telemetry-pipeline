@@ -82,7 +82,9 @@ Operator manager container logs go to watchdog through `logs/operator`.
 ## Configuration
 
 Use `daemonset.otelcol.config` for Collector configuration and
-`daemonset.kubernetes` for Kubernetes workload configuration. The pod-log mount
+`daemonset.kubernetes` for Kubernetes workload configuration. Set
+`daemonset.enabled: false` to omit the Collector, its Target Allocator, RBAC, and
+internal TLS certificate. The pod-log mount
 is read-only, but host file permissions require the collector to run as root.
 The file reader follows new records and does not persist offsets across restarts
 by default. See

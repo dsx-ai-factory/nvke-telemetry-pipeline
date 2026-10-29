@@ -11,6 +11,10 @@ by default, and sends its own metrics, logs and traces through its
 | Metrics | `gateway_metrics` | `nktp-gateway-metrics-collector:4317` |
 | Traces | `gateway_traces` | `nktp-gateway-traces-collector:4317` |
 
+Set `<gateway>.enabled: false` to omit one gateway and its internal TLS
+certificates. Sending Collectors are not reconfigured automatically; disable the
+corresponding pipelines or point their exporters elsewhere.
+
 **Breaking change for HTTP clients:** the default gateway HTTP receivers on port
 4318 have been removed. Existing clients must switch to OTLP/gRPC on port 4317,
 or explicitly configure an HTTP receiver with TLS under

@@ -4,6 +4,13 @@ release:
 templates:
   - templates/watchdog-rbac.yaml
 tests:
+  - it: renders nothing when the watchdog is disabled
+    set:
+      watchdog.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
   - it: grants metrics access and namespaced allocator discovery
     asserts:
       - equal:

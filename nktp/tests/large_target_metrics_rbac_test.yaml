@@ -4,6 +4,13 @@ release:
 templates:
   - templates/large-target-metrics-rbac.yaml
 tests:
+  - it: renders nothing when large-target metrics is disabled
+    set:
+      large_target_metrics.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
   - it: grants discovery access to the allocator without Secret access
     asserts:
       - hasDocuments:

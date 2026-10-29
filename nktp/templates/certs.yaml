@@ -1,4 +1,5 @@
-{{- if .Values.certManager.internalTLS.enabled }}
+{{- $anyWorkloadEnabled := or .Values.watchdog.enabled .Values.gateway_logs.enabled .Values.gateway_metrics.enabled .Values.gateway_traces.enabled .Values.daemonset.enabled .Values.large_target_metrics.enabled .Values.cluster_events.enabled -}}
+{{- if and .Values.certManager.internalTLS.enabled $anyWorkloadEnabled }}
 {{- $issuerRef := .Values.certManager.internalTLS.issuerRef -}}
 {{- if empty $issuerRef }}
 apiVersion: cert-manager.io/v1
@@ -38,11 +39,11 @@ spec:
   ca:
     secretName: nktp-internal-ca
 {{- end }}
-{{- $servers := list
-      (dict "name" "nktp-watchdog-server" "secretName" "nktp-watchdog-server-tls" "serviceName" "nktp-watchdog-collector")
-      (dict "name" "nktp-gateway-logs-server" "secretName" "nktp-gateway-logs-server-tls" "serviceName" "nktp-gateway-logs-collector")
-      (dict "name" "nktp-gateway-metrics-server" "secretName" "nktp-gateway-metrics-server-tls" "serviceName" "nktp-gateway-metrics-collector")
-      (dict "name" "nktp-gateway-traces-server" "secretName" "nktp-gateway-traces-server-tls" "serviceName" "nktp-gateway-traces-collector") -}}
+{{- $servers := list -}}
+{{- if .Values.watchdog.enabled }}{{- $servers = append $servers (dict "name" "nktp-watchdog-server" "secretName" "nktp-watchdog-server-tls" "serviceName" "nktp-watchdog-collector") -}}{{- end }}
+{{- if .Values.gateway_logs.enabled }}{{- $servers = append $servers (dict "name" "nktp-gateway-logs-server" "secretName" "nktp-gateway-logs-server-tls" "serviceName" "nktp-gateway-logs-collector") -}}{{- end }}
+{{- if .Values.gateway_metrics.enabled }}{{- $servers = append $servers (dict "name" "nktp-gateway-metrics-server" "secretName" "nktp-gateway-metrics-server-tls" "serviceName" "nktp-gateway-metrics-collector") -}}{{- end }}
+{{- if .Values.gateway_traces.enabled }}{{- $servers = append $servers (dict "name" "nktp-gateway-traces-server" "secretName" "nktp-gateway-traces-server-tls" "serviceName" "nktp-gateway-traces-collector") -}}{{- end }}
 {{- range $server := $servers }}
 ---
 apiVersion: cert-manager.io/v1
@@ -72,13 +73,13 @@ spec:
     {{- $issuerRef | toYaml | nindent 4 }}
     {{- end }}
 {{- end }}
-{{- $clients := list
-      (dict "name" "nktp-daemonset-client" "commonName" "nktp-daemonset")
-      (dict "name" "nktp-large-target-metrics-client" "commonName" "nktp-large-target-metrics")
-      (dict "name" "nktp-cluster-events-client" "commonName" "nktp-cluster-events") 
-      (dict "name" "nktp-gateway-traces-client" "commonName" "nktp-gateway-traces")
-      (dict "name" "nktp-gateway-logs-client" "commonName" "nktp-gateway-logs")
-      (dict "name" "nktp-gateway-metrics-client" "commonName" "nktp-gateway-metrics") -}}
+{{- $clients := list -}}
+{{- if .Values.daemonset.enabled }}{{- $clients = append $clients (dict "name" "nktp-daemonset-client" "commonName" "nktp-daemonset") -}}{{- end }}
+{{- if .Values.large_target_metrics.enabled }}{{- $clients = append $clients (dict "name" "nktp-large-target-metrics-client" "commonName" "nktp-large-target-metrics") -}}{{- end }}
+{{- if .Values.cluster_events.enabled }}{{- $clients = append $clients (dict "name" "nktp-cluster-events-client" "commonName" "nktp-cluster-events") -}}{{- end }}
+{{- if .Values.gateway_traces.enabled }}{{- $clients = append $clients (dict "name" "nktp-gateway-traces-client" "commonName" "nktp-gateway-traces") -}}{{- end }}
+{{- if .Values.gateway_logs.enabled }}{{- $clients = append $clients (dict "name" "nktp-gateway-logs-client" "commonName" "nktp-gateway-logs") -}}{{- end }}
+{{- if .Values.gateway_metrics.enabled }}{{- $clients = append $clients (dict "name" "nktp-gateway-metrics-client" "commonName" "nktp-gateway-metrics") -}}{{- end }}
 {{- range $client := $clients }}
 ---
 apiVersion: cert-manager.io/v1

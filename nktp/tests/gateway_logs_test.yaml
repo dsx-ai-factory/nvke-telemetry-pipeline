@@ -4,6 +4,13 @@ release:
 templates:
   - templates/gateway-logs.yaml
 tests:
+  - it: renders nothing when disabled
+    set:
+      gateway_logs.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
   - it: forwards only logs and sends its own telemetry through its sidecar
     asserts:
       - equal:

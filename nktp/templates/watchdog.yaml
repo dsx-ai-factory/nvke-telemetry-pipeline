@@ -1,3 +1,4 @@
+{{- if .Values.watchdog.enabled }}
 {{- $allocator := .Values.watchdog.kubernetes.targetAllocator | default dict -}}
 {{- if not (and (kindIs "map" $allocator) (deepEqual $allocator.enabled true)) -}}
 {{- fail "watchdog.kubernetes.targetAllocator.enabled must be true to assign each scrape target to one watchdog replica" -}}
@@ -19,3 +20,4 @@ spec:
   {{- mustMergeOverwrite (dict "mode" "deployment" "managementState" "managed" "upgradeStrategy" "automatic" "replicas" 1 "targetAllocator" (dict "mtls" (dict "useCertManager" .Values.certManager.targetAllocators.enabled) "image" (include "nktp.image" (dict "imageRegistry" .Values.global.imageRegistry "image" .Values.targetallocator_image)))) (omit (include "nktp.withSidecar" (dict "name" "watchdog" "values" .Values.watchdog "root" $ "mainEnv" (include "nktp.clusterNameEnv" $ | fromYaml).env "sidecarEnv" (include "nktp.clusterNameEnv" $ | fromYaml).env) | fromYaml) "config") $collector | toYaml | nindent 2 }}
   config:
     {{- .Values.watchdog.otelcol.config | toYaml | nindent 4 }}
+{{- end }}

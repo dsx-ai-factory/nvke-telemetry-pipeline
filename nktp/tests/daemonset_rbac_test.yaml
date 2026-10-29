@@ -4,6 +4,13 @@ release:
 templates:
   - templates/daemonset-rbac.yaml
 tests:
+  - it: renders nothing when the node collector is disabled
+    set:
+      daemonset.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
   - it: grants read-only discovery without Secret or ConfigMap access
     asserts:
       - hasDocuments:

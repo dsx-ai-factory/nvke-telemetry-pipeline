@@ -4,6 +4,13 @@ release:
 templates:
   - templates/cluster-events.yaml
 tests:
+  - it: renders nothing when disabled
+    set:
+      cluster_events.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
   - it: elects one Event reader and forwards logs through the logs gateway
     asserts:
       - equal:

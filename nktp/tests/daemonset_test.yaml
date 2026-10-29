@@ -4,6 +4,13 @@ release:
 templates:
   - templates/daemonset.yaml
 tests:
+  - it: renders nothing when disabled
+    set:
+      daemonset.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
   - it: rejects disabled target allocation
     set:
       daemonset.kubernetes.targetAllocator.enabled: false
