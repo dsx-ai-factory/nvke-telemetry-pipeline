@@ -82,6 +82,28 @@ tests:
       - failedTemplate:
           errorPattern: node-exporter.*extraArgs
 
+  - it: rejects arguments loaded from a file
+    set:
+      node-exporter:
+        extraArgs:
+          - "@/etc/node-exporter/args"
+    template: charts/node-exporter/templates/daemonset.yaml
+    asserts:
+      - failedTemplate:
+          errorPattern: node-exporter.*extraArgs
+
+  - it: rejects arguments expanded from environment variables
+    set:
+      node-exporter:
+        env:
+          EXTRA: --web.config.file=/etc/node-exporter/web.yml
+        extraArgs:
+          - $(EXTRA)
+    template: charts/node-exporter/templates/daemonset.yaml
+    asserts:
+      - failedTemplate:
+          errorPattern: node-exporter.*extraArgs
+
   - it: exposes the exporter through a Service and its own ServiceAccount
     asserts:
       - containsDocument:

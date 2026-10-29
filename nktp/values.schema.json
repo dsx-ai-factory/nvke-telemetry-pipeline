@@ -7,11 +7,15 @@
       "properties": {
         "extraArgs": {
           "type": "array",
-          "description": "node_exporter's own TLS server (--web.config.file) and the supervisord collector are not supported. Use the subchart's kubeRBACProxy and tlsSecret values for TLS.",
+          "description": "node_exporter's own TLS server (--web.config.file) and the supervisord collector are not supported, and neither are @file arguments or $(VAR) references, which could supply them. Use the subchart's kubeRBACProxy and tlsSecret values for TLS.",
           "items": {
             "type": "string",
             "not": {
-              "pattern": "^--(web\\.config\\.file|collector\\.supervisord)(=|$)"
+              "anyOf": [
+                {"pattern": "^--(web\\.config\\.file|collector\\.supervisord)(=|$)"},
+                {"pattern": "^@"},
+                {"pattern": "\\$\\("}
+              ]
             }
           }
         }

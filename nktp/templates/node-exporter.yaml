@@ -1,0 +1,6 @@
+{{- /* Mirrors values.schema.json so --skip-schema-validation cannot bypass it. */ -}}
+{{- range (index .Values "node-exporter").extraArgs -}}
+{{- if regexMatch "^--(web\\.config\\.file|collector\\.supervisord)(=|$)|^@|\\$\\(" (toString .) -}}
+{{- fail (printf "node-exporter.extraArgs entry %q is not supported: node_exporter's own TLS server, the supervisord collector, @file arguments and $(VAR) references are rejected" (toString .)) -}}
+{{- end -}}
+{{- end -}}

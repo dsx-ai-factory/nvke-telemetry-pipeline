@@ -64,8 +64,11 @@ node-exporter:
 ```
 
 NKTP does not support node_exporter's own TLS server or its supervisord collector. The chart's values schema
-rejects `--web.config.file` and `--collector.supervisord` in `node-exporter.extraArgs`, and Helm reports
-`at '/node-exporter/extraArgs/<n>': 'not' failed` for the rejected entry. To serve the exporter's metrics over
+rejects `--web.config.file` and `--collector.supervisord` in `node-exporter.extraArgs`, and also rejects
+entries that start with `@` (an arguments file) or contain `$(` (a Kubernetes variable reference), because
+either could supply those flags. Helm reports `at '/node-exporter/extraArgs/<n>': 'not' failed` for the
+rejected entry. The chart's templates apply the same check, so it also holds with `--skip-schema-validation`.
+To serve the exporter's metrics over
 TLS, use the subchart's `kubeRBACProxy` and `tlsSecret` values, which put a kube-rbac-proxy sidecar in front of
 the exporter. The ServiceMonitor must then scrape over HTTPS (`node-exporter.prometheus.monitor.scheme: https`
 and `node-exporter.prometheus.monitor.tlsConfig` to trust the certificate), and the scraper must send a bearer
