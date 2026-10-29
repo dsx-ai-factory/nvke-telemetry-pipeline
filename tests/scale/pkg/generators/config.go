@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/NVIDIA-dev/nktp/tests/scale/pkg/internal/lifecycle"
+	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/scale/pkg/internal/lifecycle"
 	"go.yaml.in/yaml/v3"
 	corev1 "k8s.io/api/core/v1"
 	k8syaml "sigs.k8s.io/yaml"

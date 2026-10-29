@@ -11,8 +11,8 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/NVIDIA-dev/nktp/tests/scale/pkg/internal/lifecycle"
-	"github.com/NVIDIA-dev/nktp/tests/scale/pkg/measurements"
+	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/scale/pkg/internal/lifecycle"
+	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/scale/pkg/measurements"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

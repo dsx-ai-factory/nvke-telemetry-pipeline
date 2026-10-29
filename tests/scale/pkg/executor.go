@@ -10,8 +10,8 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/NVIDIA-dev/nktp/tests/scale/pkg/internal/lifecycle"
-	"github.com/NVIDIA-dev/nktp/tests/scale/pkg/measurements"
+	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/scale/pkg/internal/lifecycle"
+	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/scale/pkg/measurements"
 )
 
 // generator owns a complete generation lifetime. Run is called once per instance,

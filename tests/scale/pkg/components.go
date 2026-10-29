@@ -6,8 +6,8 @@ package runner
 import (
 	"fmt"
 
-	"github.com/NVIDIA-dev/nktp/tests/scale/pkg/generators"
-	"github.com/NVIDIA-dev/nktp/tests/scale/pkg/measurements"
+	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/scale/pkg/generators"
+	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/scale/pkg/measurements"
 )
 
 // newGenerator selects a generator constructor that validates its spec.

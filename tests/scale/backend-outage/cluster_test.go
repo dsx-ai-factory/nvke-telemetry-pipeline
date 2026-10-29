@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NVIDIA-dev/nktp/tests/internal/funcs"
+	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/internal/funcs"
 	otelv1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"

@@ -1,4 +1,4 @@
-module github.com/NVIDIA-dev/nktp/tests
+module github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests
 
 go 1.27.0
 

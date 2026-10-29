@@ -15,7 +15,7 @@ are the [Code of Conduct](CODE_OF_CONDUCT.md) and a `Signed-off-by` line on
 every commit, as described under
 [Developer Certificate of Origin](CONTRIBUTING.md#developer-certificate-of-origin).
 
-**Maintainers** are the `@nvidia-dev/nktp-maintainers` team in
+**Maintainers** are the `@dsx-ai-factory/nktp-maintainers` team in
 [.github/CODEOWNERS](.github/CODEOWNERS). They review and merge pull requests,
 triage issues, decide what the chart installs by default, and cut releases.
 

@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/NVIDIA-dev/nktp/tests/scale/pkg/internal/lifecycle"
+	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/scale/pkg/internal/lifecycle"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v3"
