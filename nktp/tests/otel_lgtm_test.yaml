@@ -524,6 +524,40 @@ tests:
             name: GF_AUTH_ANONYMOUS_ORG_ROLE
             value: Admin
 
+  - it: disables the Cloud Monitoring plugin
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: GF_PLUGINS_DISABLE_PLUGINS
+            value: stackdriver
+
+  - it: keeps the Cloud Monitoring plugin disabled when env sets the same variable
+    set:
+      otel-lgtm:
+        env:
+          - name: GF_PLUGINS_DISABLE_PLUGINS
+            value: ""
+          - name: ENABLE_LOGS_LOKI
+            value: "true"
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ENABLE_LOGS_LOKI
+            value: "true"
+      - equal:
+          path: spec.template.spec.containers[0].env[5]
+          value:
+            name: GF_PLUGINS_DISABLE_PLUGINS
+            value: stackdriver
+
   - it: converts delta counters pushed by Target Allocators at the backend
     documentSelector:
       path: kind

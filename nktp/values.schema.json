@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "node-exporter": {
+      "type": "object",
+      "properties": {
+        "extraArgs": {
+          "type": "array",
+          "description": "node_exporter's own TLS server (--web.config.file) and the supervisord collector are not supported. Use the subchart's kubeRBACProxy and tlsSecret values for TLS.",
+          "items": {
+            "type": "string",
+            "not": {
+              "pattern": "^--(web\\.config\\.file|collector\\.supervisord)(=|$)"
+            }
+          }
+        }
+      }
+    }
+  }
+}

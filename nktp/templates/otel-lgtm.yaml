@@ -100,6 +100,10 @@ spec:
             {{- with $lgtm.env }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+            # Must follow otel-lgtm.env: the last duplicate entry wins, so a
+            # user-supplied value cannot re-enable the plugin.
+            - name: GF_PLUGINS_DISABLE_PLUGINS
+              value: stackdriver
           ports:
             - containerPort: 3000
             - containerPort: 4317

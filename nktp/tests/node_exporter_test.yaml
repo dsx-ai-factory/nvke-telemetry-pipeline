@@ -36,6 +36,49 @@ tests:
           path: spec.template.spec.containers[0].args
           content: --no-collector.cpufreq
 
+  - it: accepts other exporter arguments
+    set:
+      node-exporter:
+        extraArgs:
+          - --no-collector.cpufreq
+          - --collector.supervisord.url=http://localhost:9001/RPC2
+    template: charts/node-exporter/templates/daemonset.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --no-collector.cpufreq
+
+  - it: rejects the exporter's own TLS server configuration
+    set:
+      node-exporter:
+        extraArgs:
+          - --web.config.file=/etc/node-exporter/web.yml
+    template: charts/node-exporter/templates/daemonset.yaml
+    asserts:
+      - failedTemplate:
+          errorPattern: node-exporter.*extraArgs
+
+  - it: rejects the exporter's own TLS server configuration given as a separate argument
+    set:
+      node-exporter:
+        extraArgs:
+          - --web.config.file
+          - /etc/node-exporter/web.yml
+    template: charts/node-exporter/templates/daemonset.yaml
+    asserts:
+      - failedTemplate:
+          errorPattern: node-exporter.*extraArgs
+
+  - it: rejects the supervisord collector
+    set:
+      node-exporter:
+        extraArgs:
+          - --collector.supervisord
+    template: charts/node-exporter/templates/daemonset.yaml
+    asserts:
+      - failedTemplate:
+          errorPattern: node-exporter.*extraArgs
+
   - it: exposes the exporter through a Service and its own ServiceAccount
     asserts:
       - containsDocument:
