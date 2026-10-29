@@ -15,7 +15,7 @@ See the [release process](RELEASING.md) for how chart changes are validated and 
 
 To contribute, start with [CONTRIBUTING.md](CONTRIBUTING.md); see [GOVERNANCE.md](GOVERNANCE.md) for how decisions are made and [MAINTAINERS.md](MAINTAINERS.md) for who maintains the project. Report security issues through [SECURITY.md](SECURITY.md), not GitHub issues.
 
-NKTP is licensed under the [Apache License 2.0](LICENSE).
+NVKE Telemetry Pipeline is licensed under the [Apache License 2.0](LICENSE).
 
 **NOTICE AND DISCLAIMER:** This software automatically retrieves, accesses or
 interacts with external materials. Those retrieved materials are not distributed
