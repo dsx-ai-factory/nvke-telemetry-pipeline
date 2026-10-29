@@ -97,13 +97,22 @@ spec:
             # https://jirasw.nvidia.com/browse/NKX-16798
             - name: PROMETHEUS_EXTRA_ARGS
               value: --enable-feature=otlp-deltatocumulative
-            {{- with $lgtm.env }}
+            {{- $env := list }}
+            {{- $disabledPlugins := list }}
+            {{- range $lgtm.env }}
+            {{- if eq .name "GF_PLUGINS_DISABLE_PLUGINS" }}
+            {{- with .value }}
+            {{- $disabledPlugins = append $disabledPlugins . }}
+            {{- end }}
+            {{- else }}
+            {{- $env = append $env . }}
+            {{- end }}
+            {{- end }}
+            {{- with $env }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-            # Must follow otel-lgtm.env: the last duplicate entry wins, so a
-            # user-supplied value cannot re-enable the plugin.
             - name: GF_PLUGINS_DISABLE_PLUGINS
-              value: stackdriver
+              value: {{ append $disabledPlugins "stackdriver" | join "," | quote }}
           ports:
             - containerPort: 3000
             - containerPort: 4317

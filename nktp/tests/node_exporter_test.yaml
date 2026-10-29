@@ -47,6 +47,9 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].args
           content: --no-collector.cpufreq
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --collector.supervisord.url=http://localhost:9001/RPC2
 
   - it: rejects the exporter's own TLS server configuration
     set:
