@@ -218,6 +218,19 @@ func deriveCollector(source *otelv1.OpenTelemetryCollector, options collectorOpt
 	if err := configureQueue(derived, options, sourceMemory); err != nil {
 		return nil, err
 	}
+	// The isolated Deployment uses memory queues unless the test storage flag
+	// attaches its own PVC; source claim templates and mounts are not copied.
+	queue, err := sendingQueue(derived)
+	if err != nil {
+		return nil, err
+	}
+	if storage, ok := queue["storage"].(string); ok {
+		delete(queue, "storage")
+		delete(config.Extensions.Object, storage)
+		config.Service.Extensions = slices.DeleteFunc(config.Service.Extensions, func(extension string) bool {
+			return extension == storage
+		})
+	}
 	if err := isolateTransport(config, receiverName, endpoint); err != nil {
 		return nil, err
 	}
@@ -453,6 +466,8 @@ func testManifest(t *testing.T, receiver string) *otelv1.OpenTelemetryCollector 
     requests: {memory: 2Gi, cpu: 200m}
   env: [{name: GOMEMLIMIT, value: 6GiB}, {name: GOGC, value: "50"}]
   config:
+    extensions:
+      file_storage/queue: {directory: /production/queue}
     receivers: {%s}
     processors:
       memory_limiter: {limit_percentage: 80, spike_limit_percentage: 25}
@@ -460,9 +475,10 @@ func testManifest(t *testing.T, receiver string) *otelv1.OpenTelemetryCollector 
     exporters:
       otlp:
         endpoint: production:4317
-        sending_queue: {sizer: bytes, queue_size: 16777216, block_on_overflow: true, num_consumers: 32, batch: {flush_timeout: 1s}}
+        sending_queue: {storage: file_storage/queue, sizer: bytes, queue_size: 16777216, block_on_overflow: true, num_consumers: 32, batch: {flush_timeout: 1s}}
         retry_on_failure: {enabled: true}
     service:
+      extensions: [file_storage/queue]
       pipelines:
         metrics: {receivers: [%s], processors: [memory_limiter, batch], exporters: [otlp]}
 `, receiver, strings.SplitN(receiver, ":", 2)[0])
