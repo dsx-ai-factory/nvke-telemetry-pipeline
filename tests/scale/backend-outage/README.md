@@ -19,6 +19,8 @@ client backpressure, and overall memory usage with that queue size.
 
 Preflight requires a healthy OpenTelemetry Operator in the gateway source
 namespace before creating test resources.
+The isolated gateway uses an in-memory queue unless `-outage-gateway-storage`
+is set, independently of the installed gateway's storage configuration.
 
 Follow the [cluster setup](../README.md#setup) and stop other scale generators.
 From the repository root:

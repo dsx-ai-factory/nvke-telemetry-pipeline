@@ -218,6 +218,11 @@ func deriveCollector(source *otelv1.OpenTelemetryCollector, options collectorOpt
 	if err := configureQueue(derived, options, sourceMemory); err != nil {
 		return nil, err
 	}
+	// The isolated Deployment uses memory queues unless the test storage flag
+	// attaches its own PVC; source claim templates and mounts are not copied.
+	if err := isolateQueueStorage(spec); err != nil {
+		return nil, err
+	}
 	if err := isolateTransport(config, receiverName, endpoint); err != nil {
 		return nil, err
 	}
@@ -234,6 +239,106 @@ func deriveCollector(source *otelv1.OpenTelemetryCollector, options collectorOpt
 			},
 		},
 	}, nil
+}
+
+// storageExtensionID resolves literal IDs and exact environment references from
+// literal Collector env values. Runner environment and Pod-dependent values
+// cannot identify source storage reliably in the isolated namespace.
+func storageExtensionID(reference string, env []corev1.EnvVar) (string, error) {
+	if !strings.Contains(reference, "$") {
+		return reference, nil
+	}
+	if strings.HasPrefix(reference, "${env:") && strings.HasSuffix(reference, "}") {
+		name := strings.TrimSuffix(strings.TrimPrefix(reference, "${env:"), "}")
+		for _, variable := range env {
+			if variable.Name == name && variable.ValueFrom == nil && variable.Value != "" && !strings.Contains(variable.Value, "$") {
+				return variable.Value, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("cannot resolve storage reference %q: use a literal extension ID or ${env:NAME} with a nonempty literal Collector env value", reference)
+}
+
+// isolateQueueStorage removes only storage owned exclusively by the test queue.
+// Other consumers need their own isolation strategy before it can be removed.
+func isolateQueueStorage(spec *otelv1.OpenTelemetryCollectorSpec) error {
+	collector := &otelv1.OpenTelemetryCollector{Spec: *spec}
+	queue, err := sendingQueue(collector)
+	if err != nil {
+		return err
+	}
+	reference, exists := queue["storage"]
+	if !exists || reference == nil || reference == "" {
+		delete(queue, "storage")
+		return nil
+	}
+	text, ok := reference.(string)
+	if !ok {
+		return fmt.Errorf("queue storage must be an extension ID string")
+	}
+	storage, err := storageExtensionID(text, spec.Env)
+	if err != nil {
+		return err
+	}
+	config := &spec.Config
+	if config.Extensions == nil || config.Extensions.Object[storage] == nil {
+		return fmt.Errorf("queue storage extension %q is absent", storage)
+	}
+	delete(queue, "storage")
+	var check func(any, string) error
+	check = func(value any, path string) error {
+		switch value := value.(type) {
+		case map[string]any:
+			for key, child := range value {
+				if key == "storage" && child != nil && child != "" {
+					reference, ok := child.(string)
+					if !ok {
+						return fmt.Errorf("%s.storage must be an extension ID string", path)
+					}
+					id, err := storageExtensionID(reference, spec.Env)
+					if err != nil {
+						return fmt.Errorf("%s.storage: %w", path, err)
+					}
+					if id == storage {
+						return fmt.Errorf("shared queue storage %q is unsupported: also referenced by %s.storage", storage, path)
+					}
+				}
+				if err := check(child, path+"."+key); err != nil {
+					return err
+				}
+			}
+		case []any:
+			for i, child := range value {
+				if err := check(child, fmt.Sprintf("%s[%d]", path, i)); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	for name, group := range map[string]*otelv1.AnyConfig{
+		"receivers": &config.Receivers, "processors": config.Processors,
+		"exporters": &config.Exporters, "connectors": config.Connectors, "extensions": config.Extensions,
+	} {
+		if group != nil {
+			if err := check(group.Object, name); err != nil {
+				return err
+			}
+		}
+	}
+	var extensions []string
+	for _, reference := range config.Service.Extensions {
+		id, err := storageExtensionID(reference, spec.Env)
+		if err != nil {
+			return err
+		}
+		if id != storage {
+			extensions = append(extensions, reference)
+		}
+	}
+	delete(config.Extensions.Object, storage)
+	config.Service.Extensions = extensions
+	return nil
 }
 
 // scaleRuntime preserves the source GOMEMLIMIT-to-memory ratio when
@@ -453,6 +558,8 @@ func testManifest(t *testing.T, receiver string) *otelv1.OpenTelemetryCollector 
     requests: {memory: 2Gi, cpu: 200m}
   env: [{name: GOMEMLIMIT, value: 6GiB}, {name: GOGC, value: "50"}]
   config:
+    extensions:
+      file_storage/queue: {directory: /production/queue}
     receivers: {%s}
     processors:
       memory_limiter: {limit_percentage: 80, spike_limit_percentage: 25}
@@ -460,9 +567,10 @@ func testManifest(t *testing.T, receiver string) *otelv1.OpenTelemetryCollector 
     exporters:
       otlp:
         endpoint: production:4317
-        sending_queue: {sizer: bytes, queue_size: 16777216, block_on_overflow: true, num_consumers: 32, batch: {flush_timeout: 1s}}
+        sending_queue: {storage: file_storage/queue, sizer: bytes, queue_size: 16777216, block_on_overflow: true, num_consumers: 32, batch: {flush_timeout: 1s}}
         retry_on_failure: {enabled: true}
     service:
+      extensions: [file_storage/queue]
       pipelines:
         metrics: {receivers: [%s], processors: [memory_limiter, batch], exporters: [otlp]}
 `, receiver, strings.SplitN(receiver, ":", 2)[0])
