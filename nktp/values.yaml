@@ -17,7 +17,7 @@ global:
   #           repository: <mirror>/open-telemetry/opentelemetry-operator/opentelemetry-operator
   #     cleanupJob:
   #       image:
-  #         repository: <mirror>/rancher/kubectl
+  #         repository: <mirror>/kubectl
   imageRegistry: ""
 
   # Cluster name to set as k8s.cluster.name on telemetry that leaves NKTP for the
@@ -2920,10 +2920,12 @@ opentelemetry-kube-stack:
       enabled: false
   clusterRole:
     enabled: false
-  # Uninstall hook. opentelemetry-kube-stack's default kubectl tag lags upstream security fixes.
+  # Uninstall hook. opentelemetry-kube-stack's default rancher/kubectl image lags upstream
+  # security fixes; the official image is rebuilt with each Kubernetes patch release.
   cleanupJob:
     image:
-      tag: v1.35.6
+      repository: registry.k8s.io/kubectl
+      tag: v1.35.10
   opentelemetry-operator:
     fullnameOverride: nktp-operator
     manager:

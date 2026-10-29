@@ -28,8 +28,7 @@ Provide the following before installing NKTP.
   three integrations. See [More information](#more-information) for the
   documentation covering installation and configuration.
 - **Image registry access** to `docker.io`, `ghcr.io`, `quay.io` and
-  `registry.k8s.io`, or mirrors of them. The uninstall hook also pulls
-  `rancher/kubectl` from `docker.io`. See [Image registry](#image-registry).
+  `registry.k8s.io`, or mirrors of them. See [Image registry](#image-registry).
 - **Network access** between components. The Kubernetes API server must reach the
   Operator's admission webhook on TCP 9443 on the nodes; managed clusters can
   block this with firewall rules or security groups. Node collectors scrape their
