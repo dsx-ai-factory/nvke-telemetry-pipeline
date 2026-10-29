@@ -1,6 +1,6 @@
 # NVKE Telemetry Pipeline
 
-NVKE Telemetry Pipeline is a scalable, OpenTelemetry pipeline for collecting, processing, and exporting Kubernetes metrics, logs, and traces, with sensible defaults and flexible, shareable configuration.
+NVKE Telemetry Pipeline (NKTP) is a scalable, OpenTelemetry pipeline for collecting, processing, and exporting Kubernetes metrics, logs, and traces, with sensible defaults and flexible, shareable configuration.
 
 If your workloads run on a cluster with NKTP, read
 [Send telemetry to NKTP](docs/guides/send_telemetry.md).
