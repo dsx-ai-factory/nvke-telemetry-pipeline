@@ -4,13 +4,6 @@ release:
 templates:
   - templates/large-target-metrics.yaml
 tests:
-  - it: renders nothing when disabled
-    set:
-      large_target_metrics.enabled: false
-    asserts:
-      - hasDocuments:
-          count: 0
-
   - it: reserves memory for large-target scrapes
     asserts:
       - equal:

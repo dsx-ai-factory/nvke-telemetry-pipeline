@@ -4,13 +4,6 @@ release:
 templates:
   - templates/gateway-metrics.yaml
 tests:
-  - it: renders nothing when disabled
-    set:
-      gateway_metrics.enabled: false
-    asserts:
-      - hasDocuments:
-          count: 0
-
   - it: forwards only metrics and sends its own telemetry through its sidecar
     asserts:
       - equal:

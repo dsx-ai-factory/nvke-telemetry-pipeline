@@ -133,16 +133,9 @@ Each Collector component has the same values structure:
 
 | Key | Contents |
 | --- | --- |
-| `<component>.enabled` | Whether to deploy the component. Defaults to `true`. |
 | `<component>.otelcol.config` | The complete, native Collector configuration. |
 | `<component>.otelcol.image` | An image override for this component only. |
 | `<component>.kubernetes` | `OpenTelemetryCollector` settings such as replicas, resources, env, volumes, autoscaler, and Target Allocator. |
-
-The component keys are `watchdog`, `gateway_logs`, `gateway_metrics`,
-`gateway_traces`, `daemonset`, `large_target_metrics`, and `cluster_events`.
-Setting `enabled: false` omits that Collector and its chart-managed RBAC and
-internal TLS certificates. It does not change another Collector's configuration;
-disable dependent senders or update their destinations separately.
 
 The chart renders each Collector configuration exactly as written. No other
 value changes it, so to change a pipeline, change its configuration.

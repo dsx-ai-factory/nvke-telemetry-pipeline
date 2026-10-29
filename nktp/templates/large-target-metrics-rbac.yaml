@@ -1,4 +1,3 @@
-{{- if .Values.large_target_metrics.enabled }}
 {{- $key := "large_target_metrics" }}
 {{- $values := index $.Values $key }}
 {{- $name := printf "nktp-%s-targetallocator" ($key | replace "_" "-") }}
@@ -53,4 +52,3 @@ subjects:
   - kind: ServiceAccount
     name: {{ $values.kubernetes.serviceAccount | default "nktp-large-target-metrics-collector" }}
     namespace: {{ $.Release.Namespace }}
-{{- end }}

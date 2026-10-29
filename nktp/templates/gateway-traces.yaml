@@ -1,4 +1,3 @@
-{{- if .Values.gateway_traces.enabled }}
 apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
 metadata:
@@ -13,4 +12,3 @@ spec:
   {{- mustMergeOverwrite (dict "mode" "deployment" "managementState" "managed" "upgradeStrategy" "automatic" "replicas" 1) (omit (include "nktp.withSidecar" (dict "name" "gateway_traces" "values" .Values.gateway_traces "root" $ "mainEnv" (include "nktp.clusterNameEnv" $ | fromYaml).env) | fromYaml) "config") $collector | toYaml | nindent 2 }}
   config:
     {{- .Values.gateway_traces.otelcol.config | toYaml | nindent 4 }}
-{{- end }}

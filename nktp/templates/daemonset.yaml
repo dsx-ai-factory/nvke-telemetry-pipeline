@@ -1,4 +1,3 @@
-{{- if .Values.daemonset.enabled }}
 {{- $allocator := .Values.daemonset.kubernetes.targetAllocator | default dict -}}
 {{- if not (and (kindIs "map" $allocator) (deepEqual $allocator.enabled true)) -}}
 {{- fail "daemonset.kubernetes.targetAllocator.enabled must be true to assign scrape targets to Collectors on the same node" -}}
@@ -32,4 +31,3 @@ spec:
   {{- mustMergeOverwrite (dict "mode" "daemonset" "managementState" "managed" "upgradeStrategy" "automatic" "targetAllocator" (dict "mtls" (dict "useCertManager" .Values.certManager.targetAllocators.enabled) "image" (include "nktp.image" (dict "imageRegistry" .Values.global.imageRegistry "image" .Values.targetallocator_image)))) (omit $workload "config") $collector | toYaml | nindent 2 }}
   config:
     {{- .Values.daemonset.otelcol.config | toYaml | nindent 4 }}
-{{- end }}

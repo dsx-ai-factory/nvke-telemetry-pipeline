@@ -1,4 +1,3 @@
-{{- if .Values.daemonset.enabled }}
 {{- $allocator := .Values.daemonset.kubernetes.targetAllocator | default dict }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -86,6 +85,5 @@ subjects:
   - kind: ServiceAccount
     name: {{ $allocator.serviceAccount | default "nktp-daemonset-targetallocator" }}
     namespace: {{ $.Release.Namespace }}
-{{- end }}
 {{- end }}
 {{- end }}

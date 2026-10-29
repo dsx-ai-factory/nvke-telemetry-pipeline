@@ -82,14 +82,8 @@ Operator manager container logs go to watchdog through `logs/operator`.
 ## Configuration
 
 Use `daemonset.otelcol.config` for Collector configuration and
-`daemonset.kubernetes` for Kubernetes workload configuration. Set
-`daemonset.enabled: false` to omit the Collector, its Target Allocator, RBAC, and
-internal TLS certificate. The KSM DaemonSet and node-exporter remain running
-without this scraper; if no other scraper uses them, also set
-`kube-state-metrics.daemonset.enabled: false` and `node-exporter.enabled: false`.
-
-The pod-log mount is read-only, but host file permissions require the collector
-to run as root.
+`daemonset.kubernetes` for Kubernetes workload configuration. The pod-log mount
+is read-only, but host file permissions require the collector to run as root.
 The file reader follows new records and does not persist offsets across restarts
 by default. See
 [Enable log checkpoints for the node Collector](../guides/enable_daemonset_log_checkpoints.md).

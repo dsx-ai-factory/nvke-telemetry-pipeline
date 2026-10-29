@@ -1,4 +1,3 @@
-{{- if .Values.watchdog.enabled }}
 {{- $workload := .Values.watchdog.kubernetes }}
 {{- $allocator := $workload.targetAllocator | default dict }}
 {{- $operatorValues := index .Values "opentelemetry-kube-stack" "opentelemetry-operator" }}
@@ -44,4 +43,3 @@ subjects:
   - kind: ServiceAccount
     name: {{ $allocator.serviceAccount | default "nktp-watchdog-targetallocator" }}
     namespace: {{ .Release.Namespace }}
-{{- end }}

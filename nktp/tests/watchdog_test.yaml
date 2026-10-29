@@ -6,14 +6,6 @@ templates:
   - templates/watchdog.yaml
   - charts/opentelemetry-kube-stack/templates/hooks.yaml
 tests:
-  - it: renders nothing when disabled
-    set:
-      watchdog.enabled: false
-    asserts:
-      - hasDocuments:
-          count: 0
-        template: templates/watchdog.yaml
-
   - it: creates a Collector StatefulSet with the default image
     template: templates/watchdog.yaml
     asserts:

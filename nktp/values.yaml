@@ -80,7 +80,6 @@ targetallocator_image:
 # Receives internal telemetry from all NKTP collectors.
 # Sends received telemetry and its own telemetry to the default backend.
 watchdog:
-  enabled: true # Set false to omit this workload and its chart-managed resources.
   kubernetes:
     mode: statefulset # Required by the operator's Target Allocator support.
     replicas: 2
@@ -489,7 +488,6 @@ watchdog:
 
 # Log gateway. Exports all logs from the cluster.
 gateway_logs:
-  enabled: true # Set false to omit this workload and its chart-managed resources.
   kubernetes:
     mode: statefulset # Stable replica identities support per-replica volumes for optional persistent queues.
     replicas: 2
@@ -806,7 +804,6 @@ gateway_logs:
 
 # Metric gateway. Exports all metrics from the cluster.
 gateway_metrics:
-  enabled: true # Set false to omit this workload and its chart-managed resources.
   kubernetes:
     mode: statefulset # Stable replica identities support per-replica volumes for optional persistent queues.
     replicas: 2
@@ -1123,7 +1120,6 @@ gateway_metrics:
 
 # Trace gateway. Exports all traces from the cluster.
 gateway_traces:
-  enabled: true # Set false to omit this workload and its chart-managed resources.
   kubernetes:
     mode: statefulset # Stable replica identities support per-replica volumes for optional persistent queues.
     replicas: 2
@@ -1440,7 +1436,6 @@ gateway_traces:
 
 # Node-level collector. Collects local telemetry and forwards received OTLP signals.
 daemonset:
-  enabled: true # Set false to omit this workload and its chart-managed resources.
   rbac:
     # Create Roles and RoleBindings granting the target allocator read access to
     # Secrets and ConfigMaps in namespaces listed in
@@ -2126,7 +2121,6 @@ daemonset:
 
 # Scrapes monitoring CRs labeled nktp.nvidia.io/large-target: "true".
 large_target_metrics:
-  enabled: true # Set false to omit this workload and its chart-managed resources.
   kubernetes:
     mode: statefulset # The Target Allocator uses stable Collector identities.
     replicas: 2
@@ -2496,7 +2490,6 @@ large_target_metrics:
 
 # Cluster event reader. One elected replica watches Kubernetes Events.
 cluster_events:
-  enabled: true # Set false to omit this workload and its chart-managed resources.
   kubernetes:
     mode: statefulset # Stable replica identities support per-replica volumes for optional persistent queues.
     replicas: 2 # One active reader and one standby. More replicas do not increase watch throughput.

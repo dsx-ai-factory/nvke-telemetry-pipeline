@@ -37,9 +37,7 @@ cluster_events:
 ```
 
 Use `cluster_events.otelcol.config` for Collector configuration and
-`cluster_events.kubernetes` for Kubernetes workload configuration. Set
-`cluster_events.enabled: false` to omit the Collector, its RBAC and Lease, and its
-internal TLS certificate. Retain
+`cluster_events.kubernetes` for Kubernetes workload configuration. Retain
 `GOMEMLIMIT`, `GOGC` and `POD_NAMESPACE` when replacing its environment list.
 Set `receivers.k8s_events.namespaces` within the Collector configuration to limit
 the watched namespaces. Events during a leadership handoff can be missed.

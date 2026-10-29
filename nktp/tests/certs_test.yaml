@@ -192,33 +192,6 @@ tests:
             kind: ClusterIssuer
             group: cert-manager.io
 
-  - it: creates certificates only for enabled workloads
-    set:
-      watchdog.enabled: false
-      gateway_metrics.enabled: false
-      gateway_traces.enabled: false
-      daemonset.enabled: false
-      large_target_metrics.enabled: false
-      cluster_events.enabled: false
-    asserts:
-      - hasDocuments:
-          count: 5
-      - containsDocument: {apiVersion: cert-manager.io/v1, kind: Certificate, name: nktp-gateway-logs-server, any: true}
-      - containsDocument: {apiVersion: cert-manager.io/v1, kind: Certificate, name: nktp-gateway-logs-client, any: true}
-
-  - it: creates no certificate resources when all workloads are disabled
-    set:
-      watchdog.enabled: false
-      gateway_logs.enabled: false
-      gateway_metrics.enabled: false
-      gateway_traces.enabled: false
-      daemonset.enabled: false
-      large_target_metrics.enabled: false
-      cluster_events.enabled: false
-    asserts:
-      - hasDocuments:
-          count: 0
-
   - it: creates no certificate resources when internal TLS is disabled
     set:
       certManager.internalTLS.enabled: false

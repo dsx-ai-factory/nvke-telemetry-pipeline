@@ -16,10 +16,7 @@ Kubernetes resource metrics API, commonly provided by metrics-server.
 Setting `watchdog.kubernetes.targetAllocator.enabled` to `false` will cause Helm
 rendering to fail.
 
-Configure the Collector through `watchdog.otelcol.config`. Set
-`watchdog.enabled: false` to omit the Collector, its RBAC, and its internal TLS
-certificate. Other Collectors are not reconfigured automatically; disable their
-watchdog exports or point them elsewhere.
+Configure the Collector through `watchdog.otelcol.config`.
 
 **Potentially breaking receiver-key migration:** the default `otlp` receiver has
 been replaced by `otlp/secure` and `otlp/insecure`. Existing overrides under
