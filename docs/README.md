@@ -20,7 +20,7 @@ each part in depth.
 - [Configure kubelet metrics](guides/configure_kubelet_metrics.md)
 - [Restrict monitor file access](guides/restrict_monitor_file_access.md)
 - [Enable host process metrics](guides/enable_host_process_metrics.md)
-- [Configure a persistent exporter queue](guides/configure_persistent_queue.md)
+- [Configure exporter queue storage](guides/configure_exporter_queue_storage.md)
 - [Enable log checkpoints for the node Collector](guides/enable_daemonset_log_checkpoints.md)
 - [Enable auto-instrumentation](guides/enable_auto_instrumentation.md)
 - [Enable eBPF instrumentation](guides/enable_ebpf_instrumentation.md)

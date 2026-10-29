@@ -18,7 +18,9 @@ certManager:
 watchdog:
   kubernetes:
     volumes: []
-    volumeMounts: []
+    volumeMounts:
+      - name: queue
+        mountPath: /var/lib/otelcol/queue
   otelcol:
     config:
       receivers:
@@ -35,7 +37,9 @@ watchdog:
 gateway_logs:
   kubernetes:
     volumes: []
-    volumeMounts: []
+    volumeMounts:
+      - name: queue
+        mountPath: /var/lib/otelcol/queue
   otelcol:
     config:
       receivers:
@@ -60,7 +64,9 @@ gateway_logs:
 gateway_metrics:
   kubernetes:
     volumes: []
-    volumeMounts: []
+    volumeMounts:
+      - name: queue
+        mountPath: /var/lib/otelcol/queue
   otelcol:
     config:
       receivers:
@@ -85,7 +91,9 @@ gateway_metrics:
 gateway_traces:
   kubernetes:
     volumes: []
-    volumeMounts: []
+    volumeMounts:
+      - name: queue
+        mountPath: /var/lib/otelcol/queue
   otelcol:
     config:
       receivers:

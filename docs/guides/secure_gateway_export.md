@@ -42,7 +42,7 @@ kubectl create secret generic backend-tls \
 ```
 
 2. Mount the secret into each gateway, preserving its internal TLS volumes and
-mounts. Each gateway needs its internal server certificate for ingress, and its sidecar needs its internal
+mounts, including the persistent queue mount. Each gateway needs its internal server certificate for ingress, and its sidecar needs its internal
 client certificate to export to watchdog. The backend credentials belong on the main gateway Collector, not its sidecar.
 
 ```yaml
@@ -82,6 +82,8 @@ gateway_logs:
       - name: internal-tls-server
         mountPath: /etc/nktp/internal-tls/server
         readOnly: true
+      - name: queue
+        mountPath: /var/lib/otelcol/queue
       - name: backend-tls
         mountPath: /etc/nktp/backend-tls
         readOnly: true

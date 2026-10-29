@@ -1,141 +1,51 @@
-# Keeps the export queues of the watchdog and each gateway on a PersistentVolume.
-# See ../guides/configure_persistent_queue.md.
+# Select an SSD-backed StorageClass for the default persistent exporter queues.
+# Replace your-ssd-class below with a StorageClass in your cluster.
+# See "Size the volumes" in docs/guides/configure_exporter_queue_storage.md.
+
 watchdog:
   kubernetes:
-    podSecurityContext:
-      fsGroup: 10001 # The Collector image's user, so it can write to the volume.
-      fsGroupChangePolicy: OnRootMismatch
-    volumeClaimTemplates:
+    volumeClaimTemplates: # Helm replaces lists; include the complete claim template.
       - metadata:
           name: queue
         spec:
           accessModes: [ReadWriteOnce]
+          storageClassName: your-ssd-class
           resources:
             requests:
-              storage: 2Gi # See "Size the volumes" in the guide.
-    persistentVolumeClaimRetentionPolicy:
-      whenDeleted: Retain # The Operator recreates the StatefulSet when claim templates change.
-      whenScaled: Retain
-    volumeMounts: # Helm replaces lists, so the chart's TLS mount is restated.
-      - name: internal-tls-server
-        mountPath: /etc/nktp/internal-tls/server
-        readOnly: true
-      - name: queue
-        mountPath: /var/lib/otelcol/queue
-  otelcol:
-    config:
-      extensions:
-        file_storage/queue:
-          directory: /var/lib/otelcol/queue
-      exporters:
-        otlp:
-          sending_queue:
-            storage: file_storage/queue
-            queue_size: 515396076 # See "Size the volumes" in the guide.
-      service:
-        extensions: [health_check, file_storage/queue]
+              storage: 3Gi
 
 gateway_logs:
   kubernetes:
-    podSecurityContext:
-      fsGroup: 10001
-      fsGroupChangePolicy: OnRootMismatch
-    volumeClaimTemplates:
+    volumeClaimTemplates: # Helm replaces lists; include the complete claim template.
       - metadata:
           name: queue
         spec:
           accessModes: [ReadWriteOnce]
+          storageClassName: your-ssd-class
           resources:
             requests:
-              storage: 1Gi # See "Size the volumes" in the guide.
-    persistentVolumeClaimRetentionPolicy:
-      whenDeleted: Retain
-      whenScaled: Retain
-    volumeMounts:
-      - name: internal-tls-server
-        mountPath: /etc/nktp/internal-tls/server
-        readOnly: true
-      - name: queue
-        mountPath: /var/lib/otelcol/queue
-  otelcol:
-    config:
-      extensions:
-        file_storage/queue:
-          directory: /var/lib/otelcol/queue
-      exporters:
-        otlp:
-          sending_queue:
-            storage: file_storage/queue
-            queue_size: 515396076 # See "Size the volumes" in the guide.
-      service:
-        extensions: [health_check, file_storage/queue]
+              storage: 1Gi
 
 gateway_metrics:
   kubernetes:
-    podSecurityContext:
-      fsGroup: 10001
-      fsGroupChangePolicy: OnRootMismatch
-    volumeClaimTemplates:
+    volumeClaimTemplates: # Helm replaces lists; include the complete claim template.
       - metadata:
           name: queue
         spec:
           accessModes: [ReadWriteOnce]
+          storageClassName: your-ssd-class
           resources:
             requests:
               storage: 1Gi
-    persistentVolumeClaimRetentionPolicy:
-      whenDeleted: Retain
-      whenScaled: Retain
-    volumeMounts:
-      - name: internal-tls-server
-        mountPath: /etc/nktp/internal-tls/server
-        readOnly: true
-      - name: queue
-        mountPath: /var/lib/otelcol/queue
-  otelcol:
-    config:
-      extensions:
-        file_storage/queue:
-          directory: /var/lib/otelcol/queue
-      exporters:
-        otlp:
-          sending_queue:
-            storage: file_storage/queue
-            queue_size: 515396076 # See "Size the volumes" in the guide.
-      service:
-        extensions: [health_check, file_storage/queue]
 
 gateway_traces:
   kubernetes:
-    podSecurityContext:
-      fsGroup: 10001
-      fsGroupChangePolicy: OnRootMismatch
-    volumeClaimTemplates:
+    volumeClaimTemplates: # Helm replaces lists; include the complete claim template.
       - metadata:
           name: queue
         spec:
           accessModes: [ReadWriteOnce]
+          storageClassName: your-ssd-class
           resources:
             requests:
               storage: 1Gi
-    persistentVolumeClaimRetentionPolicy:
-      whenDeleted: Retain
-      whenScaled: Retain
-    volumeMounts:
-      - name: internal-tls-server
-        mountPath: /etc/nktp/internal-tls/server
-        readOnly: true
-      - name: queue
-        mountPath: /var/lib/otelcol/queue
-  otelcol:
-    config:
-      extensions:
-        file_storage/queue:
-          directory: /var/lib/otelcol/queue
-      exporters:
-        otlp:
-          sending_queue:
-            storage: file_storage/queue
-            queue_size: 515396076 # See "Size the volumes" in the guide.
-      service:
-        extensions: [health_check, file_storage/queue]

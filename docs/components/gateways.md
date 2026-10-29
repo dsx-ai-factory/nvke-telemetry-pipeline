@@ -46,14 +46,13 @@ Use `<gateway>.otelcol.config` for Collector configuration and
 requires the Kubernetes resource metrics API. Retain `GOMEMLIMIT` and `GOGC` when
 replacing `<gateway>.kubernetes.env`.
 
-Each gateway's sending queue holds approximately 0.48 GiB of serialized
-telemetry, 12% of its default 4 GiB container limit. Processing and incoming
-requests also consume heap; validate headroom with representative telemetry.
-Set `exporters.otlp.sending_queue.queue_size` in the gateway's configuration
-explicitly when changing its memory limit.
-See OpenTelemetry's
-[queue-sizing guidance](https://opentelemetry.io/docs/collector/resiliency/#sending-queue-in-memory-buffering)
-and [sending queue configuration](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/exporter/exporterhelper/README.md#sending-queue).
+Each gateway stores approximately 0.48 GiB of serialized telemetry in a
+persistent sending queue on a per-replica `1Gi` volume. Provide an SSD-backed
+StorageClass. Active requests, processing, and database caching consume memory.
+Set `exporters.otlp.sending_queue.queue_size` for the required outage
+tolerance and increase the claim capacity to fit. See
+[Configure exporter queue storage](../guides/configure_exporter_queue_storage.md)
+for sizing, volume retention, upgrade behavior, and the in-memory alternative.
 
 Gateways inherit `priorityClass.name` (default `nktp-telemetry-critical` at
 `1000000000`, below system-critical Pods), including their sidecars; set
@@ -67,9 +66,6 @@ Each gateway sets `k8s.cluster.name` from `global.clusterName` with its
 in the `K8S_CLUSTER_NAME` environment variable, and the processor reads it
 inside an OTTL string, so names such as `42` or `true` stay strings. The name
 must not contain a double quote or a backslash.
-
-The exporter queue is in memory by default. To keep it on a PersistentVolume,
-see [Configure a persistent exporter queue](../guides/configure_persistent_queue.md).
 
 To export to a production backend, see
 [Set a backend](../getting-started.md#set-a-backend) and

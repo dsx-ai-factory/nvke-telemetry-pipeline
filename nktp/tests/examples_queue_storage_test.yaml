@@ -1,0 +1,110 @@
+suite: queue storage examples
+release:
+  namespace: nktp
+templates:
+  - templates/gateway-logs.yaml
+  - templates/gateway-metrics.yaml
+  - templates/gateway-traces.yaml
+  - templates/watchdog.yaml
+tests:
+  - it: uses the memory queue example for the logs gateway
+    template: templates/gateway-logs.yaml
+    values:
+      - ../../docs/examples/memory_queue.values.yaml
+    asserts:
+      - equal:
+          path: spec.volumeClaimTemplates
+          value: []
+      - equal:
+          path: spec.volumeMounts
+          value:
+            - name: internal-tls-server
+              mountPath: /etc/nktp/internal-tls/server
+              readOnly: true
+      - notExists:
+          path: spec.persistentVolumeClaimRetentionPolicy
+      - notExists:
+          path: spec.config.exporters.otlp.sending_queue.storage
+      - notExists:
+          path: spec.config.extensions["file_storage/queue"]
+      - equal:
+          path: spec.config.service.extensions
+          value: [health_check]
+
+  - it: uses the memory queue example for the metrics gateway
+    template: templates/gateway-metrics.yaml
+    values:
+      - ../../docs/examples/memory_queue.values.yaml
+    asserts:
+      - equal:
+          path: spec.volumeClaimTemplates
+          value: []
+      - equal:
+          path: spec.volumeMounts
+          value:
+            - name: internal-tls-server
+              mountPath: /etc/nktp/internal-tls/server
+              readOnly: true
+      - notExists:
+          path: spec.persistentVolumeClaimRetentionPolicy
+      - notExists:
+          path: spec.config.exporters.otlp.sending_queue.storage
+      - notExists:
+          path: spec.config.extensions["file_storage/queue"]
+      - equal:
+          path: spec.config.service.extensions
+          value: [health_check]
+
+  - it: uses the memory queue example for the traces gateway
+    template: templates/gateway-traces.yaml
+    values:
+      - ../../docs/examples/memory_queue.values.yaml
+    asserts:
+      - equal:
+          path: spec.volumeClaimTemplates
+          value: []
+      - equal:
+          path: spec.volumeMounts
+          value:
+            - name: internal-tls-server
+              mountPath: /etc/nktp/internal-tls/server
+              readOnly: true
+      - notExists:
+          path: spec.persistentVolumeClaimRetentionPolicy
+      - notExists:
+          path: spec.config.exporters.otlp.sending_queue.storage
+      - notExists:
+          path: spec.config.extensions["file_storage/queue"]
+      - equal:
+          path: spec.config.service.extensions
+          value: [health_check]
+
+  - it: uses the memory queue example for the watchdog
+    template: templates/watchdog.yaml
+    release:
+      name: test
+      namespace: nktp
+    values:
+      - ../../docs/examples/memory_queue.values.yaml
+    asserts:
+      - equal:
+          path: spec.volumeClaimTemplates
+          value: []
+      - equal:
+          path: spec.volumeMounts
+          value:
+            - name: internal-tls-server
+              mountPath: /etc/nktp/internal-tls/server
+              readOnly: true
+      - notExists:
+          path: spec.persistentVolumeClaimRetentionPolicy
+      - notExists:
+          path: spec.config.exporters.otlp.sending_queue.storage
+      - notExists:
+          path: spec.config.extensions["file_storage/queue"]
+      - equal:
+          path: spec.config.service.extensions
+          value: [health_check]
+      - equal:
+          path: spec.config.exporters.otlp.sending_queue.queue_size
+          value: 8388608

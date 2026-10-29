@@ -122,6 +122,8 @@ tests:
       - equal:
           path: spec.podSecurityContext
           value:
+            fsGroup: 10001
+            fsGroupChangePolicy: OnRootMismatch
             runAsNonRoot: true
             seccompProfile:
               type: RuntimeDefault
@@ -155,9 +157,10 @@ tests:
             retry_on_failure:
               max_elapsed_time: 30m
             sending_queue:
+              storage: file_storage/queue
               block_on_overflow: true
               sizer: bytes
-              queue_size: 8388608
+              queue_size: 515396076
               num_consumers: 32
               batch:
                 sizer: bytes
@@ -197,6 +200,8 @@ tests:
             - name: internal-tls-server
               mountPath: /etc/nktp/internal-tls/server
               readOnly: true
+            - name: queue
+              mountPath: /var/lib/otelcol/queue
       - equal:
           path: spec.config.receivers["otlp/secure"].protocols
           value: &watchdogProtocols
@@ -445,6 +450,7 @@ tests:
             seccompProfile:
               type: RuntimeDefault
             fsGroup: 2000
+            fsGroupChangePolicy: OnRootMismatch
       - equal:
           path: spec.securityContext
           value:
@@ -678,6 +684,7 @@ tests:
       - equal:
           path: spec.config.exporters.otlp.sending_queue
           value:
+            storage: file_storage/queue
             block_on_overflow: true
             sizer: bytes
             queue_size: 2097152
@@ -837,3 +844,36 @@ tests:
       - equal:
           path: spec.securityContext.readOnlyRootFilesystem
           value: true
+
+  - it: retains a per-replica persistent queue with the default capacity
+    template: templates/watchdog.yaml
+    asserts:
+      - equal:
+          path: spec.volumeClaimTemplates
+          value:
+            - metadata: {name: queue}
+              spec:
+                accessModes: [ReadWriteOnce]
+                resources:
+                  requests: {storage: 3Gi}
+      - equal:
+          path: spec.persistentVolumeClaimRetentionPolicy
+          value: {whenDeleted: Retain, whenScaled: Retain}
+      - equal:
+          path: spec.podSecurityContext.fsGroup
+          value: 10001
+      - equal:
+          path: spec.config.extensions["file_storage/queue"]
+          value:
+            directory: /var/lib/otelcol/queue/data
+            create_directory: true
+            fsync: false
+      - equal:
+          path: spec.config.service.extensions
+          value: [health_check, file_storage/queue]
+      - equal:
+          path: spec.config.exporters.otlp.sending_queue.storage
+          value: file_storage/queue
+      - equal:
+          path: spec.config.exporters.otlp.sending_queue.queue_size
+          value: 515396076

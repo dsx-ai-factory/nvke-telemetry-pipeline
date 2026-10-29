@@ -45,8 +45,12 @@ The sidecar needs its own processor because the watchdog's own telemetry goes
 from the sidecar straight to the backend. When `global.clusterName` is empty,
 the value is `unknown`.
 
-The exporter queue is in memory by default. To keep it on a PersistentVolume,
-see [Configure a persistent exporter queue](../guides/configure_persistent_queue.md).
+Watchdog uses persistent exporter queues by default: approximately 0.48GiB of
+serialized telemetry per signal, sharing one `3Gi` volume per replica. Provide an
+SSD-backed StorageClass. Its sidecar keeps its own queues in memory. See
+[Configure exporter queue storage](../guides/configure_exporter_queue_storage.md)
+for outage sizing, volume retention, upgrade behavior, and the in-memory
+alternative.
 
 Use `watchdog.kubernetes` for Collector CR settings and `watchdog.otelcol.image`
 to override the global `otelcol_image`.

@@ -1,0 +1,80 @@
+# Use in-memory exporter queues for watchdog and all three gateways.
+# See docs/guides/configure_exporter_queue_storage.md.
+# Lists replace chart defaults; the server TLS mount and health check are retained.
+
+watchdog:
+  kubernetes:
+    volumeClaimTemplates: []
+    persistentVolumeClaimRetentionPolicy: null
+    volumeMounts:
+      - name: internal-tls-server
+        mountPath: /etc/nktp/internal-tls/server
+        readOnly: true
+  otelcol:
+    config:
+      extensions:
+        file_storage/queue: null
+      exporters:
+        otlp:
+          sending_queue:
+            storage: null
+            queue_size: 8388608 # Per signal; 24MiB total across the three queues.
+      service:
+        extensions: [health_check]
+
+gateway_logs:
+  kubernetes:
+    volumeClaimTemplates: []
+    persistentVolumeClaimRetentionPolicy: null
+    volumeMounts:
+      - name: internal-tls-server
+        mountPath: /etc/nktp/internal-tls/server
+        readOnly: true
+  otelcol:
+    config:
+      extensions:
+        file_storage/queue: null
+      exporters:
+        otlp:
+          sending_queue:
+            storage: null
+      service:
+        extensions: [health_check]
+
+gateway_metrics:
+  kubernetes:
+    volumeClaimTemplates: []
+    persistentVolumeClaimRetentionPolicy: null
+    volumeMounts:
+      - name: internal-tls-server
+        mountPath: /etc/nktp/internal-tls/server
+        readOnly: true
+  otelcol:
+    config:
+      extensions:
+        file_storage/queue: null
+      exporters:
+        otlp:
+          sending_queue:
+            storage: null
+      service:
+        extensions: [health_check]
+
+gateway_traces:
+  kubernetes:
+    volumeClaimTemplates: []
+    persistentVolumeClaimRetentionPolicy: null
+    volumeMounts:
+      - name: internal-tls-server
+        mountPath: /etc/nktp/internal-tls/server
+        readOnly: true
+  otelcol:
+    config:
+      extensions:
+        file_storage/queue: null
+      exporters:
+        otlp:
+          sending_queue:
+            storage: null
+      service:
+        extensions: [health_check]

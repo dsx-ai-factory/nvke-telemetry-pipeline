@@ -18,15 +18,19 @@ Default budgets are per Pod. Configure collector resources under
 | Self-telemetry sidecar, other Collectors | 10m / 32 MiB | 100m / 128 MiB |
 
 Node collectors use a `768MiB` `GOMEMLIMIT`. Gateways use 1.5 GiB,
-large-target collectors use 7 GiB and watchdog uses 192 MiB. Tune runtime memory
-targets and queues together with container limits.
+large-target collectors use 7 GiB and watchdog uses 192 MiB. These runtime
+memory targets are configured in `kubernetes.env`; container limits are in
+`kubernetes.resources.limits`.
 Node collector queues hold 64 MiB per signal, including in-flight payloads.
+Gateway and watchdog queues use persistent storage by default; their memory
+budgets cover active requests, processing, and database caching. See
+[Configure exporter queue storage](configure_exporter_queue_storage.md) for volume
+capacity, outage tolerance, and the memory-queue alternative.
 
 HPA targets are relative to requests. Increasing limits does not raise the
-scaling threshold. Reserve node capacity for growth and failure recovery, and
-start enough scraper replicas to absorb large initial loads. These budgets do
-not guarantee a particular series count. Validate allocator discovery and
-reassignment under load, especially after restarts.
+scaling threshold. The component dashboards show observed CPU and resident
+memory in **CPU cores · top 20** and **Memory (RSS) · top 20**, for example
+[NKTP Metrics Gateway](../../nktp/dashboards/default/nktp-gateway-metrics.json).
 
 See [Large-target metrics](../components/large_target_metrics.md#sizing-large-scrapes)
 for sizing the pool for large scrape responses, and

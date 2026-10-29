@@ -1,7 +1,7 @@
 # Replace the endpoint and Secret name for your backend. The Secret must
 # contain ca.crt, tls.crt, and tls.key.
 # Helm replaces volume and mount lists. Preserve the internal server credentials
-# for gateway ingress and client credentials for sidecar-to-watchdog export.
+# for gateway ingress, client credentials for sidecar-to-watchdog export, and the queue mount.
 gateway_logs:
   kubernetes:
     podSecurityContext:
@@ -35,6 +35,8 @@ gateway_logs:
       - name: internal-tls-server
         mountPath: /etc/nktp/internal-tls/server
         readOnly: true
+      - name: queue
+        mountPath: /var/lib/otelcol/queue
       - name: backend-tls
         mountPath: /etc/nktp/backend-tls
         readOnly: true
@@ -83,6 +85,8 @@ gateway_metrics:
       - name: internal-tls-server
         mountPath: /etc/nktp/internal-tls/server
         readOnly: true
+      - name: queue
+        mountPath: /var/lib/otelcol/queue
       - name: backend-tls
         mountPath: /etc/nktp/backend-tls
         readOnly: true
@@ -131,6 +135,8 @@ gateway_traces:
       - name: internal-tls-server
         mountPath: /etc/nktp/internal-tls/server
         readOnly: true
+      - name: queue
+        mountPath: /var/lib/otelcol/queue
       - name: backend-tls
         mountPath: /etc/nktp/backend-tls
         readOnly: true

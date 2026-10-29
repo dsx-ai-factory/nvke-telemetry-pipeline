@@ -41,8 +41,9 @@ tests:
       - equal:
           path: spec.volumeMounts[0].mountPath
           value: /etc/nktp/internal-tls/server
-      - notExists:
+      - equal:
           path: spec.volumeMounts[1]
+          value: {name: queue, mountPath: /var/lib/otelcol/queue}
       - equal:
           path: spec.config.receivers
           value:
@@ -216,6 +217,7 @@ tests:
       - equal:
           path: spec.config.exporters.otlp.sending_queue
           value:
+            storage: file_storage/queue
             block_on_overflow: true
             sizer: bytes
             queue_size: 4194304
@@ -318,3 +320,35 @@ tests:
                 server_parameters:
                   max_connection_age: 1m
                   max_connection_age_grace: 30s
+
+  - it: retains a per-replica persistent queue with the default capacity
+    asserts:
+      - equal:
+          path: spec.volumeClaimTemplates
+          value:
+            - metadata: {name: queue}
+              spec:
+                accessModes: [ReadWriteOnce]
+                resources:
+                  requests: {storage: 1Gi}
+      - equal:
+          path: spec.persistentVolumeClaimRetentionPolicy
+          value: {whenDeleted: Retain, whenScaled: Retain}
+      - equal:
+          path: spec.podSecurityContext.fsGroup
+          value: 10001
+      - equal:
+          path: spec.config.extensions["file_storage/queue"]
+          value:
+            directory: /var/lib/otelcol/queue/data
+            create_directory: true
+            fsync: false
+      - equal:
+          path: spec.config.service.extensions
+          value: [health_check, file_storage/queue]
+      - equal:
+          path: spec.config.exporters.otlp.sending_queue.storage
+          value: file_storage/queue
+      - equal:
+          path: spec.config.exporters.otlp.sending_queue.queue_size
+          value: 515396076

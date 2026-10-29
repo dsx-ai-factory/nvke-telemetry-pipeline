@@ -27,6 +27,11 @@ Provide the following before installing NKTP.
   Collector-to-Target-Allocator mTLS. Running without it requires replacing all
   three integrations. See [More information](#more-information) for the
   documentation covering installation and configuration.
+- **SSD-backed persistent storage.** Each gateway replica requests a `1Gi`
+  volume and each watchdog replica a `3Gi` volume, using the default StorageClass
+  unless `storageClassName` is set in their `kubernetes.volumeClaimTemplates`.
+  At the minimum replica counts this requires eight volumes totaling 12Gi.
+  Set a suitable class before installation; unbound claims leave Collector Pods pending.
 - **Image registry access** to `docker.io`, `ghcr.io`, `quay.io` and
   `registry.k8s.io`, or mirrors of them. See [Image registry](#image-registry).
 - **Network access** between components. The Kubernetes API server must reach the
@@ -74,6 +79,11 @@ Helm never upgrades CRDs it installed from a chart's `crds/` directory. The
 OpenTelemetry and Prometheus CRDs come from there, so a chart version that bumps
 the Operator leaves the old CRDs in place, and fields only the new version knows
 are silently dropped. Apply the new CRDs before `helm upgrade`.
+
+The Operator recreates watchdog and gateway StatefulSets when their volume
+claim templates change,
+restarting their Collectors. Queue claims are retained by default. Deleting
+a retained claim removes its stored telemetry.
 
 ## Components
 
@@ -140,10 +150,24 @@ Each Collector component has the same values structure:
 The chart renders each Collector configuration exactly as written. No other
 value changes it, so to change a pipeline, change its configuration.
 
-Each gateway defaults to an approximately 0.48 GiB sending queue measured in
-serialized bytes, 12% of its 4 GiB container limit. Heap usage is larger than
-serialized size; review queue capacity and processing headroom when changing
-memory limits.
+Each gateway defaults to an approximately 0.48 GiB persistent sending queue
+measured in serialized bytes. Watchdog has three persistent queues of the same
+capacity. Each gateway replica requests a `1Gi` volume and each watchdog replica
+a `3Gi` volume, retained on scale-down and deletion.
+Outage buffering capacity is serialized bytes/s per replica multiplied by the
+outage duration. Volume allocation also includes database overhead and is
+subject to provider minimums. Monitor queue utilization and enqueue failures.
+Set `retry_on_failure.max_elapsed_time` for the required retry window; the
+default is 30 minutes. Memory budgets cover active requests, processing, and
+database caching. The extension uses `fsync: false`; enable it to synchronize each write
+when stronger protection against node or power failure is required.
+
+To use memory queues instead, remove `exporters.otlp.sending_queue.storage`
+and the `file_storage/queue` extension from each affected native Collector
+configuration and from `service.extensions`. Replace `volumeClaimTemplates`
+with `[]`, remove the queue mount, and keep the TLS mount. With Helm overrides,
+use `null` to remove inherited map entries. Decoded queued telemetry can occupy
+several times its serialized size in memory.
 
 Helm replaces lists in your values file as a whole. When overriding a list
 such as `kubernetes.env`, `kubernetes.volumes`, or a receiver's

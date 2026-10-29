@@ -174,7 +174,23 @@ watchdog:
         labelSelector:
           matchLabels:
             app.kubernetes.io/name: nktp-watchdog-collector
+    # Requires an SSD-backed StorageClass. Omit storageClassName to use the cluster default.
+    # See docs/guides/configure_exporter_queue_storage.md for outage sizing and memory queues.
+    volumeClaimTemplates:
+      - metadata:
+          name: queue
+        spec:
+          accessModes: [ReadWriteOnce]
+          # storageClassName: your-ssd-class
+          resources:
+            requests:
+              storage: 3Gi
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
     podSecurityContext:
+      fsGroup: 10001
+      fsGroupChangePolicy: OnRootMismatch
       runAsNonRoot: true
       seccompProfile:
         type: RuntimeDefault
@@ -195,6 +211,8 @@ watchdog:
       - name: internal-tls-server
         mountPath: /etc/nktp/internal-tls/server
         readOnly: true
+      - name: queue
+        mountPath: /var/lib/otelcol/queue
   otelcol:
     # Set a custom image for this workload only.
     # image:
@@ -203,6 +221,10 @@ watchdog:
     #   tag: 0.164.0
     config:
       extensions:
+        file_storage/queue:
+          directory: /var/lib/otelcol/queue/data
+          create_directory: true
+          fsync: false # Matches the extension default; enable for synchronization after each write.
         health_check:
           endpoint: 0.0.0.0:13133
       receivers:
@@ -292,9 +314,10 @@ watchdog:
           retry_on_failure:
             max_elapsed_time: 30m
           sending_queue:
+            storage: file_storage/queue
             block_on_overflow: true
-            sizer: bytes # Counts serialized bytes. Go heap use can be several times larger.
-            queue_size: 8388608 # Per signal. 3 x 8MiB = 24MiB, including in-flight payloads.
+            sizer: bytes # Counts serialized telemetry, excluding database overhead.
+            queue_size: 515396076 # Per signal. Three queues share the 3Gi PVC.
             num_consumers: 32 # Export concurrency. Idle worker slots hold no batch payload.
             batch:
               sizer: bytes # Batch sizes use serialized bytes, matching queue accounting.
@@ -302,7 +325,7 @@ watchdog:
               max_size: 2097152 # Split above 2MiB serialized. Decoded heap can be larger.
               flush_timeout: 1s # Flush partial batches to limit low-volume buffering time.
       service:
-        extensions: [health_check]
+        extensions: [health_check, file_storage/queue]
         # Own telemetry is redacted by the sidecar before export.
         telemetry:
           resource:
@@ -498,7 +521,7 @@ watchdog:
 # Log gateway. Exports all logs from the cluster.
 gateway_logs:
   kubernetes:
-    mode: statefulset # Stable replica identities support per-replica volumes for optional persistent queues.
+    mode: statefulset # Stable replica identities preserve each replica's persistent queue.
     replicas: 2
     autoscaler:
       minReplicas: 2
@@ -544,7 +567,23 @@ gateway_logs:
         labelSelector:
           matchLabels:
             app.kubernetes.io/name: nktp-gateway-logs-collector
+    # Requires an SSD-backed StorageClass. Omit storageClassName to use the cluster default.
+    # See docs/guides/configure_exporter_queue_storage.md for outage sizing and memory queues.
+    volumeClaimTemplates:
+      - metadata:
+          name: queue
+        spec:
+          accessModes: [ReadWriteOnce]
+          # storageClassName: your-ssd-class
+          resources:
+            requests:
+              storage: 1Gi
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
     podSecurityContext:
+      fsGroup: 10001
+      fsGroupChangePolicy: OnRootMismatch
       runAsNonRoot: true
       seccompProfile:
         type: RuntimeDefault
@@ -572,6 +611,8 @@ gateway_logs:
       - name: internal-tls-server
         mountPath: /etc/nktp/internal-tls/server
         readOnly: true
+      - name: queue
+        mountPath: /var/lib/otelcol/queue
   otelcol:
     # Set a custom image for this workload only.
     # image:
@@ -580,6 +621,10 @@ gateway_logs:
     #   tag: 0.164.0
     config:
       extensions:
+        file_storage/queue:
+          directory: /var/lib/otelcol/queue/data
+          create_directory: true
+          fsync: false # Matches the extension default; enable for synchronization after each write.
         health_check:
           endpoint: 0.0.0.0:13133
       receivers:
@@ -632,11 +677,10 @@ gateway_logs:
           retry_on_failure:
             max_elapsed_time: 30m
           sending_queue:
+            storage: file_storage/queue
             block_on_overflow: true
-            sizer: bytes # Counts serialized bytes. Go heap use can be several times larger.
-            # Rough sizing: 12% of 4Gi. Assuming ~4x heap use gives ~48%,
-            # leaving a rough allowance for baseline and processing below
-            # the memory_limiter's 55% soft limit.
+            sizer: bytes # Counts serialized telemetry, excluding database overhead.
+            # Size for the desired outage duration and increase the PVC to fit.
             queue_size: 515396076
             num_consumers: 32 # Export concurrency. Idle worker slots hold no batch payload.
             batch:
@@ -645,7 +689,7 @@ gateway_logs:
               max_size: 2097152 # Split above 2MiB serialized. Decoded heap can be larger.
               flush_timeout: 1s # Flush partial batches to limit low-volume buffering time.
       service:
-        extensions: [health_check]
+        extensions: [health_check, file_storage/queue]
         telemetry:
           resource:
             service.name: nktp-gateway-logs
@@ -814,7 +858,7 @@ gateway_logs:
 # Metric gateway. Exports all metrics from the cluster.
 gateway_metrics:
   kubernetes:
-    mode: statefulset # Stable replica identities support per-replica volumes for optional persistent queues.
+    mode: statefulset # Stable replica identities preserve each replica's persistent queue.
     replicas: 2
     autoscaler:
       minReplicas: 2
@@ -860,7 +904,23 @@ gateway_metrics:
         labelSelector:
           matchLabels:
             app.kubernetes.io/name: nktp-gateway-metrics-collector
+    # Requires an SSD-backed StorageClass. Omit storageClassName to use the cluster default.
+    # See docs/guides/configure_exporter_queue_storage.md for outage sizing and memory queues.
+    volumeClaimTemplates:
+      - metadata:
+          name: queue
+        spec:
+          accessModes: [ReadWriteOnce]
+          # storageClassName: your-ssd-class
+          resources:
+            requests:
+              storage: 1Gi
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
     podSecurityContext:
+      fsGroup: 10001
+      fsGroupChangePolicy: OnRootMismatch
       runAsNonRoot: true
       seccompProfile:
         type: RuntimeDefault
@@ -888,6 +948,8 @@ gateway_metrics:
       - name: internal-tls-server
         mountPath: /etc/nktp/internal-tls/server
         readOnly: true
+      - name: queue
+        mountPath: /var/lib/otelcol/queue
   otelcol:
     # Set a custom image for this workload only.
     # image:
@@ -896,6 +958,10 @@ gateway_metrics:
     #   tag: 0.164.0
     config:
       extensions:
+        file_storage/queue:
+          directory: /var/lib/otelcol/queue/data
+          create_directory: true
+          fsync: false # Matches the extension default; enable for synchronization after each write.
         health_check:
           endpoint: 0.0.0.0:13133
       receivers:
@@ -948,11 +1014,10 @@ gateway_metrics:
           retry_on_failure:
             max_elapsed_time: 30m
           sending_queue:
+            storage: file_storage/queue
             block_on_overflow: true
-            sizer: bytes # Counts serialized bytes. Go heap use can be several times larger.
-            # Rough sizing: 12% of 4Gi. Assuming ~4x heap use gives ~48%,
-            # leaving a rough allowance for baseline and processing below
-            # the memory_limiter's 55% soft limit.
+            sizer: bytes # Counts serialized telemetry, excluding database overhead.
+            # Size for the desired outage duration and increase the PVC to fit.
             queue_size: 515396076
             num_consumers: 32 # Export concurrency. Idle worker slots hold no batch payload.
             batch:
@@ -961,7 +1026,7 @@ gateway_metrics:
               max_size: 2097152 # Split above 2MiB serialized. Decoded heap can be larger.
               flush_timeout: 1s # Flush partial batches to limit low-volume buffering time.
       service:
-        extensions: [health_check]
+        extensions: [health_check, file_storage/queue]
         telemetry:
           resource:
             service.name: nktp-gateway-metrics
@@ -1130,7 +1195,7 @@ gateway_metrics:
 # Trace gateway. Exports all traces from the cluster.
 gateway_traces:
   kubernetes:
-    mode: statefulset # Stable replica identities support per-replica volumes for optional persistent queues.
+    mode: statefulset # Stable replica identities preserve each replica's persistent queue.
     replicas: 2
     autoscaler:
       minReplicas: 2
@@ -1176,7 +1241,23 @@ gateway_traces:
         labelSelector:
           matchLabels:
             app.kubernetes.io/name: nktp-gateway-traces-collector
+    # Requires an SSD-backed StorageClass. Omit storageClassName to use the cluster default.
+    # See docs/guides/configure_exporter_queue_storage.md for outage sizing and memory queues.
+    volumeClaimTemplates:
+      - metadata:
+          name: queue
+        spec:
+          accessModes: [ReadWriteOnce]
+          # storageClassName: your-ssd-class
+          resources:
+            requests:
+              storage: 1Gi
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
     podSecurityContext:
+      fsGroup: 10001
+      fsGroupChangePolicy: OnRootMismatch
       runAsNonRoot: true
       seccompProfile:
         type: RuntimeDefault
@@ -1204,6 +1285,8 @@ gateway_traces:
       - name: internal-tls-server
         mountPath: /etc/nktp/internal-tls/server
         readOnly: true
+      - name: queue
+        mountPath: /var/lib/otelcol/queue
   otelcol:
     # Set a custom image for this workload only.
     # image:
@@ -1212,6 +1295,10 @@ gateway_traces:
     #   tag: 0.164.0
     config:
       extensions:
+        file_storage/queue:
+          directory: /var/lib/otelcol/queue/data
+          create_directory: true
+          fsync: false # Matches the extension default; enable for synchronization after each write.
         health_check:
           endpoint: 0.0.0.0:13133
       receivers:
@@ -1264,11 +1351,10 @@ gateway_traces:
           retry_on_failure:
             max_elapsed_time: 30m
           sending_queue:
+            storage: file_storage/queue
             block_on_overflow: true
-            sizer: bytes # Counts serialized bytes. Go heap use can be several times larger.
-            # Rough sizing: 12% of 4Gi. Assuming ~4x heap use gives ~48%,
-            # leaving a rough allowance for baseline and processing below
-            # the memory_limiter's 55% soft limit.
+            sizer: bytes # Counts serialized telemetry, excluding database overhead.
+            # Size for the desired outage duration and increase the PVC to fit.
             queue_size: 515396076
             num_consumers: 32 # Export concurrency. Idle worker slots hold no batch payload.
             batch:
@@ -1277,7 +1363,7 @@ gateway_traces:
               max_size: 2097152 # Split above 2MiB serialized. Decoded heap can be larger.
               flush_timeout: 1s # Flush partial batches to limit low-volume buffering time.
       service:
-        extensions: [health_check]
+        extensions: [health_check, file_storage/queue]
         telemetry:
           resource:
             service.name: nktp-gateway-traces

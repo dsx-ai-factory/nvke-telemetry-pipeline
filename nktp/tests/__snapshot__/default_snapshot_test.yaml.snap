@@ -1286,9 +1286,14 @@ matches the snapshot with default values:
               num_consumers: 32
               queue_size: 515396076
               sizer: bytes
+              storage: file_storage/queue
             tls:
               insecure: true
         extensions:
+          file_storage/queue:
+            create_directory: true
+            directory: /var/lib/otelcol/queue/data
+            fsync: false
           health_check:
             endpoint: 0.0.0.0:13133
         processors:
@@ -1328,6 +1333,7 @@ matches the snapshot with default values:
         service:
           extensions:
             - health_check
+            - file_storage/queue
           pipelines:
             logs:
               exporters:
@@ -1414,9 +1420,14 @@ matches the snapshot with default values:
               readOnly: true
       managementState: managed
       mode: statefulset
+      persistentVolumeClaimRetentionPolicy:
+        whenDeleted: Retain
+        whenScaled: Retain
       podDisruptionBudget:
         maxUnavailable: 25%
       podSecurityContext:
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
@@ -1450,10 +1461,21 @@ matches the snapshot with default values:
           topologyKey: kubernetes.io/hostname
           whenUnsatisfiable: ScheduleAnyway
       upgradeStrategy: automatic
+      volumeClaimTemplates:
+        - metadata:
+            name: queue
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 1Gi
       volumeMounts:
         - mountPath: /etc/nktp/internal-tls/server
           name: internal-tls-server
           readOnly: true
+        - mountPath: /var/lib/otelcol/queue
+          name: queue
       volumes:
         - name: internal-tls-server
           secret:
@@ -1516,9 +1538,14 @@ matches the snapshot with default values:
               num_consumers: 32
               queue_size: 515396076
               sizer: bytes
+              storage: file_storage/queue
             tls:
               insecure: true
         extensions:
+          file_storage/queue:
+            create_directory: true
+            directory: /var/lib/otelcol/queue/data
+            fsync: false
           health_check:
             endpoint: 0.0.0.0:13133
         processors:
@@ -1558,6 +1585,7 @@ matches the snapshot with default values:
         service:
           extensions:
             - health_check
+            - file_storage/queue
           pipelines:
             metrics:
               exporters:
@@ -1644,9 +1672,14 @@ matches the snapshot with default values:
               readOnly: true
       managementState: managed
       mode: statefulset
+      persistentVolumeClaimRetentionPolicy:
+        whenDeleted: Retain
+        whenScaled: Retain
       podDisruptionBudget:
         maxUnavailable: 25%
       podSecurityContext:
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
@@ -1680,10 +1713,21 @@ matches the snapshot with default values:
           topologyKey: kubernetes.io/hostname
           whenUnsatisfiable: ScheduleAnyway
       upgradeStrategy: automatic
+      volumeClaimTemplates:
+        - metadata:
+            name: queue
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 1Gi
       volumeMounts:
         - mountPath: /etc/nktp/internal-tls/server
           name: internal-tls-server
           readOnly: true
+        - mountPath: /var/lib/otelcol/queue
+          name: queue
       volumes:
         - name: internal-tls-server
           secret:
@@ -1746,9 +1790,14 @@ matches the snapshot with default values:
               num_consumers: 32
               queue_size: 515396076
               sizer: bytes
+              storage: file_storage/queue
             tls:
               insecure: true
         extensions:
+          file_storage/queue:
+            create_directory: true
+            directory: /var/lib/otelcol/queue/data
+            fsync: false
           health_check:
             endpoint: 0.0.0.0:13133
         processors:
@@ -1788,6 +1837,7 @@ matches the snapshot with default values:
         service:
           extensions:
             - health_check
+            - file_storage/queue
           pipelines:
             traces:
               exporters:
@@ -1874,9 +1924,14 @@ matches the snapshot with default values:
               readOnly: true
       managementState: managed
       mode: statefulset
+      persistentVolumeClaimRetentionPolicy:
+        whenDeleted: Retain
+        whenScaled: Retain
       podDisruptionBudget:
         maxUnavailable: 25%
       podSecurityContext:
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
@@ -1910,10 +1965,21 @@ matches the snapshot with default values:
           topologyKey: kubernetes.io/hostname
           whenUnsatisfiable: ScheduleAnyway
       upgradeStrategy: automatic
+      volumeClaimTemplates:
+        - metadata:
+            name: queue
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 1Gi
       volumeMounts:
         - mountPath: /etc/nktp/internal-tls/server
           name: internal-tls-server
           readOnly: true
+        - mountPath: /var/lib/otelcol/queue
+          name: queue
       volumes:
         - name: internal-tls-server
           secret:
@@ -13366,11 +13432,16 @@ matches the snapshot with default values:
                 sizer: bytes
               block_on_overflow: true
               num_consumers: 32
-              queue_size: 8388608
+              queue_size: 515396076
               sizer: bytes
+              storage: file_storage/queue
             tls:
               insecure: true
         extensions:
+          file_storage/queue:
+            create_directory: true
+            directory: /var/lib/otelcol/queue/data
+            fsync: false
           health_check:
             endpoint: 0.0.0.0:13133
         processors:
@@ -13449,6 +13520,7 @@ matches the snapshot with default values:
         service:
           extensions:
             - health_check
+            - file_storage/queue
           pipelines:
             logs:
               exporters:
@@ -13551,9 +13623,14 @@ matches the snapshot with default values:
             periodSeconds: 1
       managementState: managed
       mode: statefulset
+      persistentVolumeClaimRetentionPolicy:
+        whenDeleted: Retain
+        whenScaled: Retain
       podDisruptionBudget:
         maxUnavailable: 25%
       podSecurityContext:
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
@@ -13637,10 +13714,21 @@ matches the snapshot with default values:
           topologyKey: kubernetes.io/hostname
           whenUnsatisfiable: ScheduleAnyway
       upgradeStrategy: automatic
+      volumeClaimTemplates:
+        - metadata:
+            name: queue
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 3Gi
       volumeMounts:
         - mountPath: /etc/nktp/internal-tls/server
           name: internal-tls-server
           readOnly: true
+        - mountPath: /var/lib/otelcol/queue
+          name: queue
       volumes:
         - name: internal-tls-server
           secret:
