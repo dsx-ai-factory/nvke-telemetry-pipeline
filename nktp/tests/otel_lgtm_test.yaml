@@ -547,21 +547,46 @@ tests:
       path: kind
       value: Deployment
     asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
+      - equal:
+          path: spec.template.spec.containers[0].env[3]
+          value:
+            name: GF_PLUGINS_DISABLE_PLUGINS
+            value: stackdriver,grafana-pyroscope-datasource
+      - equal:
+          path: spec.template.spec.containers[0].env[4]
+          value:
             name: ENABLE_LOGS_LOKI
             value: "true"
-      - contains:
+      - lengthEqual:
           path: spec.template.spec.containers[0].env
-          content:
+          count: 5
+
+  - it: adds the Cloud Monitoring plugin to plugins disabled through env valueFrom
+    set:
+      otel-lgtm:
+        env:
+          - name: GF_PLUGINS_DISABLE_PLUGINS
+            valueFrom:
+              configMapKeyRef:
+                name: grafana-plugins
+                key: disabled
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[3]
+          value:
+            name: NKTP_GF_PLUGINS_DISABLE_PLUGINS_0
+            valueFrom:
+              configMapKeyRef:
+                name: grafana-plugins
+                key: disabled
+      - equal:
+          path: spec.template.spec.containers[0].env[4]
+          value:
             name: GF_PLUGINS_DISABLE_PLUGINS
-            value: grafana-pyroscope-datasource,stackdriver
-      - notContains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: GF_PLUGINS_DISABLE_PLUGINS
-            value: grafana-pyroscope-datasource
+            value: stackdriver,$(NKTP_GF_PLUGINS_DISABLE_PLUGINS_0)
       - lengthEqual:
           path: spec.template.spec.containers[0].env
           count: 5

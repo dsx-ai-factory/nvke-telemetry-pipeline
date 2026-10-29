@@ -97,22 +97,32 @@ spec:
             # https://jirasw.nvidia.com/browse/NKX-16798
             - name: PROMETHEUS_EXTRA_ARGS
               value: --enable-feature=otlp-deltatocumulative
-            {{- $env := list }}
-            {{- $disabledPlugins := list }}
+            {{- /* stackdriver stays first so Grafana never parses the value as a JSON list. */}}
+            {{- $disabledPlugins := list "stackdriver" }}
+            {{- $pluginEnv := list }}
             {{- range $lgtm.env }}
             {{- if eq .name "GF_PLUGINS_DISABLE_PLUGINS" }}
             {{- with .value }}
             {{- $disabledPlugins = append $disabledPlugins . }}
             {{- end }}
-            {{- else }}
+            {{- with .valueFrom }}
+            {{- $ref := printf "NKTP_GF_PLUGINS_DISABLE_PLUGINS_%d" (len $pluginEnv) }}
+            {{- $pluginEnv = append $pluginEnv (dict "name" $ref "valueFrom" .) }}
+            {{- $disabledPlugins = append $disabledPlugins (printf "$(%s)" $ref) }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- $pluginEnv = append $pluginEnv (dict "name" "GF_PLUGINS_DISABLE_PLUGINS" "value" (join "," $disabledPlugins)) }}
+            {{- $env := list }}
+            {{- range $lgtm.env }}
+            {{- if ne .name "GF_PLUGINS_DISABLE_PLUGINS" }}
             {{- $env = append $env . }}
+            {{- else if $pluginEnv }}
+            {{- $env = concat $env $pluginEnv }}
+            {{- $pluginEnv = list }}
             {{- end }}
             {{- end }}
-            {{- with $env }}
-            {{- toYaml . | nindent 12 }}
-            {{- end }}
-            - name: GF_PLUGINS_DISABLE_PLUGINS
-              value: {{ append $disabledPlugins "stackdriver" | join "," | quote }}
+            {{- toYaml (concat $env $pluginEnv) | nindent 12 }}
           ports:
             - containerPort: 3000
             - containerPort: 4317

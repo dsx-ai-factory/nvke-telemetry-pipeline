@@ -68,8 +68,8 @@ rejects `--web.config.file` and `--collector.supervisord` in `node-exporter.extr
 `at '/node-exporter/extraArgs/<n>': 'not' failed` for the rejected entry. To serve the exporter's metrics over
 TLS, use the subchart's `kubeRBACProxy` and `tlsSecret` values, which put a kube-rbac-proxy sidecar in front of
 the exporter. The ServiceMonitor must then scrape over HTTPS (`node-exporter.prometheus.monitor.scheme: https`
-and `prometheus.monitor.tlsConfig` to trust the certificate), and the scraper must send a bearer token
-(`prometheus.monitor.bearerTokenFile`) whose identity Kubernetes RBAC allows to read the metrics, because
+and `node-exporter.prometheus.monitor.tlsConfig` to trust the certificate), and the scraper must send a bearer
+token (`node-exporter.prometheus.monitor.bearerTokenFile`) whose identity Kubernetes RBAC allows to read the metrics, because
 kube-rbac-proxy authorizes each request.
 
 ## Metrics server
