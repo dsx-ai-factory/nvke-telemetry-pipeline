@@ -30,7 +30,9 @@ Each Collector sends its own telemetry through its
 Use `large_target_metrics.otelcol.config` for Collector internal configuration and
 `large_target_metrics.kubernetes` for workload configuration. Set
 `large_target_metrics.enabled: false` to omit the Collector, its Target Allocator,
-RBAC, and internal TLS certificate.
+RBAC, and internal TLS certificate. The central KSM Deployments remain running
+without this scraper; disable each entry under `kube-state-metrics.deployments`,
+or set `kube-state-metrics.enabled: false` if node-local KSM is also unnecessary.
 Collector Pods inherit `priorityClass.name`; override
 `large_target_metrics.kubernetes.priorityClassName` to use another class or `""`
 to opt out, without changing the separate Target Allocator's priority.
