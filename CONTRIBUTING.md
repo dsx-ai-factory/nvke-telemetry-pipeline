@@ -30,14 +30,14 @@ NKTP's configuration of them is the cause.
 
 ## Reporting bugs, proposing changes, and asking questions
 
-- Report bugs with the [bug report form](https://github.com/NVIDIA-dev/nktp/issues/new?template=01_bug_report.yml).
+- Report bugs with the [bug report form](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/issues/new?template=01_bug_report.yml).
   Include the chart version, Kubernetes and Helm versions, the values overrides
   in use, and exact reproduction steps.
-- Propose changes with the [feature request form](https://github.com/NVIDIA-dev/nktp/issues/new?template=02_feature_request.yml).
+- Propose changes with the [feature request form](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/issues/new?template=02_feature_request.yml).
   Describe the problem before the solution.
-- Ask questions with the [question form](https://github.com/NVIDIA-dev/nktp/issues/new?template=03_question.yml).
+- Ask questions with the [question form](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/issues/new?template=03_question.yml).
   Existing answers are under the
-  [`question` label](https://github.com/NVIDIA-dev/nktp/issues?q=is%3Aissue+label%3Aquestion).
+  [`question` label](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/issues?q=is%3Aissue+label%3Aquestion).
 - Issues are triaged on a best-effort basis; response times vary.
 
 ## Development setup

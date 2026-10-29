@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Check `nktp/README.md`, `docs/`, and [existing questions](https://github.com/NVIDIA-dev/nktp/issues?q=is%3Aissue+label%3Aquestion) first.
+        Check `nktp/README.md`, `docs/`, and [existing questions](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/issues?q=is%3Aissue+label%3Aquestion) first.
 
         If something looks broken rather than unclear, use the bug report form instead. Do not include security vulnerabilities here; see `SECURITY.md`.
 

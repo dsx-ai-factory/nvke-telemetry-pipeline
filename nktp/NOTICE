@@ -1,0 +1,23 @@
+NVKE telemetry pipeline (NKTP)
+Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This product includes software developed at NVIDIA CORPORATION.
+
+Licensed under the Apache License, Version 2.0. The full terms are in the
+LICENSE file in this chart.
+
+The packaged nktp chart includes the following unmodified third-party Helm
+charts, and the charts they bundle, under its charts/ directory. Chart.yaml and
+Chart.lock in this chart name and pin them:
+
+    opentelemetry-kube-stack   open-telemetry/opentelemetry-helm-charts
+    prometheus-node-exporter   prometheus-community/helm-charts
+    metrics-server             kubernetes-sigs/metrics-server
+
+Each is licensed under the Apache License, Version 2.0, the same license as
+the LICENSE file in this chart. THIRD_PARTY_NOTICES.md in this chart lists
+every bundled chart with its version, copyright holder, license and source,
+and reproduces the upstream NOTICE that applies to them.
+
+The NOTICE AND DISCLAIMER section of README.md in this chart covers the
+container images and other external materials the chart retrieves.
