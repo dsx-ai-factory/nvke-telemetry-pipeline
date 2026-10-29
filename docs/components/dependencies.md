@@ -44,6 +44,8 @@ alternative.
 NKTP installs [prometheus-node-exporter](https://github.com/prometheus-community/helm-charts/tree/main/charts/prometheus-node-exporter) by default
 to collect host-level metrics from every node. It runs as a DaemonSet with host networking and binds port 9100 on each node,
 and ships a ServiceMonitor so the exporter is discoverable as a scrape target.
+Its DaemonSet tolerates all taints, including `NoExecute`, matching the node Collector
+and KSM DaemonSet. Override `node-exporter.tolerations` to restrict this.
 
 Disable it, for example when the cluster already runs a node exporter:
 

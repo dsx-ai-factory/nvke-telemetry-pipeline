@@ -15,6 +15,19 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].image
           value: quay.io/prometheus/node-exporter:v1.12.1
+      - equal:
+          path: spec.template.spec.tolerations
+          value:
+            - operator: Exists
+
+  - it: replaces default tolerations with user overrides
+    set:
+      node-exporter.tolerations: [{key: dedicated, operator: Exists, effect: NoSchedule}]
+    template: charts/node-exporter/templates/daemonset.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.tolerations
+          value: [{key: dedicated, operator: Exists, effect: NoSchedule}]
 
   - it: reads host metrics from the node it runs on
     template: charts/node-exporter/templates/daemonset.yaml

@@ -86,7 +86,7 @@ are silently dropped. Apply the new CRDs before `helm upgrade`.
 | Watchdog | `watchdog` | StatefulSet | Receives the pipeline's own telemetry and exports it to the backend. |
 | kube-state-metrics | `kube-state-metrics` | DaemonSet and Deployments | Exposes Kubernetes object state as metrics. |
 | OpenTelemetry Operator and CRDs | `opentelemetry-kube-stack` | Deployment | Creates the Collectors and their Target Allocators. |
-| node-exporter | `node-exporter` | DaemonSet | Exposes host metrics from every node. |
+| node-exporter | `node-exporter` | DaemonSet | Exposes host metrics from every node, tolerating all taints. |
 | metrics-server | `metrics-server` | Deployment, off by default | Serves the resource metrics API that the autoscalers read. |
 | LGTM | `otel-lgtm` | Deployment | Development backend with Grafana, Prometheus, Loki and Tempo. Evaluation only. |
 

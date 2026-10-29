@@ -2958,6 +2958,9 @@ opentelemetry-kube-stack:
 # so it binds port 9100 on every node.
 node-exporter:
   enabled: true
+  # Match the node Collector and KSM DaemonSets, including NoExecute taints.
+  tolerations:
+    - operator: Exists
   # node_exporter's cpufreq collector hangs on arm64 nodes that use the
   # cppc_cpufreq driver. A read of cpuinfo_avg_freq never returns, so scrapes of
   # the exporter hang and time out (prometheus/node_exporter#3791). The fix,
