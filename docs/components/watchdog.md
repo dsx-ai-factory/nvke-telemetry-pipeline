@@ -21,15 +21,10 @@ The allocator has independent resource and security settings under
 
 Configure the Collector through `watchdog.otelcol.config`.
 
-**Potentially breaking receiver-key migration:** the default `otlp` receiver has
-been replaced by `otlp/secure` and `otlp/insecure`. Existing overrides under
-`watchdog.otelcol.config.receivers.otlp` no longer affect the default pipelines.
-Move them to `watchdog.otelcol.config.receivers.otlp/secure` for mTLS gRPC on
-4317 (metrics, logs, and traces), or to
-`watchdog.otelcol.config.receivers.otlp/insecure` for plaintext gRPC on 4320
-(allocator metrics only). Remove the old override; `otlp` is not an alias for
-either replacement. Update receiver references in custom pipelines when migrating
-those overrides.
+The receiver configuration keys are `otlp/secure` for mTLS gRPC on port 4317
+and `otlp/insecure` for plaintext gRPC on port 4320. The secure receiver accepts
+metrics, logs, and traces; the insecure receiver accepts allocator metrics.
+Default pipelines reference these keys.
 
 Like the signal gateways, watchdog's secure gRPC receiver sends GOAWAY after
 five minutes (+/-10% jitter), with 30 seconds for in-flight exports to finish.

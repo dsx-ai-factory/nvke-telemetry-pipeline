@@ -11,12 +11,9 @@ by default, and sends its own metrics, logs and traces through its
 | Metrics | `gateway_metrics` | `nktp-gateway-metrics-collector:4317` |
 | Traces | `gateway_traces` | `nktp-gateway-traces-collector:4317` |
 
-**Breaking change for HTTP clients:** the default gateway HTTP receivers on port
-4318 have been removed. Existing clients must switch to OTLP/gRPC on port 4317,
-or explicitly configure an HTTP receiver with TLS under
-`<gateway>.otelcol.config.receivers.otlp.protocols.http`. Changing a client's
-port alone does not change its protocol. DaemonSet HTTP ingress and sidecar
-loopback HTTP receivers are unchanged.
+Gateways accept OTLP/gRPC on port 4317 by default. An HTTP receiver requires
+explicit configuration, including TLS, under
+`<gateway>.otelcol.config.receivers.otlp.protocols.http`.
 
 ## Collector connections
 
