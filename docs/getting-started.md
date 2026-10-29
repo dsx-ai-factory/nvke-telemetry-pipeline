@@ -1,55 +1,25 @@
 # Getting started with NKTP
 
 NKTP is one Helm chart that collects a Kubernetes cluster's metrics, logs and
-traces and exports them over OTLP. This guide installs it, connects it to a
-backend, and covers the settings that most often differ from one cluster to the
-next. The [chart README](../nktp/README.md) summarizes what the chart
-deploys, and the [component pages](README.md#components) cover each component
-and its values.
-
-## Before you install
-
-The full list is in [Prerequisites](../nktp/README.md#prerequisites). The ones
-that most often need preparing:
-
-- **cert-manager.** Required with default values; install it separately using
-  the [cert-manager installation instructions](https://cert-manager.io/docs/installation/).
-  To run without it, see
-  [Install without cert-manager](guides/configure_cert_manager.md#installing-nktp-without-cert-manager).
-- **The resource metrics API** (`metrics.k8s.io`), which the Collector
-  autoscalers read. NKTP can install metrics-server if nothing provides it.
-- **The Operator's admission webhook must be reachable** from the API server on
-  TCP 9443. Managed clusters can block it with firewall rules or security groups.
-- **Capacity.** The defaults are sized for large clusters: about 10 CPU and
-  26 GiB of memory in requests for the cluster-wide components, plus about
-  1.1 CPU and 2.2 GiB on every node. These totals include each Collector's
-  [self-telemetry sidecar](architecture/self_telemetry.md). See
-  [Size resources](guides/size_resources.md).
+traces and exports them over OTLP. This guide takes you through installation
+readiness, viewing telemetry, and connecting a backend. The
+[component pages](README.md#components) cover each component and its values.
 
 ## Install
 
-TODO: installation instructions for the GHCR vended chart
+Review the chart's [prerequisites](../nktp/README.md#prerequisites), then follow
+its [installation instructions](../nktp/README.md#install).
+To configure a backend or cluster name during installation, put the values
+from the sections below in your overrides file.
 
-```bash
-# TODO: Add installation commands for the GHCR vended chart.
-```
+The defaults require cert-manager and SSD-backed persistent storage. For
+alternatives, see:
 
-To install from a checkout instead, build the chart's dependencies first. Their
-archives aren't committed:
+- [Install without cert-manager](guides/configure_cert_manager.md#installing-nktp-without-cert-manager).
+- [Install without persistent storage](guides/configure_exporter_queue_storage.md#installing-nktp-without-persistent-storage).
 
-```bash
-helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
-helm dependency build nktp
-kubectl create namespace nktp
-kubectl label namespace nktp pod-security.kubernetes.io/enforce=privileged
-helm install nktp ./nktp --namespace nktp --values my-values.yaml --wait
-```
+## Check readiness
 
-- **The namespace needs the `privileged` Pod Security level,** because the node
-  Collector and node-exporter use host paths and namespaces. `--create-namespace`
-  would create it without the label.
 - **Wait for the Collectors too.** Helm 3's `--wait` does not wait for the
   Operator-managed Collector workloads. Run
   `kubectl get opentelemetrycollector -n nktp` and repeat until every
@@ -60,8 +30,6 @@ helm install nktp ./nktp --namespace nktp --values my-values.yaml --wait
   and wait for every NKTP Certificate to show `READY=True`; Helm 3's `--wait`
   does not check this. If certificate readiness stalls, inspect the conditions
   with `kubectl describe certificate -n nktp`.
-- **`my-values.yaml`** holds your settings from the sections below. Leave it
-  out to install with the defaults.
 - **Versions:** release tags and development builds are described in
   [RELEASING.md](../RELEASING.md).
 
@@ -164,3 +132,7 @@ Helm never upgrades CRDs it installed from a chart's `crds/` directory. The
 OpenTelemetry and Prometheus CRDs come from there, so a chart version that bumps
 the Operator leaves the old CRDs in place, and fields only the new version knows
 are silently dropped. Apply the new CRDs before `helm upgrade`.
+
+Changes to watchdog and gateway volume claim templates cause the Operator to
+recreate their StatefulSets and restart Collectors. See
+[Change the claim templates](guides/configure_exporter_queue_storage.md#change-the-claim-templates).
