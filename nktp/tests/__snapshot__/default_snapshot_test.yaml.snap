@@ -1106,6 +1106,10 @@ matches the snapshot with default values:
         observability:
           metrics:
             enableMetrics: false
+        podSecurityContext:
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
         prometheusCR:
           denyFSAccessThroughSMs: false
           enabled: true
@@ -1146,6 +1150,12 @@ matches the snapshot with default values:
           requests:
             cpu: 250m
             memory: 2Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          readOnlyRootFilesystem: true
         telemetry:
           metrics:
             readers:
@@ -13579,6 +13589,10 @@ matches the snapshot with default values:
         observability:
           metrics:
             enableMetrics: false
+        podSecurityContext:
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
         prometheusCR:
           enabled: false
         replicas: 1
@@ -13589,6 +13603,12 @@ matches the snapshot with default values:
           requests:
             cpu: 250m
             memory: 1Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          readOnlyRootFilesystem: true
         telemetry:
           metrics:
             readers:

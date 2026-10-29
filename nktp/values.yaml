@@ -88,6 +88,15 @@ watchdog:
       mtls:
         enabled: true # Let cert-manager secure Collector requests to the allocator.
       replicas: 1
+      podSecurityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
       allocationStrategy: consistent-hashing
       resources:
         requests:
@@ -1452,6 +1461,15 @@ daemonset:
       mtls:
         enabled: true # Let cert-manager secure Collector requests to the allocator.
       replicas: 1
+      podSecurityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
       allocationStrategy: per-node # Targets without a matching collector node stay unassigned.
       resources:
         requests:

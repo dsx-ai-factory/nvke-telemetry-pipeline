@@ -153,7 +153,10 @@ reader also needs `POD_NAMESPACE`.
 
 The watchdog, node collector, and large-target pool require their Target
 Allocators. Setting `targetAllocator.enabled: false` for any of them fails
-rendering.
+rendering. Each allocator runs one non-root replica with a read-only root
+filesystem, no privilege escalation, dropped capabilities, and `RuntimeDefault`
+seccomp. Configure its resources and security under
+`<component>.kubernetes.targetAllocator`, independently of the Collector.
 
 ### Resource defaults
 

@@ -63,6 +63,15 @@ tests:
               enabled: true
               useCertManager: true
             replicas: 1
+            podSecurityContext:
+              runAsNonRoot: true
+              seccompProfile:
+                type: RuntimeDefault
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop: [ALL]
             allocationStrategy: consistent-hashing
             resources:
               requests: {cpu: 250m, memory: 1Gi}
@@ -812,3 +821,19 @@ tests:
       - equal:
           path: spec.targetAllocator.mtls
           value: {enabled: true, useCertManager: true}
+
+  - it: supports allocator resource and security overrides independently of Collector settings
+    template: templates/watchdog.yaml
+    set:
+      watchdog.kubernetes.targetAllocator.resources.requests.cpu: 100m
+      watchdog.kubernetes.targetAllocator.securityContext.readOnlyRootFilesystem: false
+    asserts:
+      - equal:
+          path: spec.targetAllocator.resources.requests.cpu
+          value: 100m
+      - equal:
+          path: spec.targetAllocator.securityContext.readOnlyRootFilesystem
+          value: false
+      - equal:
+          path: spec.securityContext.readOnlyRootFilesystem
+          value: true

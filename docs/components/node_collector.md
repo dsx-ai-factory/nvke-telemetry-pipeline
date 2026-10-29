@@ -100,6 +100,12 @@ its sidecar but not its Target Allocator. Use an existing class with
 
 ## Target Allocator
 
+Configure each allocator through `<component>.kubernetes.targetAllocator`.
+Its resource budget and security contexts are independent of the Collector's.
+Allocators run as non-root with a read-only root filesystem, no privilege
+escalation, dropped capabilities, and `RuntimeDefault` seccomp. Size resource
+requests and limits for discovered objects and targets.
+
 Setting `daemonset.kubernetes.targetAllocator.enabled` to `false` will cause Helm
 rendering to fail.
 
