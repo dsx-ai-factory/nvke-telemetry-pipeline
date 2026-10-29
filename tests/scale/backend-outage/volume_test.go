@@ -12,10 +12,11 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
-	"github.com/NVIDIA-dev/nktp/tests/scale/backend-outage/pkg/outagereport"
+	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/scale/backend-outage/pkg/outagereport"
 	otelv1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
@@ -30,6 +31,7 @@ import (
 
 const queueDirectory = "/var/lib/otelcol/queue"
 const queueDataDirectory = queueDirectory + "/data"
+const volumeQuietPeriod = 30 * time.Second
 
 // configureGatewayStorage attaches one dedicated PVC to the isolated gateway.
 // The observer only reads file metadata; its container I/O is excluded from
@@ -82,10 +84,12 @@ func configureGatewayStorage(gateway *otelv1.OpenTelemetryCollector, size, class
 // volumeMonitor samples only the selected gateway container and queue directory.
 // Samples retain errors rather than converting absent metrics into zeros.
 type volumeMonitor struct {
-	cluster cluster
-	pod     corev1.Pod
-	claim   *corev1.PersistentVolumeClaim
-	samples []outagereport.VolumeSample
+	mu       sync.Mutex
+	cluster  cluster
+	pod      corev1.Pod
+	claim    *corev1.PersistentVolumeClaim
+	samples  []outagereport.VolumeSample
+	settling map[string]outagereport.VolumeSettlement
 }
 
 func newVolumeMonitor(ctx context.Context, c cluster, claim *corev1.PersistentVolumeClaim) (*volumeMonitor, error) {
@@ -105,6 +109,8 @@ func newVolumeMonitor(ctx context.Context, c cluster, claim *corev1.PersistentVo
 }
 
 func (d *volumeMonitor) sample(ctx context.Context, phase string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	s := outagereport.VolumeSample{Time: time.Now(), Phase: phase}
@@ -143,13 +149,113 @@ func (d *volumeMonitor) sample(ctx context.Context, phase string) {
 }
 
 func (d *volumeMonitor) report() *outagereport.VolumeReport {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	r := outagereport.SummarizeVolume(d.samples)
+	r.Settling = d.settling
 	r.Pod, r.Node, r.PVC, r.PV = d.pod.Name, d.pod.Spec.NodeName, d.claim.Name, d.claim.Spec.VolumeName
 	r.RequestedBytes = float64(d.claim.Spec.Resources.Requests.Storage().Value())
 	if d.claim.Spec.StorageClassName != nil {
 		r.StorageClass = *d.claim.Spec.StorageClassName
 	}
 	return r
+}
+
+func (d *volumeMonitor) latest() outagereport.VolumeSample {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if len(d.samples) == 0 {
+		return outagereport.VolumeSample{}
+	}
+	return d.samples[len(d.samples)-1]
+}
+
+// settleVolume separates observed writeback from ingestion and recovery using
+// the same bounded readiness wait as the heap measurement. Sampling continues
+// without forcing synchronization or changing the storage settings.
+func (r *run) settleVolume(phase string, drainRequests bool) {
+	if r.volume == nil || r.config.VolumeSettleTimeout == 0 {
+		return
+	}
+	start := time.Now()
+	deadline := start.Add(r.config.VolumeSettleTimeout)
+	result := outagereport.VolumeSettlement{QuietSeconds: volumeQuietPeriod.Seconds()}
+	defer func() {
+		result.Seconds = time.Since(start).Seconds()
+		r.volume.mu.Lock()
+		if r.volume.settling == nil {
+			r.volume.settling = map[string]outagereport.VolumeSettlement{}
+		}
+		r.volume.settling[phase] = result
+		r.volume.mu.Unlock()
+		r.t.Logf("%s: settled=%t elapsed=%s reason=%s", phase, result.Settled, time.Since(start).Round(time.Second), result.Reason)
+	}()
+	if phase == "recovery_settling" && r.report["verification_complete"] != true {
+		result.Reason = "delivery incomplete; queues have not been verified drained"
+		return
+	}
+	if drainRequests {
+		ready, reason := r.waitForRequests(r.ctx, time.Until(deadline))
+		if !ready {
+			result.Reason = reason
+			return
+		}
+	}
+	r.setPhase(phase)
+	quiet := volumeQuietState{started: time.Now()}
+	r.volume.sample(r.ctx, phase)
+	ready, reason, err := waitForSettled(r.ctx, max(time.Until(deadline), 0), "volume settling", func(context.Context) (string, error) {
+		return quiet.check(r.volume.latest(), phase), nil
+	})
+	require.NoError(r.t, err)
+	result.Settled, result.Reason = ready, reason
+}
+
+// volumeQuietState uses advancing cAdvisor timestamps, so repeated cached
+// observations cannot establish a quiet period. Allocation changes also reset
+// the interval, even if the latest I/O counters have not refreshed yet.
+type volumeQuietState struct {
+	started, quietSince time.Time
+	previous            outagereport.VolumeSample
+}
+
+func (q *volumeQuietState) check(s outagereport.VolumeSample, phase string) string {
+	if s.Phase != phase || s.Time.Before(q.started) {
+		return "waiting for volume sample in this phase"
+	}
+	if s.IOError != "" || s.UsageError != "" || s.AllocatedBytes == nil || s.ApparentBytes == nil || len(s.Devices) == 0 {
+		q.previous = outagereport.VolumeSample{}
+		q.quietSince = time.Time{}
+		return "volume usage or I/O observations unavailable"
+	}
+	observed := s.Time
+	for _, device := range s.Devices {
+		if device.Time.Before(observed) {
+			observed = device.Time
+		}
+	}
+	changed := q.previous.AllocatedBytes == nil || *s.AllocatedBytes != *q.previous.AllocatedBytes ||
+		*s.ApparentBytes != *q.previous.ApparentBytes || len(s.Devices) != len(q.previous.Devices)
+	for name, current := range s.Devices {
+		old, exists := q.previous.Devices[name]
+		if !exists || current.Time.Before(old.Time) || len(current.Values) != len(old.Values) {
+			changed = true
+		}
+		for key, value := range current.Values {
+			before, exists := old.Values[key]
+			if !exists || value != before {
+				changed = true
+			}
+		}
+	}
+	if changed {
+		q.quietSince = s.Time
+	}
+	q.previous = s
+	if observed.Sub(q.quietSince) >= volumeQuietPeriod {
+		return ""
+	}
+	return "waiting for 30s of unchanged allocation and fresh I/O counters"
 }
 
 func parseQueueUsage(text string) (*float64, *float64, error) {
@@ -253,4 +359,31 @@ func TestGatewayVolumeAttribution(t *testing.T) {
 		assert.Equal(t, float64(20), devices["/dev/dm-0"].Values[name])
 	}
 	assert.Equal(t, time.UnixMilli(1000), devices["/dev/sda"].Time)
+}
+
+// TestVolumeQuietPeriod prevents cached cAdvisor observations from being
+// mistaken for a completed quiet interval and checks that new activity resets it.
+func TestVolumeQuietPeriod(t *testing.T) {
+	base := time.Unix(1000, 0)
+	state := volumeQuietState{started: base}
+	sample := func(wall, observed int, allocated, writes float64) outagereport.VolumeSample {
+		apparent := float64(8192)
+		return outagereport.VolumeSample{
+			Time: base.Add(time.Duration(wall) * time.Second), Phase: "outage_settling",
+			AllocatedBytes: &allocated, ApparentBytes: &apparent,
+			Devices: map[string]outagereport.VolumeCounters{"sda": {
+				Time:   base.Add(time.Duration(observed) * time.Second),
+				Values: outagereport.Metrics{"container_fs_writes_bytes_total": writes},
+			}},
+		}
+	}
+	check := func(s outagereport.VolumeSample) string { return state.check(s, "outage_settling") }
+	assert.NotEmpty(t, check(sample(0, 0, 4096, 100)))
+	assert.NotEmpty(t, check(sample(100, 0, 4096, 100))) // Cached timestamps do not establish quiet.
+	assert.Empty(t, check(sample(100, 40, 4096, 100)))
+	assert.NotEmpty(t, check(sample(101, 40, 8192, 100))) // Allocation changed before I/O refreshed.
+	assert.Empty(t, check(sample(132, 132, 8192, 100)))
+	assert.NotEmpty(t, check(sample(140, 140, 8192, 200)))
+	assert.NotEmpty(t, check(sample(160, 160, 8192, 200)))
+	assert.Empty(t, check(sample(171, 171, 8192, 200)))
 }

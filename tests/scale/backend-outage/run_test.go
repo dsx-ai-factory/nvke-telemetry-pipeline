@@ -399,13 +399,13 @@ func (r *run) queueOverheadState(ctx context.Context, phase string) (string, flo
 	return queueOverheadReady(r.gatewayStart, gateway, r.clientStart, scraper, points, goroutines), metricValue(gateway, "otelcol_exporter_queue_size"), nil
 }
 
-func (r *run) waitForRequests() (bool, string) {
+func (r *run) waitForRequests(ctx context.Context, timeout time.Duration) (bool, string) {
 	r.t.Helper()
 	r.setPhase("outage_draining_requests")
-	if len(r.expected) != r.config.OverheadScrapes {
+	if r.queueOverhead() && len(r.expected) != r.config.OverheadScrapes {
 		return false, "scrape count differs from requested count"
 	}
-	ready, reason, err := waitForQueueOverhead(r.ctx, r.config.DrainTimeout, func(ctx context.Context) (string, error) {
+	ready, reason, err := waitForQueueOverhead(ctx, timeout, func(ctx context.Context) (string, error) {
 		reason, _, err := r.queueOverheadState(ctx, "queue-overhead")
 		return reason, err
 	})
@@ -472,7 +472,7 @@ func (r *run) measureOutage() {
 	var ready bool
 	var reason string
 	if r.queueOverhead() {
-		ready, reason = r.waitForRequests()
+		ready, reason = r.waitForRequests(r.ctx, r.config.DrainTimeout)
 	}
 	heapPath, captured := r.captureOutageProfiles()
 	if !captured {

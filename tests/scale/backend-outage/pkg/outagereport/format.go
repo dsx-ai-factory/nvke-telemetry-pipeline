@@ -170,6 +170,14 @@ func Summary(path string, r Report) string {
 	if d := r.GatewayVolume; d != nil {
 		fmt.Fprintf(&out, "\ngateway volume (.gateway_volume): peak allocated %s; peak growth %s; peak apparent %s; usage errors %d; I/O errors %d; counter resets %d; I/O activity observed %t",
 			number(d.PeakAllocatedBytes, mib), number(d.PeakGrowthBytes, mib), number(d.PeakApparentBytes, mib), d.UsageErrors, d.IOErrors, d.CounterResets, d.IOActivityObserved)
+		for _, phase := range []string{"baseline_settling", "outage_settling", "recovery_settling"} {
+			if s, ok := d.Settling[phase]; ok {
+				fmt.Fprintf(&out, "\n  %s: settled %t after %.1fs", phase, s.Settled, s.Seconds)
+				if s.Reason != "" {
+					fmt.Fprintf(&out, " (%s)", s.Reason)
+				}
+			}
+		}
 		phases := make([]string, 0, len(d.Phases))
 		for phase := range d.Phases {
 			phases = append(phases, phase)

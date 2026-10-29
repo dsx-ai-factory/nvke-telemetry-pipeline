@@ -335,6 +335,12 @@ func queueOverheadReady(beforeGateway, gateway, beforeScraper, scraper map[strin
 // waitForQueueOverhead requires two consecutive ready observations and
 // stops early if failures invalidate the queue-only measurement.
 func waitForQueueOverhead(ctx context.Context, timeout time.Duration, check func(context.Context) (string, error)) (bool, string, error) {
+	return waitForSettled(ctx, timeout, "request drain", check)
+}
+
+// waitForSettled bounds a readiness check and requires two consecutive ready
+// observations. Failures that invalidate input retention stop the wait early.
+func waitForSettled(ctx context.Context, timeout time.Duration, label string, check func(context.Context) (string, error)) (bool, string, error) {
 	waitCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	drainedChecks := 0
@@ -345,7 +351,7 @@ func waitForQueueOverhead(ctx context.Context, timeout time.Duration, check func
 			return false, reason, ctx.Err()
 		}
 		if waitCtx.Err() != nil {
-			return false, fmt.Sprintf("request drain timeout after %s: %s", timeout, reason), nil
+			return false, fmt.Sprintf("%s timeout after %s: %s", label, timeout, reason), nil
 		}
 		if err != nil {
 			return false, reason, err
@@ -365,7 +371,7 @@ func waitForQueueOverhead(ctx context.Context, timeout time.Duration, check func
 			if ctx.Err() != nil {
 				return false, reason, ctx.Err()
 			}
-			return false, fmt.Sprintf("request drain timeout after %s: %s", timeout, reason), nil
+			return false, fmt.Sprintf("%s timeout after %s: %s", label, timeout, reason), nil
 		}
 	}
 }

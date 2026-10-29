@@ -216,6 +216,7 @@ QUEUE_STORAGE=1Gi
 
 task scale:outage KUBECONFIG="$PWD/tests/scale/.kubeconfig" -- \
   -outage-gateway-storage "$QUEUE_STORAGE" \
+  -outage-volume-settle-timeout 2m \
   -outage-output "$OUTPUT_DIR"
 ```
 
@@ -223,6 +224,14 @@ The claim uses the default StorageClass; add
 `-outage-gateway-storage-class local-path` to select Kind's class explicitly.
 Cleanup removes the claim, but a StorageClass with a `Retain` reclaim policy
 leaves the PV for you to delete.
+
+The optional `-outage-volume-settle-timeout` adds settling phases after
+baseline, before recovery, and after recovery. Before recovery it first waits
+for input requests to finish.
+Each boundary waits for 30 seconds of unchanged volume usage and fresh,
+unchanged I/O counters, up to the specified timeout. The default `0` disables
+these waits. This separates observed writes during enqueue, idle writeback,
+and recovery without forcing a filesystem flush.
 
 Read `.gateway_volume` in `report.json`:
 
@@ -232,6 +241,10 @@ Read `.gateway_volume` in `report.json`:
 - `phases` shows average and peak sampled read/write bytes per second and
   IOPS per device. Compare these with queue occupancy and recovery time to
   assess storage demand. Recovery drains the backlog with input paused.
+- `settling` records whether each boundary settled or timed out. Compare
+  writes in `outage_settling` and `recovery_settling` with those during input
+  and recovery. A timeout makes that boundary inconclusive; delivery recovery
+  still runs. Observed quiet does not guarantee that all writes are durable.
 - Check `usage_errors`, `io_errors`, and `counter_resets` before using the
   measurements. Missing metrics are unavailable, not zero. If
   `io_activity_observed` is false, gateway I/O attribution remains unverified.

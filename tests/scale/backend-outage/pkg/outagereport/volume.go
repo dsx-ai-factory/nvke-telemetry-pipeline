@@ -53,13 +53,28 @@ type VolumeReport struct {
 	IOActivityObserved    bool                           `json:"io_activity_observed"`
 	Phases                map[string]map[string]VolumeIO `json:"phases"`
 	Samples               []VolumeSample                 `json:"samples"`
+	Settling              map[string]VolumeSettlement    `json:"settling,omitempty"`
+}
+
+// VolumeSettlement records whether input and observed I/O became quiet before
+// the timeout. A quiet interval is not a guarantee that data is durable.
+type VolumeSettlement struct {
+	Settled      bool    `json:"settled"`
+	Reason       string  `json:"reason,omitempty"`
+	Seconds      float64 `json:"seconds"`
+	QuietSeconds float64 `json:"quiet_seconds"`
 }
 
 // SummarizeVolume calculates sampled peaks, growth from the first directory
 // observation, and per-device I/O rates. Counter resets and gaps are excluded.
 func SummarizeVolume(samples []VolumeSample) *VolumeReport {
 	r := &VolumeReport{Samples: samples, Phases: map[string]map[string]VolumeIO{}}
+	var phase string
+	var phaseStart time.Time
 	for i, s := range samples {
+		if s.Phase != phase {
+			phase, phaseStart = s.Phase, s.Time
+		}
 		if s.UsageError != "" {
 			r.UsageErrors++
 		}
@@ -109,7 +124,7 @@ func SummarizeVolume(samples []VolumeSample) *VolumeReport {
 					r.IOActivityObserved = true
 				}
 			}
-			if s.Phase != previous.Phase {
+			if s.Phase != previous.Phase || old.Time.Before(phaseStart) {
 				continue // Do not assign an interval spanning two phases to either.
 			}
 			if r.Phases[s.Phase] == nil {

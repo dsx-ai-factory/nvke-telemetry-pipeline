@@ -45,6 +45,7 @@ var outageGatewayQueuePercent = flag.Float64("outage-gateway-queue-percent", 0, 
 var outageGatewaySpikePercent = flag.Int("outage-gateway-spike-percent", -1, "gateway memory-limiter spike percentage of container memory (-1 inherits source; positive and below hard limit)")
 var outageGatewayStorage = flag.String("outage-gateway-storage", "", "gateway persistent queue PVC size, e.g. 1Gi (empty uses in-memory queue)")
 var outageGatewayStorageClass = flag.String("outage-gateway-storage-class", "", "persistent queue StorageClass (empty uses cluster default)")
+var outageVolumeSettleTimeout = flag.Duration("outage-volume-settle-timeout", 0, "maximum wait for requests and volume I/O to settle at each boundary (0 disables; requires storage and more than 30s)")
 
 var outageScraperImage = flag.String("outage-scraper-image", "", "scraper image override (k8s distribution defaults to matching contrib image for test counters)")
 var outageScraperSource = flag.String("outage-scraper-source", "nktp-large-target-metrics", "installed Collector to derive the scraper from")
@@ -66,6 +67,7 @@ type runConfig struct {
 	ScrapeSeries, OverheadScrapes                                    int
 	ScrapeInterval, Baseline, Duration, Recovery                     time.Duration
 	VerificationTimeout, DrainTimeout, HeapInterval                  time.Duration
+	VolumeSettleTimeout                                              time.Duration
 }
 
 func configFromFlags(t *testing.T) runConfig {
@@ -81,6 +83,9 @@ func configFromFlags(t *testing.T) runConfig {
 	}
 	if *outageGatewayStorage != "" && *outageMode == "queue-overhead" {
 		t.Fatal("persistent storage requires outage mode; queue-overhead mode estimates in-memory queue heap")
+	}
+	if *outageVolumeSettleTimeout < 0 || (*outageVolumeSettleTimeout > 0 && (*outageGatewayStorage == "" || *outageVolumeSettleTimeout <= volumeQuietPeriod)) {
+		t.Fatal("-outage-volume-settle-timeout requires storage and must exceed 30s, or be 0 to disable")
 	}
 	if *outageScrapeSeries <= 0 || *outageScrapeInterval <= 0 || *outageBaseline < *outageScrapeInterval || *outageRecovery <= 0 || *outageVerificationScrapeTimeout <= 0 || *outageHeapInterval < 0 {
 		t.Fatal("series/interval/recovery must be positive; baseline must cover at least one scrape interval")
@@ -111,7 +116,8 @@ func configFromFlags(t *testing.T) runConfig {
 		ScrapeInterval: *outageScrapeInterval, Baseline: *outageBaseline, Duration: *outageDuration,
 		Recovery: *outageRecovery, VerificationTimeout: *outageVerificationScrapeTimeout,
 		OverheadScrapes: *outageQueueOverheadScrapes, DrainTimeout: *outageQueueOverheadSettleTimeout,
-		HeapInterval: *outageHeapInterval,
+		HeapInterval:        *outageHeapInterval,
+		VolumeSettleTimeout: *outageVolumeSettleTimeout,
 	}
 }
 
@@ -154,8 +160,11 @@ func TestBackendOutage(t *testing.T) {
 	run.monitor = startMonitor(ctx, run.output, run.gateway, run.scraper, run.backend, config.HeapInterval, run.volume)
 	defer run.finishMonitoring()
 	run.runBaseline()
+	run.settleVolume("baseline_settling", false)
 	run.takeBackendDown()
 	run.runOutage()
 	run.measureOutage()
+	run.settleVolume("outage_settling", true)
 	run.runRecovery()
+	run.settleVolume("recovery_settling", false)
 }

@@ -42,4 +42,17 @@ func TestVolumeGrowthAndRates(t *testing.T) {
 	assert.Equal(t, float64(30), baseline.Average["container_fs_writes_bytes_total"])
 	assert.Equal(t, float64(40), baseline.Peak["container_fs_writes_bytes_total"])
 	assert.Equal(t, 1, r.Phases["outage"]["sda"].Intervals)
+
+	boundary := []VolumeSample{
+		sample(0, "baseline", 4096, 8192, 0),
+		sample(5, "outage", 4096, 8192, 0),
+		sample(10, "outage", 4096, 8192, 100),
+		sample(15, "outage", 4096, 8192, 150),
+	}
+	cached := boundary[1].Devices["sda"]
+	cached.Time = time.Unix(0, 0)
+	boundary[1].Devices["sda"] = cached
+	r = SummarizeVolume(boundary)
+	assert.Equal(t, float64(5), r.Phases["outage"]["sda"].Seconds)
+	assert.Equal(t, float64(50), r.Phases["outage"]["sda"].Totals["container_fs_writes_bytes_total"])
 }
