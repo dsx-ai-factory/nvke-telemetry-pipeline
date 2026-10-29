@@ -7,7 +7,7 @@ contains its plan, usage notes and any required Helm values.
 | Workload | Purpose |
 | --- | --- |
 | [Mixed workload](mixed-workload/README.md) | Metrics, stdout logs, traces, Events and large scrape targets together |
-| [Backend outage](backend-outage/README.md) | Simulate a backend outage to tune the gateway sending queue; compare delivery, client backpressure, memory usage, and recovery |
+| [Backend outage](backend-outage/README.md) | Simulate a backend outage to tune the gateway sending queue. Compare delivery, client backpressure, memory usage, and recovery |
 | [Telemetrygen](examples/telemetrygen/README.md) | Send OTLP metrics, logs and traces |
 | [Avalanche](examples/avalanche/README.md) | Generate Prometheus scrape targets |
 | [KWOK](examples/kwok/README.md) | Simulate Kubernetes nodes and Pod lifecycles |
@@ -16,7 +16,8 @@ contains its plan, usage notes and any required Helm values.
 | [Kubernetes Events](examples/kube-events/README.md) | Generate paced Event updates with k6 |
 | [Watchdog](examples/watchdog/README.md) | Send collector observations through watchdog |
 
-See the [framework reference](reference.md) to write or adapt plans.
+See the [framework overview and annotated plan](reference.md#framework-overview)
+to write or adapt plans.
 
 ## Setup
 

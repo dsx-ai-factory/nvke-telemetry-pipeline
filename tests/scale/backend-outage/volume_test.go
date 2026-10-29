@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NVIDIA-dev/nktp/tests/scale/backend-outage/pkg/outagereport"
+	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/scale/backend-outage/pkg/outagereport"
 	otelv1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
