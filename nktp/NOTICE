@@ -1,4 +1,4 @@
-NVKE telemetry pipeline (NKTP)
+NVKE Telemetry Pipeline (NKTP)
 Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 
 This product includes software developed at NVIDIA CORPORATION.
@@ -16,8 +16,17 @@ Chart.lock in this chart name and pin them:
 
 Each is licensed under the Apache License, Version 2.0, the same license as
 the LICENSE file in this chart. THIRD_PARTY_NOTICES.md in this chart lists
-every bundled chart with its version, copyright holder, license and source,
-and reproduces the upstream NOTICE that applies to them.
+every bundled chart with its version, copyright holder, license and source.
+
+The prometheus-crds chart, bundled in opentelemetry-kube-stack, contains
+CustomResourceDefinitions from prometheus-operator, which carries the
+following NOTICE:
+
+    CoreOS Project
+    Copyright 2015 CoreOS, Inc
+
+    This product includes software developed at CoreOS, Inc.
+    (http://www.coreos.com/).
 
 The NOTICE AND DISCLAIMER section of README.md in this chart covers the
 container images and other external materials the chart retrieves.
