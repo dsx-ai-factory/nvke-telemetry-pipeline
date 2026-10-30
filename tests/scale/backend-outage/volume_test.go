@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -82,10 +83,12 @@ func configureGatewayStorage(gateway *otelv1.OpenTelemetryCollector, size, class
 // volumeMonitor samples only the selected gateway container and queue directory.
 // Samples retain errors rather than converting absent metrics into zeros.
 type volumeMonitor struct {
-	cluster cluster
-	pod     corev1.Pod
-	claim   *corev1.PersistentVolumeClaim
-	samples []outagereport.VolumeSample
+	cluster       cluster
+	pod           corev1.Pod
+	claim         *corev1.PersistentVolumeClaim
+	samples       []outagereport.VolumeSample
+	topology      blockTopology
+	topologyError string
 }
 
 func newVolumeMonitor(ctx context.Context, c cluster, claim *corev1.PersistentVolumeClaim) (*volumeMonitor, error) {
@@ -101,7 +104,21 @@ func newVolumeMonitor(ctx context.Context, c cluster, claim *corev1.PersistentVo
 	if err := c.client.Resources(c.namespace).Get(ctx, claim.Name, c.namespace, &bound); err != nil {
 		return nil, err
 	}
-	return &volumeMonitor{cluster: c, pod: pod, claim: &bound}, nil
+	d := &volumeMonitor{cluster: c, pod: pod, claim: &bound}
+	// Read the gateway node's topology through its observer, never the test runner's host.
+	var stdout, stderr bytes.Buffer
+	probeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if err := c.client.Resources().ExecInPod(probeCtx, c.namespace, pod.Name, "queue-observer",
+		[]string{"sh", "-ec", blockTopologyScript}, &stdout, &stderr); err != nil {
+		d.topologyError = fmt.Sprintf("block topology unavailable; retaining separate devices: %v: %s", err, &stderr)
+	} else {
+		d.topology, err = parseBlockTopology(stdout.String())
+		if err != nil {
+			d.topologyError = err.Error()
+		}
+	}
+	return d, nil
 }
 
 func (d *volumeMonitor) sample(ctx context.Context, phase string) {
@@ -144,6 +161,20 @@ func (d *volumeMonitor) sample(ctx context.Context, phase string) {
 
 func (d *volumeMonitor) report() *outagereport.VolumeReport {
 	r := outagereport.SummarizeVolume(d.samples)
+	r.TopologyError = d.topologyError
+	// Preserve raw samples for inspection; collapse only the displayed phase summaries.
+	devices := map[string]bool{}
+	for _, sample := range d.samples {
+		for device := range sample.Devices {
+			devices[device] = true
+		}
+	}
+	r.CollapsedDevices = d.topology.collapsed(devices)
+	for _, phase := range r.Phases {
+		for device := range r.CollapsedDevices {
+			delete(phase, device)
+		}
+	}
 	r.Pod, r.Node, r.PVC, r.PV = d.pod.Name, d.pod.Spec.NodeName, d.claim.Name, d.claim.Spec.VolumeName
 	r.RequestedBytes = float64(d.claim.Spec.Resources.Requests.Storage().Value())
 	if d.claim.Spec.StorageClassName != nil {
@@ -253,4 +284,169 @@ func TestGatewayVolumeAttribution(t *testing.T) {
 		assert.Equal(t, float64(20), devices["/dev/dm-0"].Values[name])
 	}
 	assert.Equal(t, time.UnixMilli(1000), devices["/dev/sda"].Time)
+}
+
+// blockTopologyScript emits kernel device names, major:minor aliases, mapper names,
+// and backing devices. Partition ancestry bridges dm-crypt to the physical disk.
+const blockTopologyScript = `
+for b in /sys/class/block/*; do
+ [ -r "$b/dev" ] || continue
+ printf '%s %s ' "${b##*/}" "$(cat "$b/dev")"
+ if [ -r "$b/dm/name" ]; then cat "$b/dm/name" | tr '\n' ' '; else printf '%s ' -; fi
+ for slave in "$b"/slaves/*; do [ ! -e "$slave" ] || printf '%s ' "${slave##*/}"; done
+ if [ -r "$b/partition" ]; then parent=$(dirname "$(readlink -f "$b")"); printf '%s ' "${parent##*/}"; fi
+ printf '\n'
+done
+for link in /dev/mapper/* /dev/disk/by-*/*; do
+ [ -L "$link" ] || continue
+ target=$(readlink -f "$link")
+ printf 'alias %s %s\n' "$link" "${target##*/}"
+done
+`
+
+type blockTopology struct {
+	aliases map[string]string
+	backing map[string][]string
+}
+
+func parseBlockTopology(text string) (blockTopology, error) {
+	topology := blockTopology{aliases: map[string]string{}, backing: map[string][]string{}}
+	for _, line := range strings.Split(strings.TrimSpace(text), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
+			return blockTopology{}, fmt.Errorf("invalid block topology; retaining separate devices: %q", line)
+		}
+		if fields[0] == "alias" {
+			topology.aliases[fields[1]] = fields[2]
+			continue
+		}
+		name := fields[0]
+		topology.aliases[name], topology.aliases["/dev/"+name], topology.aliases[fields[1]] = name, name, name
+		if fields[2] != "-" {
+			topology.aliases["/dev/mapper/"+fields[2]] = name
+		}
+		topology.backing[name] = fields[3:]
+	}
+	return topology, nil
+}
+
+// collapsed keeps the filesystem-facing observed device of each stack. Sibling
+// logical volumes remain distinct even when they share a physical backing disk.
+// Counters are never added or compared to infer device identity.
+func (topology blockTopology) collapsed(devices map[string]bool) map[string]string {
+	names := make([]string, 0, len(devices))
+	for name := range devices {
+		names = append(names, name)
+	}
+	slices.SortFunc(names, func(a, b string) int {
+		// Prefer canonical /dev names over mapper and by-id aliases.
+		ac := a == "/dev/"+topology.aliases[a]
+		bc := b == "/dev/"+topology.aliases[b]
+		if ac != bc {
+			if ac {
+				return -1
+			}
+			return 1
+		}
+		return strings.Compare(a, b)
+	})
+	retained := map[string]string{}
+	collapsed := map[string]string{}
+	for _, label := range names {
+		device := topology.aliases[label]
+		if device == "" {
+			continue
+		}
+		if chosen, ok := retained[device]; ok {
+			collapsed[label] = chosen
+		} else {
+			retained[device] = label
+		}
+	}
+	// An unobserved sibling can still contribute to a lower device's counters.
+	// Only follow backing links that are exclusive in the complete topology.
+	consumerCounts := map[string]int{}
+	for _, backingDevices := range topology.backing {
+		for _, backing := range backingDevices {
+			consumerCounts[backing]++
+		}
+	}
+	owners := map[string]string{}
+	ownerCounts := map[string]int{}
+	for _, label := range names {
+		device := topology.aliases[label]
+		if device == "" || retained[device] != label {
+			continue
+		}
+		seen := map[string]bool{device: true}
+		pending := slices.Clone(topology.backing[device])
+		for len(pending) > 0 {
+			backing := pending[0]
+			pending = pending[1:]
+			if seen[backing] || consumerCounts[backing] != 1 {
+				continue
+			}
+			seen[backing] = true
+			if lower, ok := retained[backing]; ok {
+				owners[lower] = label
+				ownerCounts[lower]++
+				continue // Deeper layers are owned through this retained device.
+			}
+			pending = append(pending, topology.backing[backing]...)
+		}
+	}
+	for lower, count := range ownerCounts {
+		if count == 1 {
+			collapsed[lower] = owners[lower]
+		}
+	}
+	// Resolve alias and layer chains to the final retained label.
+	for label, target := range collapsed {
+		for collapsed[target] != "" {
+			target = collapsed[target]
+		}
+		collapsed[label] = target
+	}
+	return collapsed
+}
+
+func TestGatewayVolumeDeviceLayers(t *testing.T) {
+	topology, err := parseBlockTopology(`nvme0n1 259:0 -
+nvme0n1p3 259:3 - nvme0n1
+dm-0 252:0 crypt nvme0n1p3
+dm-1 252:1 root dm-0
+dm-2 252:2 other dm-0
+sda 8:0 -
+alias /dev/disk/by-id/root dm-1
+`)
+	require.NoError(t, err)
+	devices := map[string]bool{}
+	for _, name := range []string{"/dev/nvme0n1", "/dev/dm-0", "/dev/dm-1", "/dev/mapper/root", "/dev/disk/by-id/root", "/dev/dm-2", "/dev/sda", "/unknown"} {
+		devices[name] = true
+	}
+	collapsed := topology.collapsed(devices)
+	require.Len(t, collapsed, 3) // Two aliases and one uniquely owned backing layer.
+	for _, name := range []string{"/dev/nvme0n1", "/dev/disk/by-id/root", "/dev/mapper/root"} {
+		require.Contains(t, collapsed, name)
+		assert.NotContains(t, collapsed, collapsed[name])
+	}
+	for _, name := range []string{"/dev/dm-0", "/dev/dm-1", "/dev/dm-2", "/dev/sda", "/unknown"} {
+		assert.NotContains(t, collapsed, name)
+	}
+	assert.Equal(t, "/dev/dm-0", collapsed["/dev/nvme0n1"])
+	assert.Equal(t, "/dev/dm-1", collapsed["/dev/mapper/root"])
+	assert.Equal(t, "/dev/dm-1", collapsed["/dev/disk/by-id/root"])
+	assert.Empty(t, (blockTopology{}).collapsed(devices)) // Unknown topology keeps every series.
+
+	// Missing cAdvisor series do not make a shared backing device exclusive.
+	delete(devices, "/dev/dm-2")
+	collapsed = topology.collapsed(devices)
+	assert.NotContains(t, collapsed, "/dev/dm-0")
+	assert.Equal(t, "/dev/dm-0", collapsed["/dev/nvme0n1"])
+
+	// A stack with only one logical volume in the topology collapses fully.
+	delete(topology.backing, "dm-2")
+	collapsed = topology.collapsed(devices)
+	assert.Equal(t, "/dev/dm-1", collapsed["/dev/dm-0"])
+	assert.Equal(t, "/dev/dm-1", collapsed["/dev/nvme0n1"])
 }
