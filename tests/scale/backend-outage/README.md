@@ -4,7 +4,7 @@ This test checks metrics delivery and client backpressure during a backend
 outage. It derives an isolated gateway from the installed
 `nktp/nktp-gateway-metrics` and a scraper from
 `nktp/nktp-large-target-metrics`. It scrapes synthetic metrics every 30s and takes
-a verification backend down for one minute before measuring recovery. The
+a verification backend down for two minutes before measuring recovery. The
 scrape templates are based on real-world samples of kube-state-metrics and
 dcgm-exporter scrapes. The default mixed template combines 192 text bytes with
 ten labels to exercise the higher memory cost of many short attributes; see
@@ -29,33 +29,33 @@ From the repository root:
 ```sh
 task scale:outage -- \
   -outage-gateway-memory-limit 1Gi \
-  -outage-gateway-queue-bytes 134217728 \
+  -outage-gateway-queue-bytes 536870912 \
   -outage-scraper-memory-limit 8Gi \
   -outage-backend-memory-limit 1Gi \
   -outage-scrape-series 175000 -outage-scrape-interval 30s \
-  -outage-duration 1m \
+  -outage-duration 2m \
   -outage-output /tmp/nktp-outage-scrapes
 ```
 
 Adjust `-outage-scrape-series` and `-outage-scrape-interval` to match your load.
 The defaults produce roughly 5,833 points/s, arriving in 175,000-point scrape
-bursts. A one-minute outage covers about two 30-second scrape cycles. With the
-mixed template, this reached about 90% occupancy of the 128 MiB gateway queue
-without refusals or failed RPCs in the measured run.
+bursts. A two-minute outage covers about four 30-second scrape cycles, with a
+512 MiB gateway queue. Queue occupancy and backpressure depend on the template
+and available memory.
 
 The test runs three phases:
 
-1. **Baseline** (`-outage-baseline 1m`): scrape with the backend available to
+1. **Baseline** (`-outage-baseline 2m`): scrape with the backend available to
    check that the pipeline handles the load before introducing an outage.
    Then pause input and wait for delivery and both queues to drain. The test
    stops if points are missing, duplicate receipts occur, or either Collector
    records refusals or exporter failures.
-2. **Outage** (`-outage-duration 1m`): stop the backend and resume scraping.
+2. **Outage** (`-outage-duration 2m`): stop the backend and resume scraping.
    This measures how the scraper and gateway buffer data and whether clients
-   experience backpressure. After one minute, restore the backend while input
+   experience backpressure. After two minutes, restore the backend while input
    continues.
-3. **Recovery** (`-outage-recovery 3m`): keep scraping through backend
-   restoration and for three minutes after the backend is ready. This exercises
+3. **Recovery** (`-outage-recovery 2m`): keep scraping through backend
+   restoration and for two minutes after the backend is ready. This exercises
    draining a backlog while new metrics arrive. Then pause input and allow up
    to `-outage-recovery-drain-timeout 3m` for all outage and recovery scrapes to
    arrive and both queues to drain. The test requires at least one new scrape
@@ -105,7 +105,7 @@ same-version `contrib` image to expose test counters; override with
 | --- | --- | --- |
 | `-outage-gateway-memory-limit` | Gateway container limit | `1Gi` |
 | `-outage-gateway-queue-percent` | Queue capacity as a percentage of the memory limit | Unset; uses queue bytes |
-| `-outage-gateway-queue-bytes` | Absolute queue capacity | `134217728` (128 MiB) |
+| `-outage-gateway-queue-bytes` | Absolute queue capacity | `536870912` (512 MiB) |
 | `-outage-gateway-spike-percent` | Memory-limiter spike allowance as a percentage of container memory | Inherit installed gateway |
 | `-outage-scraper-memory-limit` | Scraping Collector limit | `8Gi` |
 | `-outage-scraper-queue-percent` | Scraper queue as a percentage of its memory limit | Inherit source ratio |
@@ -115,7 +115,7 @@ same-version `contrib` image to expose test counters; override with
 
 For each Collector, choose either queue bytes or a positive queue percentage.
 A gateway percentage replaces the default byte capacity; do not also pass a
-positive byte override. The default gateway queue stays at 128 MiB when memory
+positive byte override. The default gateway queue stays at 512 MiB when memory
 changes. Set `-outage-gateway-queue-bytes 0` to inherit the source queue-to-memory
 ratio instead. The scraper inherits its source ratio unless overridden.
 Passing `-outage-gateway-memory-limit ""` or `-outage-scraper-memory-limit ""`
@@ -141,30 +141,31 @@ that the gateway avoided backpressure: the scraper also buffers and retries.
 <details>
 <summary>Example normal-outage result (100,000 series per scrape)</summary>
 
-Summary from `task scale:outage -- -outage-scrape-series 100000`, with a
-one-minute outage and `-outage-recovery-input=false`. The artifact path is
-shortened.
+Summary from a run with 100,000 series per scrape, a 128 MiB gateway queue,
+and one-minute baseline, outage, and recovery windows. Input continues during
+recovery. The artifact path is shortened.
 
 ```text
 results: /tmp/outage-example/report.json
+recovery input: true; active 60.00s; final drain 11.06s
 scraper (.resource_summary.scraper, .phase_metrics.*.scraper, .scraper_client_impact):
-  peak heap 315.2 MiB; RSS 532.4 MiB; queue 32.8 MiB (12.8%)
-  baseline: CPU 5.68s; RPCs 38, failed 0; mean 336.4ms, p95 ~485.6ms
-  outage: CPU 4.98s; RPCs 38, failed 0; mean 323.7ms, p95 ~485.6ms
-  recovery: CPU 0.50s; RPCs 0, failed 0
+  peak heap 319.9 MiB; RSS 561.5 MiB; queue 32.8 MiB (38.5%)
+  baseline: CPU 5.27s; RPCs 38, failed 0; mean 310.0ms, p95 ~484.7ms
+  outage: CPU 5.10s; RPCs 38, failed 0; mean 314.1ms, p95 ~485.2ms
+  recovery: CPU 7.80s; RPCs 57, failed 0; mean 361.0ms, p95 ~660.9ms
   refused 0 points
   backlog at backend restore: 0.0 MiB (.at_backend_restore_scraper_queue_bytes)
 gateway (.resource_summary.gateway, .phase_metrics.*.gateway, .gateway_impact):
-  peak heap 330.6 MiB; RSS 453.9 MiB; queue 65.6 MiB (51.3%)
+  peak heap 388.0 MiB; RSS 518.6 MiB; queue 98.4 MiB (76.9%)
   limiter: hard 80.0%; spike 25.0%; soft 55.0% (.gateway_memory_limiter)
-  baseline: CPU 6.04s; RPCs 38, failed 0; mean 312.3ms, p95 ~485.2ms
-  outage: CPU 6.17s; RPCs 38, failed 0; mean 293.6ms, p95 ~483.6ms
-  recovery: CPU 0.49s; RPCs 0, failed 0
+  baseline: CPU 6.23s; RPCs 38, failed 0; mean 283.3ms, p95 ~483.0ms
+  outage: CPU 6.02s; RPCs 38, failed 0; mean 297.5ms, p95 ~483.6ms
+  recovery: CPU 32.94s; RPCs 57, failed 0; mean 337.9ms, p95 ~571.9ms
   refused 0 points; memory-limiter refused N/A; enqueue failed 0
-delivery (.result): 2 scrapes; 200000 produced, 200000 received; estimated missing 0, duplicates 0; recovery 36.17s (.recovery_seconds)
+delivery (.result): 5 scrapes; 500000 produced, 500000 received; estimated missing 0, duplicates 0; recovery 71.07s (.recovery_seconds)
 delivery verification (.verification_complete): complete
-combined sampled peak (.resource_summary.combined): heap 558.4 MiB; RSS 985.0 MiB
---- PASS: TestBackendOutage (216.08s)
+combined sampled peak (.resource_summary.combined): heap 706.4 MiB; RSS 1080.0 MiB
+--- PASS: TestBackendOutage (238.87s)
 PASS
 ```
 
@@ -311,31 +312,30 @@ task scale:outage -- \
 <details>
 <summary>Example queue-overhead result (100,000 series per scrape)</summary>
 
-Summary from `task scale:outage -- -outage-mode queue-overhead
--outage-scrape-series 100000`: two outage scrapes with other settings at their
-defaults. The artifact path is shortened.
+Summary from a queue-overhead run with two 100,000-point outage scrapes,
+a 128 MiB gateway queue, and a 30-second baseline. The artifact path is shortened.
 
 ```text
 results: /tmp/queue-overhead-example/report.json
 scraper (.resource_summary.scraper, .phase_metrics.*.scraper, .scraper_client_impact):
-  peak heap 310.1 MiB; RSS 541.8 MiB; queue 22.1 MiB (8.6%)
-  baseline: CPU 5.57s; RPCs 38, failed 0; mean 349.3ms, p95 ~486.8ms
-  outage: CPU 5.34s; RPCs 38, failed 0; mean 268.4ms, p95 ~480.2ms
-  recovery: CPU 0.50s; RPCs 0, failed 0
+  peak heap 323.5 MiB; RSS 520.7 MiB; queue 2.7 MiB (3.1%)
+  baseline: CPU 3.27s; RPCs 19, failed 0; mean 324.8ms, p95 ~486.0ms
+  outage: CPU 5.32s; RPCs 38, failed 0; mean 274.2ms, p95 ~481.0ms
+  recovery: CPU 0.72s; RPCs 0, failed 0
   refused 0 points
   backlog at backend restore: 0.0 MiB (.at_backend_restore_scraper_queue_bytes)
 gateway (.resource_summary.gateway, .phase_metrics.*.gateway, .gateway_impact):
-  peak heap 329.4 MiB; RSS 456.2 MiB; queue 65.6 MiB (51.3%)
+  peak heap 332.5 MiB; RSS 457.5 MiB; queue 65.6 MiB (51.3%)
   limiter: hard 80.0%; spike 25.0%; soft 55.0% (.gateway_memory_limiter)
-  baseline: CPU 6.15s; RPCs 38, failed 0; mean 321.8ms, p95 ~486.0ms
-  outage: CPU 5.94s; RPCs 38, failed 0; mean 250.9ms, p95 ~476.2ms
-  recovery: CPU 0.55s; RPCs 0, failed 0
+  baseline: CPU 3.17s; RPCs 19, failed 0; mean 303.5ms, p95 ~486.0ms
+  outage: CPU 5.95s; RPCs 38, failed 0; mean 256.1ms, p95 ~477.4ms
+  recovery: CPU 0.57s; RPCs 0, failed 0
   refused 0 points; memory-limiter refused N/A; enqueue failed 0
-delivery (.result): 2 scrapes; 200000 produced, 200000 received; estimated missing 0, duplicates 0; recovery 35.16s (.recovery_seconds)
+delivery (.result): 2 scrapes; 200000 produced, 200000 received; estimated missing 0, duplicates 0; recovery 63.34s (.recovery_seconds)
 delivery verification (.verification_complete): complete
-combined sampled peak (.resource_summary.combined): heap 627.6 MiB; RSS 981.8 MiB
-queue overhead after GC (.queue_only_overhead_estimate): 3.38x heap/serialized bytes; 344.1 serialized and 1163.7 additional heap bytes/point
---- PASS: TestBackendOutage (184.42s)
+combined sampled peak (.resource_summary.combined): heap 656.0 MiB; RSS 974.4 MiB
+queue overhead after GC (.queue_only_overhead_estimate): 3.85x heap/serialized bytes; 344.1 serialized and 1323.7 additional heap bytes/point
+--- PASS: TestBackendOutage (197.22s)
 PASS
 ```
 
@@ -360,7 +360,7 @@ produced the following approximate ratios:
 | --- | ---: | ---: | ---: |
 | KSM | 192 | 5 | 2.2–2.6× |
 | DCGM | 384 | 10 | 2.1–2.3× |
-| Mixed | 192 | 10 | 3.4–3.7× |
+| Mixed | 192 | 10 | 3.4–3.9× |
 
 ¹ Text bytes per sample; the ratio uses serialized OTLP bytes.
 Measurements include the test's two
