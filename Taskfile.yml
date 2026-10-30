@@ -90,6 +90,7 @@ tasks:
     cmds:
       - task: chart:deps
       - helm unittest {{.CLI_ARGS}} nktp
+      - helm unittest {{.CLI_ARGS}} --skip-schema-validation -f 'tests/skip-schema-validation/*_test.yaml' nktp
 
   license:check:
     desc: Run the SPDX header and third-party notices checks that CI runs on every pull request
