@@ -1,4 +1,4 @@
-# Keeps the export queue of the watchdog and each gateway on a PersistentVolume.
+# Keeps the export queues of the watchdog and each gateway on a PersistentVolume.
 # See ../guides/configure_persistent_queue.md.
 watchdog:
   kubernetes:
@@ -12,11 +12,11 @@ watchdog:
           accessModes: [ReadWriteOnce]
           resources:
             requests:
-              storage: 3Gi # The watchdog keeps a separate queue for each signal.
+              storage: 2Gi # See "Size the volumes" in the guide.
     persistentVolumeClaimRetentionPolicy:
-      whenDeleted: Retain # The Operator deletes the StatefulSet when claim templates change.
+      whenDeleted: Retain # The Operator recreates the StatefulSet when claim templates change.
       whenScaled: Retain
-    volumeMounts: # Helm replaces lists, so the chart's mount is restated.
+    volumeMounts: # Helm replaces lists, so the chart's TLS mount is restated.
       - name: internal-tls-server
         mountPath: /etc/nktp/internal-tls/server
         readOnly: true
@@ -31,7 +31,7 @@ watchdog:
         otlp:
           sending_queue:
             storage: file_storage/queue
-            queue_size: 536870912 # Half of each queue's 1Gi. See "Size the volumes" in the guide.
+            queue_size: 515396076 # See "Size the volumes" in the guide.
       service:
         extensions: [health_check, file_storage/queue]
 
@@ -47,7 +47,7 @@ gateway_logs:
           accessModes: [ReadWriteOnce]
           resources:
             requests:
-              storage: 1Gi # Twice queue_size. See "Size the volumes" in the guide.
+              storage: 1Gi # See "Size the volumes" in the guide.
     persistentVolumeClaimRetentionPolicy:
       whenDeleted: Retain
       whenScaled: Retain
@@ -66,7 +66,7 @@ gateway_logs:
         otlp:
           sending_queue:
             storage: file_storage/queue
-            queue_size: 536870912
+            queue_size: 515396076 # See "Size the volumes" in the guide.
       service:
         extensions: [health_check, file_storage/queue]
 
@@ -101,7 +101,7 @@ gateway_metrics:
         otlp:
           sending_queue:
             storage: file_storage/queue
-            queue_size: 536870912
+            queue_size: 515396076 # See "Size the volumes" in the guide.
       service:
         extensions: [health_check, file_storage/queue]
 
@@ -136,6 +136,6 @@ gateway_traces:
         otlp:
           sending_queue:
             storage: file_storage/queue
-            queue_size: 536870912
+            queue_size: 515396076 # See "Size the volumes" in the guide.
       service:
         extensions: [health_check, file_storage/queue]

@@ -1,8 +1,115 @@
 # Scale framework reference
 
-See [setup and available workloads](README.md) for runnable plans. Generator and
-measurement configuration lives in the plan. Helm values configure the installed
-environment.
+## Framework overview
+
+Plans configure generators and measurements. Helm values configure the installed
+environment. See [setup and workloads](README.md) to run a plan.
+
+```mermaid
+flowchart TD
+    Inputs["Plan YAML + CLI arguments"] --> Validate["Resolve arguments and run ID<br/>Render plan and validate specs"]
+    Validate --> Next["Start next stage"]
+    subgraph Stage["Run concurrently"]
+        G["Named generators<br/>Job / Pod / StatefulSet / KWOK"]
+        M["Optional measurement<br/>Prometheus queries + checks"]
+    end
+    Next --> G
+    Next --> M
+    G --> Wait["Wait for all components<br/>and workload cleanup"]
+    M --> Wait
+    M -. complete check .-> Stop["Stop generators"]
+    Stop --> Wait
+    Stage -. failure / timeout / cancellation .-> Cancel["Cancel stage"]
+    Cancel --> Wait
+    Wait --> Result{"Stage succeeded?"}
+    Result -->|yes, stages remain| Next
+    Result -->|yes, last stage| Report["Plan report"]
+    Result -->|no| Failure["Stop plan<br/>Partial report + error"]
+```
+
+## Annotated plan
+
+Illustrative excerpt: replace both `{}` Pod templates with the matching `small`
+and `large` templates in the [stdout-logs plan](examples/stdout-logs/plan.yaml).
+Those templates label Pods with `{{ .Args.runId }}`. The
+[stdout-logs setup](examples/stdout-logs/README.md) installs the ConfigMaps and
+scrape configuration that expose that label as `test_run_id`.
+
+```yaml
+name: stdout-overview
+timeout: 8m                       # Shared deadline across all stages.
+stages:                           # Sequential. Each stage cleans up before the next.
+  - name: baseline                 # Observation-only: generators may be omitted.
+    measurement:
+      type: prometheus
+      spec:
+        endpoint: http://127.0.0.1:9090
+        duration: 30s
+        interval: 15s
+        measurements:
+          - name: gateway_memory
+            units: bytes
+            # Pipeline-wide observation. Includes other runs and background traffic.
+            query: otelcol_process_memory_rss_bytes{job="nktp-gateway-logs"}
+
+  - name: load
+    generators:                   # Both generators and the measurement run together.
+      - name: small
+        type: statefulset
+        spec:
+          count: 1                # One StatefulSet, containing one Pod.
+          replicas: 1
+          duration: 5m            # Longer than the 3m completion deadline below.
+          podTemplate: {}         # Replace with the small template linked above.
+      - name: large
+        type: statefulset
+        spec:
+          count: 1
+          replicas: 1
+          duration: 5m
+          podTemplate: {}         # Replace with the large template linked above.
+    measurement:                  # One observer containing multiple named entries.
+      type: prometheus
+      spec:
+        endpoint: http://127.0.0.1:9090
+        duration: 3m              # Fail if the completion target is not reached.
+        interval: 15s             # Poll immediately, then on 15s ticker events.
+        query_timeout: 10s        # Limit each Prometheus request.
+        measurements:
+          - name: producer_rate
+            units: records/s
+            # This run only. Queries record observations without setting thresholds.
+            query: |-
+              sum by (scale_bucket) (
+                rate(vector_component_sent_events_total{
+                  component_id="stdout_load",test_run_id="{{ .Args.runId }}"
+                }[1m])
+              )
+          - name: gateway_unavailable
+            check:
+              action: fail        # Default action. Cancels peers and stops the plan.
+              for: 30s            # The same labels must match throughout the hold.
+              # Pipeline-wide. Also fail when the gateway target disappears.
+              expr: |-
+                (up{job="nktp-gateway-logs"} == 0)
+                or absent(up{job="nktp-gateway-logs"})
+          - name: producers_active
+            check:
+              action: complete    # Stop generators, await cleanup, finish this stage.
+              for: 30s            # Failure still takes precedence over completion.
+              # Both producers must emit and have a sample less than 30s old.
+              # Adjust 2 if count/replicas change. This checks production, not delivery.
+              # Filtering comparisons (no bool) produce one matching series or none.
+              expr: |-
+                count(
+                  (rate(vector_component_sent_events_total{
+                    component_id="stdout_load",test_run_id="{{ .Args.runId }}"
+                  }[1m]) > 0)
+                  and (time() - timestamp(vector_component_sent_events_total{
+                    component_id="stdout_load",test_run_id="{{ .Args.runId }}"
+                  }) < 30)
+                ) == 2
+```
 
 ## Plans and stages
 
@@ -10,112 +117,98 @@ environment.
 | --- | --- |
 | `name` | Nonempty plan name |
 | `timeout` | Positive execution deadline, including workload startup and recovery |
-| `stages` | Stages executed in declaration order |
-| `stages[].name` | Unique stage name |
+| `stages` | Nonempty list executed in declaration order |
+| `stages[].name` | Nonempty, unique stage name |
 | `stages[].generators` | Parallel generators, each with a unique `name`, `type` and `spec` |
 | `stages[].measurement` | Optional observer with a `type` and `spec` |
 
-Generators run concurrently with their stage's measurement. The next stage starts
-only after all components finish and their workloads are cleaned up. A component
-error cancels its peers and stops the plan, preserving partial results and cleanup
-errors. Without a completion check, a measurement finishing does not stop its
-generators.
-
-Omit `measurement` for a load-only stage or `generators` for an observation-only
-stage. A stage must contain at least one of them. Plan and generator settings are
-validated before workloads start. Kubernetes validates native workload fields
-when resources are created.
+Omit `measurement` for load-only stages or `generators` for observation-only
+stages. At least one must be present. Plan and component specs are validated
+before execution. Kubernetes validates native workload fields on creation.
 
 ## Generators
 
-| Type | Configuration in `spec` | Completion |
+| Type | Configuration in `spec` | Normal completion |
 | --- | --- | --- |
-| `job` | `podTemplate`, optional `count`, `parallelism`, `completions`, `context` | Every Job completes |
-| `pod` | `podTemplate`, optional `count` | Every Pod succeeds |
+| `job` | `podTemplate`, optional `count`, `parallelism`, `completions`, `context` | Every Job completes. Failed Jobs are not retried |
+| `pod` | `podTemplate`, optional `count` | Every Pod succeeds. Pods are not replaced |
 | `statefulset` | `podTemplate`, positive `duration`, optional `count`, `replicas` | Every set finishes its duration and is Ready |
-| `kubernetes` | Positive `duration` and named `nodeGroups` with `replicas` and `nodeTemplate` | All KWOK nodes become Ready and remain for the duration |
+| `kubernetes` | Positive `duration`, named `nodeGroups` with `replicas` and `nodeTemplate` | All KWOK nodes become Ready and remain for the duration |
 
-`podTemplate` is a native Kubernetes PodTemplateSpec. Put the namespace and labels
-in `metadata`, and containers, resources, volumes, scheduling and probes in
-`spec`. The namespace defaults to `default` and must already exist. Generated
-names and `scale.nktp.io/generator` ownership labels are reserved for the runner.
+| Setting | Meaning / default |
+| --- | --- |
+| `podTemplate` | Native Kubernetes PodTemplateSpec: namespace/labels in `metadata`. Containers, resources, volumes, scheduling and probes in `spec` |
+| Namespace | Defaults to `default`. Must already exist |
+| Ownership | Generated names and `scale.nktp.io/generator` labels are reserved for the runner |
+| Job/Pod/StatefulSet `count` | Workload objects per generator. Default `1`, accepts `0`. Objects run concurrently |
+| Job `parallelism` / `completions` | Positive Pods in parallel / total completions. Default `1` / `parallelism` |
+| StatefulSet `replicas` | Pods per set. Default `1`, accepts `0`. Independent of `count` |
+| Pod lifecycle | Jobs default to `restartPolicy: Never`. Standalone Pods must exit successfully. StatefulSets require long-lived containers with `Always` |
+| KWOK node groups | Unique `name`, positive `replicas` (default `1000`), native `nodeTemplate`. Allocatable defaults to `status.capacity` |
+| Cluster | Generators use the plan's kubeconfig. Job `context` can select another context in that file |
 
-For Jobs, Pods and StatefulSets, `count` is the number of workload objects. It
-defaults to one and accepts zero to create none. Objects run concurrently.
-Job `parallelism` defaults to one and `completions` defaults to `parallelism`.
-Both must be positive. StatefulSet `replicas` defaults to one and accepts zero.
-These fields control Pods per object, independently of `count`.
-
-Jobs and Pods need binaries that exit successfully within the plan deadline.
-Jobs default to restart policy `Never` and do not retry failed Jobs. Pods are
-created once and are not replaced. StatefulSets require long-lived containers
-with restart policy `Always`. Each set's duration starts when all its replicas
-first become Ready. Pod replacement does not restart that timer. The plan timeout
-also bounds scheduling and recovery.
-
-The `kubernetes` generator creates nodes only. Each node group has a unique
-`name`, positive `replicas` (default 1,000), and a native Kubernetes `nodeTemplate`.
-Set capacity under `status.capacity`. Allocatable resources default to capacity.
-KWOK simulates resources and lifecycle without running containers. The
+KWOK simulates nodes and Pod lifecycles without running containers. The
 [KWOK example](examples/kwok/README.md) combines node and Pod generators.
-
-All Kubernetes generators use the plan's kubeconfig. Job `context` can select
-another context in that file. They remove their owned resources before returning,
-including after partial startup, failure or cancellation. Cleanup has its own
-bounded timeout and can extend past the plan deadline. Allow for it in
-`TEST_TIMEOUT`. Cleanup failures fail the run.
 
 ## Arguments and attribution
 
-Plans use Go `text/template`. Supply values with repeated `-arg NAME=VALUE`
-flags after `--`, then reference them as `{{ .Args.name }}`. Hyphenated names
-become camel case, so `sample-rate` becomes `.Args.sampleRate`. Missing referenced
-arguments and duplicate normalized names fail the command.
+| Input | Use |
+| --- | --- |
+| `-plan PATH` | Required plan file. Prefer an absolute path |
+| `-arg NAME=VALUE` | Repeat after `--` in `task scale:test`. Reference as `{{ .Args.name }}` in the plan |
+| Hyphenated arguments | `sample-rate` becomes `.Args.sampleRate`. Missing referenced arguments and duplicate normalized names fail |
+| `-arg run-id=example-123` | Supplies `.Args.runId`. Omitted IDs are generated and printed in the report |
+| Run ID format | 1–63 ASCII letters, digits, underscores, hyphens or dots. First and last characters must be letters or digits |
+| Run attribution | Put the ID in emitted attributes / scrape labels **and** query filters. It does not filter pipeline-wide metrics automatically |
+| Template quoting | Plans use Go `text/template`. Quote string references and escape supplied values for YAML and PromQL |
+| Literal template text | Write `{{ "{{ .Args.name }}" }}` to emit `{{ .Args.name }}` |
 
-`-arg run-id=example-123` supplies `.Args.runId`. Omit it for a fresh ID printed
-in the report. IDs accept 1 to 63 ASCII letters, digits, underscores, hyphens or
-dots, with a letter or digit at each end. Use the same ID in generator attributes
-and query filters to distinguish runs. Pipeline-wide queries can still include
-background traffic.
-
-Quote template references that must remain YAML strings and escape supplied
-values for the surrounding YAML or query syntax. To emit a literal reference,
-use `{{ "{{ .Args.name }}" }}`.
+See [run a workload](README.md#run-a-workload) for kubeconfig selection, path
+resolution and the outer Go test timeout.
 
 ## Prometheus measurements
 
-Use measurement `type: prometheus` with these fields in `spec`:
-
-| Field | Meaning |
+| Field in `measurement.spec` | Meaning / default |
 | --- | --- |
-| `endpoint` | HTTP or HTTPS Prometheus URL reachable from the test host |
-| `duration` | Positive collection window starting with the stage |
-| `interval` | Polling interval, default `15s` |
-| `query_timeout` | Timeout per query, default `10s` |
-| `measurements` | Nonempty list of named query or check entries |
+| `endpoint` | HTTP(S) Prometheus base URL reachable from the test host |
+| `duration` | Positive collection window starting with the stage. Maximum wait when a completion check exists |
+| `interval` | Positive interval. Poll immediately, then on 15-second ticker events by default. Slow query rounds may skip ticks |
+| `query_timeout` | Positive timeout per query. Default `10s` |
+| `measurements` | Nonempty list. Each entry has a unique `name` and exactly one of `query` or `check` |
+| Entry `units` | Optional display units. `bytes` and `bytes/s` scale automatically |
 
-Each entry has a unique `name`, optional `units`, and exactly one of `query` or
-`check`. Queries contain PromQL and report observations without deciding an
-outcome. Reports include per-series statistics and histograms, with missing data,
-warnings and errors shown separately. Units `bytes` and `bytes/s` scale the
-display automatically. Collection errors fail the plan and retain partial data.
+| Entry | Behavior |
+| --- | --- |
+| `query: <PromQL>` | Collect observations. No performance threshold. Request/evaluation errors fail the plan except cancellation caused by measurement expiry. That request is omitted. An unconfirmed completion check still fails the stage |
+| `check.expr` | Instant-vector PromQL. Every returned series matches, including a zero-valued sample. Use filtering comparisons without `bool` |
+| `check.for` | Hold for the same labels across consecutive evaluations. Default immediate. Must be shorter than `duration` |
+| `check.action: fail` | Default action. Any matching series that satisfies the hold fails the plan |
+| `check.action: complete` | At most one per measurement. Must match one finite float series with stable labels. Stops generators and advances after cleanup |
+| Empty check result | Resets pending holds. Does not fire. Use `absent(...)` when missing telemetry should fail |
+| Freshness | PromQL lookback can include earlier stages. Scope to the intended run/load and check sample timestamps for completion |
 
-Checks contain `expr`, optional `for` and optional `action`. Expressions must
-return instant vectors. Every returned series is a match, including a zero
-value. Use filtering comparisons such as `up == 0`, without `bool`. An omitted
-`for` acts immediately. Otherwise the same labels must remain present at every
-evaluation for that duration, which must be shorter than the collection window.
-Missing series reset their timers. Empty results do not fire failure checks.
-Use an explicit absence expression when missing telemetry should fail.
+## Timing and cleanup
 
-`action: fail` is the default and stops the plan when a condition holds.
-`action: complete` stops the stage's generators and advances after cleanup. Only
-one completion check is allowed per measurement. It must match a single finite
-float series with stable labels. Empty results cannot complete a stage.
+| Event / deadline | Effect |
+| --- | --- |
+| Ordinary measurement expiry | Ends observation. Generators keep running. Stage waits for all components |
+| Completion target reached | Requests generator shutdown. Stage waits for all components and cleanup |
+| Completion target unmet at `duration` | Fails the stage |
+| Generator exits before required target | Fails the stage even if the generator succeeded. Keep generators running longer than the measurement window |
+| Component error, failure check, plan timeout or caller cancellation | Cancels peers. Stops the plan. Retains partial findings. Failures take precedence over completion |
+| StatefulSet `duration` | Starts when all replicas first become Ready. Pod replacement does not restart it. Plan timeout also bounds scheduling/recovery |
+| Cleanup | Generators remove owned resources after success, failure, partial startup or cancellation. Cleanup has its own bounded timeout and errors fail the run |
+| `TEST_TIMEOUT` | Outer Go test limit. Allow time beyond the plan timeout for cleanup |
+| Installed environment | Persists between plans. Remove it using [shared cleanup](README.md#cleanup) |
 
-With a completion check, `duration` is the maximum wait. An unmet target or a
-generator finishing before it fails the stage, so keep generators running longer
-than that window. Failure checks, query errors, cleanup errors and caller
-cancellation take precedence over completion. PromQL lookback windows can contain
-samples from earlier stages, so completion conditions should verify fresh data
-and the intended load.
+## Reports
+
+| Output | Contents |
+| --- | --- |
+| Plan | Plan name, run ID and started stages in declaration order |
+| Stage | Named generator outcomes, measurement results and errors, including cleanup failures |
+| Query | Per-series statistics and histograms. Missing samples, warnings and errors shown separately |
+| Check | Expression, hold duration, attempts and firing status. Firing time and matching series appear when fired. `Action: complete` appears for completion checks, whether or not they fire |
+
+The command prints reports even when execution fails. Execution errors fail the
+test. Successful workload execution alone does not verify backend delivery.

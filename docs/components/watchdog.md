@@ -15,6 +15,9 @@ The bundled OpenTelemetry Operator manages the watchdog. Autoscaling requires th
 Kubernetes resource metrics API, commonly provided by metrics-server.
 Setting `watchdog.kubernetes.targetAllocator.enabled` to `false` will cause Helm
 rendering to fail.
+The allocator has independent resource and security settings under
+`watchdog.kubernetes.targetAllocator`. See
+[allocator configuration](node_collector.md#target-allocator) for its security defaults.
 
 Configure the Collector through `watchdog.otelcol.config`.
 

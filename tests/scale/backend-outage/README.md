@@ -8,7 +8,7 @@ a verification backend down for one minute before measuring recovery. The
 scrape templates are based on real-world samples of kube-state-metrics and
 dcgm-exporter scrapes. The default mixed template combines 192 text bytes with
 ten labels to exercise the higher memory cost of many short attributes; see
-[Estimate queue storage overhead](#estimate-queue-storage-overhead).
+[Measure in-memory queue heap overhead](#measure-in-memory-queue-heap-overhead).
 
 If your metrics differ from these scrape templates, supply a representative
 `.prom` template, measure its overhead, and size the queue with room for baseline heap
@@ -199,7 +199,50 @@ Heaps are saved every 30s in `heaps/`; change `-outage-heap-interval`, or set it
 
 Temporary workloads are removed on completion, failure, or Ctrl+C.
 
-## Estimate queue storage overhead
+## Measure persistent queue volume usage and I/O
+
+Use `-outage-gateway-storage` to measure volume usage and gateway read/write
+activity during normal operation, a backend outage, and recovery. It puts the
+gateway queue on a PVC without changing its capacity. This requires outage
+mode, a provisioning StorageClass, and kubeconfig permissions for `pods/exec`
+and `nodes/proxy`.
+
+After the [scale cluster setup](../README.md#setup), run from the repository
+root. Edit the output directory and storage size for your experiment:
+
+```sh
+OUTPUT_DIR=/tmp/nktp-outage-volume
+QUEUE_STORAGE=1Gi
+
+task scale:outage KUBECONFIG="$PWD/tests/scale/.kubeconfig" -- \
+  -outage-gateway-storage "$QUEUE_STORAGE" \
+  -outage-output "$OUTPUT_DIR"
+```
+
+The claim uses the default StorageClass; add
+`-outage-gateway-storage-class local-path` to select Kind's class explicitly.
+Cleanup removes the claim, but a StorageClass with a `Retain` reclaim policy
+leaves the PV for you to delete.
+
+Read `.gateway_volume` in `report.json`:
+
+- `peak_allocated_bytes` shows peak queue volume usage; `peak_growth_bytes`
+  shows growth above the initial allocation. `samples` tracks usage over time.
+  Apparent file size can differ from allocated volume space.
+- `phases` shows average and peak sampled read/write bytes per second and
+  IOPS per device. Compare these with queue occupancy and recovery time to
+  assess storage demand. Recovery drains the backlog with input paused.
+- Check `usage_errors`, `io_errors`, and `counter_resets` before using the
+  measurements. Missing metrics are unavailable, not zero. If
+  `io_activity_observed` is false, gateway I/O attribution remains unverified.
+  A delivery PASS alone does not establish valid volume measurements.
+
+I/O counters cover the gateway container, excluding other workloads' activity.
+Other processes can still cause storage contention, and caching can hide physical
+reads or delay writes. Treat the results as observations of this workload;
+Kind local storage does not establish production-volume requirements.
+
+## Measure in-memory queue heap overhead
 
 A text sample such as `metric{label="value"} 1` does not occupy only that many
 bytes in an in-memory sending queue. The queue counts serialized OTLP bytes,

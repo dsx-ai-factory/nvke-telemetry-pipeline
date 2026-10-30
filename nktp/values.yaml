@@ -17,7 +17,7 @@ global:
   #           repository: <mirror>/open-telemetry/opentelemetry-operator/opentelemetry-operator
   #     cleanupJob:
   #       image:
-  #         repository: <mirror>/rancher/kubectl
+  #         repository: <mirror>/kubectl
   imageRegistry: ""
 
   # Cluster name to set as k8s.cluster.name on telemetry that leaves NKTP for the
@@ -88,6 +88,15 @@ watchdog:
       mtls:
         enabled: true # Let cert-manager secure Collector requests to the allocator.
       replicas: 1
+      podSecurityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
       allocationStrategy: consistent-hashing
       resources:
         requests:
@@ -1452,6 +1461,15 @@ daemonset:
       mtls:
         enabled: true # Let cert-manager secure Collector requests to the allocator.
       replicas: 1
+      podSecurityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
       allocationStrategy: per-node # Targets without a matching collector node stay unassigned.
       resources:
         requests:
@@ -2920,10 +2938,12 @@ opentelemetry-kube-stack:
       enabled: false
   clusterRole:
     enabled: false
-  # Uninstall hook. opentelemetry-kube-stack's default kubectl tag lags upstream security fixes.
+  # Uninstall hook. opentelemetry-kube-stack's default rancher/kubectl image lags upstream
+  # security fixes; the official image is rebuilt with each Kubernetes patch release.
   cleanupJob:
     image:
-      tag: v1.35.6
+      repository: registry.k8s.io/kubectl
+      tag: v1.35.10
   opentelemetry-operator:
     fullnameOverride: nktp-operator
     manager:

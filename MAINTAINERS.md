@@ -1,13 +1,13 @@
 # Maintainers
 
-NKTP is maintained by the `@nvidia-dev/nktp-maintainers` team referenced from
+NKTP is maintained by the `@dsx-ai-factory/nktp-maintainers` team referenced from
 [.github/CODEOWNERS](.github/CODEOWNERS). That team is the authoritative,
 always-current membership list; this file describes what maintainers do and how
 to reach them rather than duplicating it.
 
 ## Contacting the maintainers
 
-- **Reviews and technical questions:** mention `@nvidia-dev/nktp-maintainers` on
+- **Reviews and technical questions:** mention `@dsx-ai-factory/nktp-maintainers` on
   the relevant issue or pull request.
 - **Bugs, proposals, and questions:** use the issue forms described under
   [Reporting bugs, proposing changes, and asking questions](CONTRIBUTING.md#reporting-bugs-proposing-changes-and-asking-questions).

@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/NVIDIA-dev/nktp/tests/scale/pkg/measurements"
+	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/scale/pkg/measurements"
 	"github.com/prometheus/common/model"
 )
 

@@ -75,7 +75,7 @@ spec:
 {{- $clients := list
       (dict "name" "nktp-daemonset-client" "commonName" "nktp-daemonset")
       (dict "name" "nktp-large-target-metrics-client" "commonName" "nktp-large-target-metrics")
-      (dict "name" "nktp-cluster-events-client" "commonName" "nktp-cluster-events") 
+      (dict "name" "nktp-cluster-events-client" "commonName" "nktp-cluster-events")
       (dict "name" "nktp-gateway-traces-client" "commonName" "nktp-gateway-traces")
       (dict "name" "nktp-gateway-logs-client" "commonName" "nktp-gateway-logs")
       (dict "name" "nktp-gateway-metrics-client" "commonName" "nktp-gateway-metrics") -}}

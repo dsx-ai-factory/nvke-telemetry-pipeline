@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NVIDIA-dev/nktp/tests/internal/config"
-	"github.com/NVIDIA-dev/nktp/tests/internal/funcs"
+	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/internal/config"
+	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/internal/funcs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"helm.sh/helm/v4/pkg/action"

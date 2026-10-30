@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/NVIDIA-dev/nktp/tests/scale/backend-outage/pkg/outagereport"
+	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/scale/backend-outage/pkg/outagereport"
 )
 
 func main() {

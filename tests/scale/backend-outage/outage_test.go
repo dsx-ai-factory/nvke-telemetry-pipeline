@@ -43,6 +43,8 @@ var outageGatewayQueueBytes = flag.Int64("outage-gateway-queue-bytes", 128<<20, 
 var outageGatewayMemoryLimit = flag.String("outage-gateway-memory-limit", "1Gi", "gateway memory limit (empty inherits source)")
 var outageGatewayQueuePercent = flag.Float64("outage-gateway-queue-percent", 0, "gateway queue percentage of memory limit (replaces default bytes; exclusive with explicit positive queue-bytes)")
 var outageGatewaySpikePercent = flag.Int("outage-gateway-spike-percent", -1, "gateway memory-limiter spike percentage of container memory (-1 inherits source; positive and below hard limit)")
+var outageGatewayStorage = flag.String("outage-gateway-storage", "", "gateway persistent queue PVC size, e.g. 1Gi (empty uses in-memory queue)")
+var outageGatewayStorageClass = flag.String("outage-gateway-storage-class", "", "persistent queue StorageClass (empty uses cluster default)")
 
 var outageScraperImage = flag.String("outage-scraper-image", "", "scraper image override (k8s distribution defaults to matching contrib image for test counters)")
 var outageScraperSource = flag.String("outage-scraper-source", "nktp-large-target-metrics", "installed Collector to derive the scraper from")
@@ -58,6 +60,7 @@ type runConfig struct {
 	GatewaySource, GatewayNamespace, ScraperSource, ScraperNamespace string
 	Gateway                                                          collectorOptions
 	GatewaySpike                                                     int
+	GatewayStorage, GatewayStorageClass                              string
 	Scraper                                                          scraperOptions
 	BackendMemory                                                    string
 	ScrapeSeries, OverheadScrapes                                    int
@@ -73,6 +76,12 @@ func configFromFlags(t *testing.T) runConfig {
 	explicit := map[string]bool{}
 	flag.Visit(func(f *flag.Flag) { explicit[f.Name] = true })
 	require.NoError(t, validateMode(*outageMode, *outageDuration, *outageScrapeInterval, *outageQueueOverheadScrapes, *outageQueueOverheadSettleTimeout, explicit))
+	if *outageGatewayStorage == "" && *outageGatewayStorageClass != "" {
+		t.Fatal("-outage-gateway-storage-class requires -outage-gateway-storage")
+	}
+	if *outageGatewayStorage != "" && *outageMode == "queue-overhead" {
+		t.Fatal("persistent storage requires outage mode; queue-overhead mode estimates in-memory queue heap")
+	}
 	if *outageScrapeSeries <= 0 || *outageScrapeInterval <= 0 || *outageBaseline < *outageScrapeInterval || *outageRecovery <= 0 || *outageVerificationScrapeTimeout <= 0 || *outageHeapInterval < 0 {
 		t.Fatal("series/interval/recovery must be positive; baseline must cover at least one scrape interval")
 	}
@@ -91,8 +100,9 @@ func configFromFlags(t *testing.T) runConfig {
 		ScrapeTemplate: *outageScrapeTemplate, BackendManifest: *outageManifest,
 		GatewaySource: *outageGatewaySource, GatewayNamespace: *outageGatewaySourceNamespace,
 		ScraperSource: *outageScraperSource, ScraperNamespace: *outageScraperSourceNamespace,
-		Gateway:      collectorOptions{MemoryLimit: *outageGatewayMemoryLimit, QueueBytes: queueBytes, QueuePercent: *outageGatewayQueuePercent},
-		GatewaySpike: *outageGatewaySpikePercent,
+		Gateway:        collectorOptions{MemoryLimit: *outageGatewayMemoryLimit, QueueBytes: queueBytes, QueuePercent: *outageGatewayQueuePercent},
+		GatewaySpike:   *outageGatewaySpikePercent,
+		GatewayStorage: *outageGatewayStorage, GatewayStorageClass: *outageGatewayStorageClass,
 		Scraper: scraperOptions{
 			collectorOptions: collectorOptions{MemoryLimit: *outageScraperMemoryLimit, QueueBytes: *outageScraperQueueBytes, QueuePercent: *outageScraperQueuePercent},
 			Interval:         *outageScrapeInterval, Image: *outageScraperImage, DisableBatch: *outageScraperDisableBatch,
@@ -129,14 +139,19 @@ func validateMode(mode string, duration, interval time.Duration, scrapes int, se
 
 // TestBackendOutage measures queue retention, memory, and client backpressure
 // through a healthy baseline, an isolated backend outage, and delivery
-// recovery.
+// recovery. Optional gateway persistence requires a provisioning StorageClass,
+// pods/exec access for directory accounting, and nodes/proxy access for cAdvisor
+// metrics. Volume observations are scoped to the gateway container and queue
+// directory; missing metrics are recorded separately from delivery assertions.
+// Cleanup deletes the test namespace and PVC; PV deletion follows the
+// StorageClass reclaim policy.
 func TestBackendOutage(t *testing.T) {
 	config := configFromFlags(t)
 	ctx, stop := signal.NotifyContext(t.Context(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	run := newRun(t, ctx, config)
 	run.setup()
-	run.monitor = startMonitor(ctx, run.output, run.gateway, run.scraper, run.backend, config.HeapInterval)
+	run.monitor = startMonitor(ctx, run.output, run.gateway, run.scraper, run.backend, config.HeapInterval, run.volume)
 	defer run.finishMonitoring()
 	run.runBaseline()
 	run.takeBackendDown()

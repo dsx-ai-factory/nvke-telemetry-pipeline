@@ -1,6 +1,6 @@
 # NKTP Helm Chart
 
-NVKE telemetry pipeline (NKTP) runs OpenTelemetry Collectors on a Kubernetes cluster.
+NVKE Telemetry Pipeline (NKTP) runs OpenTelemetry Collectors on a Kubernetes cluster.
 
 The chart deploys a pipeline that collects a cluster's metrics, logs and traces
 and exports them over OTLP: a Collector on every node, a scrape pool for large
@@ -28,8 +28,7 @@ Provide the following before installing NKTP.
   three integrations. See [More information](#more-information) for the
   documentation covering installation and configuration.
 - **Image registry access** to `docker.io`, `ghcr.io`, `quay.io` and
-  `registry.k8s.io`, or mirrors of them. The uninstall hook also pulls
-  `rancher/kubectl` from `docker.io`. See [Image registry](#image-registry).
+  `registry.k8s.io`, or mirrors of them. See [Image registry](#image-registry).
 - **Network access** between components. The Kubernetes API server must reach the
   Operator's admission webhook on TCP 9443 on the nodes; managed clusters can
   block this with firewall rules or security groups. Node collectors scrape their
@@ -154,7 +153,10 @@ reader also needs `POD_NAMESPACE`.
 
 The watchdog, node collector, and large-target pool require their Target
 Allocators. Setting `targetAllocator.enabled: false` for any of them fails
-rendering.
+rendering. Each allocator runs one non-root replica with a read-only root
+filesystem, no privilege escalation, dropped capabilities, and `RuntimeDefault`
+seccomp. Configure its resources and security under
+`<component>.kubernetes.targetAllocator`, independently of the Collector.
 
 ### Resource defaults
 
@@ -266,7 +268,21 @@ This README is packaged into the chart, where links to other files do not
 resolve. Keep it self-contained: it must not link to other documentation,
 except the link below.
 
+## Notice and disclaimer
+
+**NOTICE AND DISCLAIMER:** This software automatically retrieves, accesses or
+interacts with external materials. Those retrieved materials are not distributed
+with this software and are governed solely by separate terms, conditions and
+licenses. You are solely responsible for finding, reviewing and complying with
+all applicable terms, conditions, and licenses, and for verifying the security,
+integrity and suitability of any retrieved materials for your specific use case.
+This software is provided "AS IS", without warranty of any kind. The author
+makes no representations or warranties regarding any retrieved materials, and
+assumes no liability for any losses, damages, liabilities or legal consequences
+from your use or inability to use this software or any retrieved materials. Use
+this software and the retrieved materials at your own risk.
+
 ## More information
 
-The [NKTP documentation](https://github.com/NVIDIA-dev/nktp/tree/main/docs)
+The [NKTP documentation](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/tree/main/docs)
 covers each component, configuration guides, operations, and design documents.

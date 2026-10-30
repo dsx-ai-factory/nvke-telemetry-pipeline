@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	runner "github.com/NVIDIA-dev/nktp/tests/scale/pkg"
-	"github.com/NVIDIA-dev/nktp/tests/scale/pkg/format"
+	runner "github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/scale/pkg"
+	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/scale/pkg/format"
 )
 
 // planPath selects a YAML plan relative to tests/scale or by absolute path.

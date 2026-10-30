@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NVIDIA-dev/nktp/tests/internal/funcs"
+	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/internal/funcs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"

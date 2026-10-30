@@ -4,8 +4,8 @@ contact_links:
     url: https://www.nvidia.com/en-us/security/report-vulnerability/
     about: Do not disclose security vulnerabilities in a public issue. Report them privately to NVIDIA PSIRT.
   - name: Browse answered questions
-    url: https://github.com/NVIDIA-dev/nktp/issues?q=is%3Aissue+label%3Aquestion
+    url: https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/issues?q=is%3Aissue+label%3Aquestion
     about: Look for an existing answer under the question label before asking.
   - name: Documentation
-    url: https://github.com/NVIDIA-dev/nktp/blob/main/docs/README.md
+    url: https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/docs/README.md
     about: Chart documentation and design documents.

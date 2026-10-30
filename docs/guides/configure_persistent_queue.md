@@ -9,10 +9,10 @@ on a PersistentVolume with the
 [`file_storage` extension](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/v0.162.0/extension/storage/filestorage).
 The default Collector image includes the extension.
 
-The queue holds data only while a Collector cannot reach its backend. Storing
-it on disk does not change retries: a batch that still fails after
-`retry_on_failure.max_elapsed_time`, 30 minutes by default, is dropped. Raise it
-on the `otlp` exporter to keep data through longer outages.
+The persistent queue stores telemetry before export, even while the backend is
+available. Persisting it on a volume does not change retries: a batch that
+still fails after `retry_on_failure.max_elapsed_time`, 30 minutes by default,
+is dropped. Raise it on the `otlp` exporter to keep data through longer outages.
 
 ## Prerequisites
 
@@ -60,7 +60,7 @@ watchdog:
           # storageClassName: <class>
           resources:
             requests:
-              storage: 3Gi
+              storage: 2Gi
     persistentVolumeClaimRetentionPolicy:
       whenDeleted: Retain
       whenScaled: Retain
@@ -79,7 +79,7 @@ watchdog:
         otlp:
           sending_queue:
             storage: file_storage/queue
-            queue_size: 536870912
+            queue_size: 515396076
       service:
         extensions: [health_check, file_storage/queue]
 ```
@@ -92,20 +92,33 @@ lists by hand when combining it with another example, such as the one in
 
 ## Size the volumes
 
-`queue_size` counts serialized bytes and bounds each queue. The chart's
-defaults are 8MiB per signal for the watchdog and about 0.48 GiB for each
-gateway. The example sets 512MiB for every queue, which is half of the space it
-gives each queue.
+With `sizer: bytes`, `queue_size` limits the size of serialized telemetry
+accepted by each sending queue. **It does not measure or limit the queue's
+actual memory usage or the space allocated to its database files on the
+volume.** The example uses:
 
-Keep `queue_size` at no more than half of the space for each queue. A full
-512MiB queue took 530MiB on disk, and the file grew to 635MiB while the queue
-drained. The file does not shrink afterwards. When the volume fills, queue
-writes fail with `no space left on device`. In a test with `queue_size` equal
-to the volume, a restarted Collector took about six minutes to drain, lost the
-batches it had in flight, and failed to delete some sent items, which can be
-sent again after a later restart. Each gateway has one queue and claims 1Gi. The
-watchdog keeps a separate queue for each of its three signals and claims 3Gi.
-Raise `queue_size` and the claim together to ride out longer backend outages.
+| Collector | `sending_queue.queue_size` (serialized bytes per signal) | Serialized capacity per replica | Volume request per replica |
+| --- | ---: | --- | --- |
+| Watchdog | `515396076` | Approximately 0.48GiB per signal, 1.44GiB total | `2Gi` |
+| Each gateway | `515396076` | Approximately 0.48GiB | `1Gi` |
+
+Size each replica's volume for all its queues plus database overhead, then
+round up to a whole GiB. Watchdog has separate logs, metrics, and traces
+queues: `queue_size` applies to each signal, not their combined size.
+Although its configuration defines `otlp` only once, using that exporter in
+the logs, metrics, and traces pipelines creates three independent queues,
+each with the full `queue_size` capacity.
+In the [persistent gateway queue test](../../tests/scale/backend-outage/README.md#measure-persistent-queue-volume-usage-and-io),
+a 128MiB queue reached 114.9MiB of serialized telemetry and peak allocated
+storage of 138.3MiB, about 20% above peak queue occupancy. Using 20% overhead as
+an estimate, watchdog needs `3 × 515396076 × 1.2` bytes, about 1.728GiB,
+rounded up to `2Gi`. Each gateway has one signal queue and requests `1Gi`.
+Overhead varies by workload; monitor volume usage to avoid failed queue writes
+when it fills.
+
+Increase `queue_size` to buffer more telemetry through longer backend outages,
+just as with an in-memory queue. Increase the volume request to fit the larger
+queues and storage overhead, and review the retry duration as well.
 
 Request at least the provider's minimum volume size. OCI block volumes have a
 minimum of 50GB.
@@ -116,6 +129,17 @@ is up to 400 volumes, or 20TB at the OCI minimum. Lower
 `autoscaler.maxReplicas` to bound it. With `whenScaled: Retain`, telemetry
 queued on a removed replica is sent when that replica scales back out. With
 `Delete`, it is discarded.
+
+## Storage performance
+
+Persistent queues write telemetry to the storage database before export, even
+when the backend is healthy. Storage latency, IOPS, and sustained read/write
+throughput can therefore limit normal ingestion and backlog recovery. The
+volume sizes above provide capacity, not a performance guarantee; NKTP has no
+validated minimum IOPS or throughput requirement.
+
+Validate the intended StorageClass under representative load, including
+draining a backlog while new telemetry arrives.
 
 ## Change the claim templates
 
