@@ -4,79 +4,48 @@
 version: '3'
 
 tasks:
-  up:
-    desc: Provision the scale Kind cluster and print its kubeconfig path
-    silent: true
-    preconditions:
-      - sh: test -z {{.CLI_ARGS | shellQuote}} && test -z {{.HELM_VALUES_FILE | default "" | shellQuote}}
-        msg: 'Install the environment separately with task scale:install.'
-      - sh: test -f environment/kind-config.yaml
-        msg: 'Kind config file not found: tests/scale/environment/kind-config.yaml'
-    cmds:
-      - |
-        for tool in docker kind kubectl; do
-          command -v "$tool" >/dev/null || { echo "missing: $tool" >&2; exit 1; }
-        done
-        docker info >/dev/null 2>&1 || { echo "Docker daemon is not running." >&2; exit 1; }
-        clusters=$(kind get clusters) || exit $?
-        if printf '%s\n' "$clusters" | grep -Fxq -- nktp-scale; then
-          echo "Cluster nktp-scale already exists." >&2
-        else
-          kind create cluster --name nktp-scale --image {{.NODE_IMAGE | shellQuote}} --config environment/kind-config.yaml --kubeconfig {{.TASKFILE_DIR | shellQuote}}/.kubeconfig >&2 || exit $?
-        fi
-        kind export kubeconfig --name nktp-scale --kubeconfig {{.TASKFILE_DIR | shellQuote}}/.kubeconfig >&2 || exit $?
-        nodes=$(kind get nodes --name nktp-scale) || exit $?
-        test -n "$nodes" || { echo "No Kind nodes found." >&2; exit 1; }
-        kubectl --kubeconfig {{.TASKFILE_DIR | shellQuote}}/.kubeconfig --context kind-nktp-scale wait --for=condition=Ready nodes $nodes --timeout=5m >&2 || exit $?
-        printf '%s\n' {{.TASKFILE_DIR | shellQuote}}/.kubeconfig
-
-  down:
-    desc: Delete the local scale Kind cluster and its kubeconfig
-    cmds:
-      - task: forward:down
-        vars:
-          KUBECONFIG_PATH: '{{.TASKFILE_DIR}}/.kubeconfig'
-          CONTEXT: kind-nktp-scale
-      - kind delete cluster --name nktp-scale --kubeconfig {{.TASKFILE_DIR | shellQuote}}/.kubeconfig
-      - rm -f {{.TASKFILE_DIR | shellQuote}}/.kubeconfig
-
   test:
     desc: Run a scale test plan against the selected environment
     dir: '{{.ROOT_DIR}}/tests'
-    vars:
+    vars: &environment
+      KUBECONFIG_PATH: &kubeconfig_path '{{if .KUBECONFIG}}{{if isAbs .KUBECONFIG}}{{clean .KUBECONFIG}}{{else}}{{joinPath .ROOT_DIR .KUBECONFIG}}{{end}}{{end}}'
+      CONTEXT: &context
+        sh: |
+          if test -f {{.KUBECONFIG_PATH | shellQuote}} && test -r {{.KUBECONFIG_PATH | shellQuote}}; then
+            kubectl --kubeconfig {{.KUBECONFIG_PATH | shellQuote}} config current-context
+          fi
       TEST_TIMEOUT: '{{.TEST_TIMEOUT | default "12m"}}'
-      TEST_KUBECONFIG: '{{if .KUBECONFIG}}{{if isAbs .KUBECONFIG}}{{clean .KUBECONFIG}}{{else}}{{joinPath .ROOT_DIR .KUBECONFIG}}{{end}}{{else}}{{.TASKFILE_DIR}}/.kubeconfig{{end}}'
+    requires: &kubeconfig_required
+      vars: [KUBECONFIG]
+    preconditions: &selected_cluster
+      - &kubeconfig_file
+        sh: test -f {{.KUBECONFIG_PATH | shellQuote}} && test -r {{.KUBECONFIG_PATH | shellQuote}}
+        msg: 'KUBECONFIG must name one readable kubeconfig file.'
+      - &current_context
+        sh: test -n {{.CONTEXT | shellQuote}}
+        msg: 'The kubeconfig must select a current context.'
     cmds:
-      - go test -tags scale -count=1 -v -timeout={{.TEST_TIMEOUT | shellQuote}} -run '^TestRun$' ./scale -args -kubeconfig {{.TEST_KUBECONFIG | shellQuote}} {{.CLI_ARGS}}
+      - go test -tags scale -count=1 -v -timeout={{.TEST_TIMEOUT | shellQuote}} -run '^TestRun$' ./scale -args -kubeconfig {{.KUBECONFIG_PATH | shellQuote}} {{.CLI_ARGS}}
 
   outage:
     desc: Simulate a backend outage to tune the gateway sending queue
     dir: '{{.ROOT_DIR}}/tests'
-    vars:
-      TEST_TIMEOUT: '{{.TEST_TIMEOUT | default "12m"}}'
-      TEST_KUBECONFIG: '{{if .KUBECONFIG}}{{if isAbs .KUBECONFIG}}{{clean .KUBECONFIG}}{{else}}{{joinPath .ROOT_DIR .KUBECONFIG}}{{end}}{{else}}{{.TASKFILE_DIR}}/.kubeconfig{{end}}'
+    vars: *environment
+    requires: *kubeconfig_required
+    preconditions: *selected_cluster
     cmds:
-      - go test -tags scale -count=1 -v -timeout={{.TEST_TIMEOUT | shellQuote}} -run '^TestBackendOutage$' ./scale/backend-outage -args -kubeconfig {{.TEST_KUBECONFIG | shellQuote}} {{.CLI_ARGS}}
+      - go test -tags scale -count=1 -v -timeout={{.TEST_TIMEOUT | shellQuote}} -run '^TestBackendOutage$' ./scale/backend-outage -args -kubeconfig {{.KUBECONFIG_PATH | shellQuote}} {{.CLI_ARGS}}
 
   install:
     dir: '{{.ROOT_DIR}}'
     desc: Install NKTP and the load-test environment in the selected cluster
     silent: true
-    vars: &environment
-      KUBECONFIG_PATH: '{{if .KUBECONFIG}}{{if isAbs .KUBECONFIG}}{{clean .KUBECONFIG}}{{else}}{{joinPath .ROOT_DIR .KUBECONFIG}}{{end}}{{end}}'
-      CONTEXT:
-        sh: |
-          if test -n {{.KUBECONFIG_PATH | shellQuote}} && test -r {{.KUBECONFIG_PATH | shellQuote}}; then
-            kubectl --kubeconfig {{.KUBECONFIG_PATH | shellQuote}} config current-context
-          fi
-    requires:
-      vars: [KUBECONFIG]
+    vars: *environment
+    requires: *kubeconfig_required
     preconditions:
-      - sh: test -f {{.KUBECONFIG_PATH | shellQuote}}
-        msg: 'KUBECONFIG must name one readable kubeconfig file.'
-      - sh: test -n {{.CONTEXT | shellQuote}}
-        msg: 'The kubeconfig must select a current context.'
-      - sh: test {{.INSTALL_KWOK | default "true" | shellQuote}} = true || test {{.INSTALL_KWOK | default "true" | shellQuote}} = false
+      - *kubeconfig_file
+      - *current_context
+      - sh: test {{.INSTALL_KWOK | default "false" | shellQuote}} = true || test {{.INSTALL_KWOK | default "false" | shellQuote}} = false
         msg: 'INSTALL_KWOK must be true or false.'
       - sh: '{{if .HELM_VALUES_FILE}}test -f {{.HELM_VALUES_FILE | shellQuote}}{{else}}true{{end}}'
         msg: 'HELM_VALUES_FILE must name an existing values file.'
@@ -105,18 +74,17 @@ tasks:
     desc: Uninstall NKTP and optionally KWOK from the selected cluster
     silent: true
     vars: *environment
-    requires:
-      vars: [KUBECONFIG]
+    requires: *kubeconfig_required
     preconditions:
-      - sh: test -f {{.KUBECONFIG_PATH | shellQuote}} && test -n {{.CONTEXT | shellQuote}}
-        msg: 'KUBECONFIG must name a readable file with a current context.'
-      - sh: test {{.INSTALL_KWOK | default "true" | shellQuote}} = true || test {{.INSTALL_KWOK | default "true" | shellQuote}} = false
+      - *kubeconfig_file
+      - *current_context
+      - sh: test {{.INSTALL_KWOK | default "false" | shellQuote}} = true || test {{.INSTALL_KWOK | default "false" | shellQuote}} = false
         msg: 'INSTALL_KWOK must be true or false.'
     cmds:
       - task: forward:down
         vars: *target
       - |
-        for entry in nktp/nktp {{if ne (.INSTALL_KWOK | default "true") "false"}}kube-system/kwok-stage-fast kube-system/kwok{{end}}; do
+        for entry in nktp/nktp {{if ne (.INSTALL_KWOK | default "false") "false"}}kube-system/kwok-stage-fast kube-system/kwok{{end}}; do
           namespace=${entry%/*}
           release=${entry#*/}
           if test "$release" = kwok-stage-fast; then
@@ -159,7 +127,7 @@ tasks:
     internal: true
     silent: true
     status:
-      - test {{.INSTALL_KWOK | default "true" | shellQuote}} = false
+      - test {{.INSTALL_KWOK | default "false" | shellQuote}} = false
     vars:
       HELM_STAGE_APPLY_FLAGS:
         sh: |
@@ -210,9 +178,13 @@ tasks:
         EOF_COLLECTORS
 
   forward:up:
-    internal: true
+    desc: Forward Prometheus and Grafana from the selected cluster
     silent: true
+    requires: *kubeconfig_required
+    preconditions: *selected_cluster
     vars: &forward_state
+      KUBECONFIG_PATH: *kubeconfig_path
+      CONTEXT: *context
       FORWARD_STATE: '{{env "TMPDIR" | default "/tmp"}}/nktp-scale-{{printf "%s\n%s\n%s" .ROOT_DIR .KUBECONFIG_PATH .CONTEXT | sha256sum}}'
     cmds:
       - task: forward:down
@@ -235,12 +207,14 @@ tasks:
         /bin/kill "$pid" 2>/dev/null || true
         rm -f {{.FORWARD_STATE | shellQuote}}.pid
         cat {{.FORWARD_STATE | shellQuote}}.log >&2
-        echo "Port-forward failed. Keep ports 9090 and 3000 free and retry task scale:install." >&2
+        echo "Port-forward failed. Keep ports 9090 and 3000 free and retry task scale:forward:up." >&2
         exit 1
 
   forward:down:
-    internal: true
+    desc: Stop Prometheus and Grafana forwarding for the selected cluster
     silent: true
+    requires: *kubeconfig_required
+    preconditions: *selected_cluster
     vars: *forward_state
     cmds:
       - |

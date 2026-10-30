@@ -5,7 +5,6 @@ dev/.tilt.log
 dev/.tilt.pid
 dev/.grafana-forward.log
 nktp/charts/*.tgz
-tests/scale/.kubeconfig
 tests/scale/.prometheus-port-forward.pid
 tests/scale/.prometheus-port-forward.log
 tests/scale/.grafana-port-forward.pid

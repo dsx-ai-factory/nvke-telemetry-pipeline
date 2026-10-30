@@ -4,11 +4,11 @@ One StatefulSet runs three source Pods for three minutes after readiness.
 Each sends 100 metric points and 100 log records per minute, with 1 KiB log bodies,
 directly to watchdog over mTLS on port 4317.
 
-Follow the [shared setup](../../README.md#setup), select `KUBECONFIG`, then run
+Follow the [shared setup](../../README.md#setup), set `KUBECONFIG`, then run
 from the repository root:
 
 ```sh
-task scale:install INSTALL_KWOK=false \
+task scale:install \
   HELM_VALUES_FILE=tests/scale/examples/watchdog/values.yaml
 task scale:test -- \
   -plan "$PWD/tests/scale/examples/watchdog/plan.yaml"

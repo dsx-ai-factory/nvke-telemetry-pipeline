@@ -20,11 +20,12 @@ client backpressure, and overall memory usage with that queue size.
 Preflight requires a healthy OpenTelemetry Operator in the gateway source
 namespace before creating test resources.
 
-Follow the [cluster setup](../README.md#setup) and stop other scale generators.
+Follow the [cluster setup](../README.md#setup), set `KUBECONFIG` and stop other
+scale generators.
 From the repository root:
 
 ```sh
-task scale:outage KUBECONFIG="$PWD/tests/scale/.kubeconfig" -- \
+task scale:outage -- \
   -outage-gateway-memory-limit 1Gi \
   -outage-gateway-queue-bytes 134217728 \
   -outage-scraper-memory-limit 8Gi \
@@ -214,13 +215,13 @@ root. Edit the output directory and storage size for your experiment:
 OUTPUT_DIR=/tmp/nktp-outage-volume
 QUEUE_STORAGE=1Gi
 
-task scale:outage KUBECONFIG="$PWD/tests/scale/.kubeconfig" -- \
+task scale:outage -- \
   -outage-gateway-storage "$QUEUE_STORAGE" \
   -outage-output "$OUTPUT_DIR"
 ```
 
-The claim uses the default StorageClass; add
-`-outage-gateway-storage-class local-path` to select Kind's class explicitly.
+The claim uses the default StorageClass. Use `-outage-gateway-storage-class`
+to select another class in your cluster.
 Cleanup removes the claim, but a StorageClass with a `Retain` reclaim policy
 leaves the PV for you to delete.
 
@@ -239,8 +240,7 @@ Read `.gateway_volume` in `report.json`:
 
 I/O counters cover the gateway container, excluding other workloads' activity.
 Other processes can still cause storage contention, and caching can hide physical
-reads or delay writes. Treat the results as observations of this workload;
-Kind local storage does not establish production-volume requirements.
+reads or delay writes. Results depend on the workload and storage backend.
 
 ## Measure in-memory queue heap overhead
 
@@ -272,7 +272,7 @@ comfortably in the queue. From the repository root, choose a fresh output path:
 ```sh
 OUTPUT_DIR=/tmp/nktp-queue-overhead-192b-10labels
 
-task scale:outage KUBECONFIG="$PWD/tests/scale/.kubeconfig" -- \
+task scale:outage -- \
   -outage-mode queue-overhead \
   -queue-overhead-scrapes 2 \
   -queue-overhead-settle-timeout 1m \

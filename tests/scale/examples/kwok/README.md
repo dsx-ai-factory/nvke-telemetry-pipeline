@@ -4,7 +4,7 @@ Create two emulated nodes and 20 Pods concurrently. Pods select only this run’
 nodes and complete after about 30 seconds of simulated Running time. Nodes remain
 for three minutes, then the framework removes them.
 
-Follow the [shared setup](../../README.md#setup), select `KUBECONFIG`, then run
+Follow the [shared setup](../../README.md#setup), set `KUBECONFIG`, then run
 from the repository root:
 
 ```sh
@@ -19,4 +19,4 @@ no workload image runs and the declared CPU and memory are simulated capacity.
 Change the node-group `replicas`, Pod `count` or node `duration` in
 [plan.yaml](plan.yaml). Keep nodes alive long enough for scheduling and completion.
 
-See [shared cleanup](../../README.md#cleanup) to remove the environment.
+Use `task scale:uninstall INSTALL_KWOK=true` for [cleanup](../../README.md#cleanup).

@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // TestResolveKubeconfig checks single-file selection and override precedence.
@@ -23,7 +25,7 @@ func TestResolveKubeconfig(t *testing.T) {
 		want      string
 		wantError string
 	}{
-		{name: "scale default", want: ".kubeconfig"},
+		{name: "unset has no fallback", wantError: "set KUBECONFIG or pass -kubeconfig"},
 		{name: "explicit path", path: "/tmp/custom kubeconfig", want: "/tmp/custom kubeconfig"},
 		{name: "relative path", path: "fixtures/kubeconfig", want: "fixtures/kubeconfig"},
 		{name: "trailing assignment overrides default", path: "/tmp/default", args: []string{"KUBECONFIG=/tmp/selected kubeconfig"}, want: "/tmp/selected kubeconfig"},
@@ -69,4 +71,15 @@ func TestRunRequiresPlan(t *testing.T) {
 	if err == nil || !strings.Contains(string(output), "-plan is required") {
 		t.Fatalf("runner without a plan: error = %v, output = %s", err, output)
 	}
+}
+
+// TestRunRequiresKubeconfig rejects missing credentials before loading a plan.
+func TestRunRequiresKubeconfig(t *testing.T) {
+	binary, err := os.Executable()
+	require.NoError(t, err)
+	t.Setenv("KUBECONFIG", "")
+	cmd := exec.CommandContext(t.Context(), binary, "-test.run=^TestRun$", "-test.timeout=5s", "-plan=missing-plan.yaml")
+	output, err := cmd.CombinedOutput()
+	require.Error(t, err, "runner without kubeconfig: output = %s", output)
+	require.Contains(t, string(output), "set KUBECONFIG or pass -kubeconfig")
 }

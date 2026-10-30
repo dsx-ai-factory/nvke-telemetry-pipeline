@@ -3,11 +3,11 @@
 Three Jobs send metrics, logs and traces over mTLS to the corresponding NKTP
 gateways for three minutes, using one worker at `--rate=10` per Job.
 
-Follow the [shared setup](../../README.md#setup), select `KUBECONFIG`, then run
+Follow the [shared setup](../../README.md#setup), set `KUBECONFIG`, then run
 from the repository root:
 
 ```sh
-task scale:install INSTALL_KWOK=false
+task scale:install
 task scale:test -- \
   -plan "$PWD/tests/scale/examples/telemetrygen/plan.yaml"
 ```

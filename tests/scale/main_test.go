@@ -21,7 +21,7 @@ import (
 var planPath = flag.String("plan", "", "required scale test plan file")
 
 // kubeconfigPath selects one file for every Kubernetes-backed generator in the plan.
-var kubeconfigPath = flag.String("kubeconfig", os.Getenv("KUBECONFIG"), "kubeconfig file (default: tests/scale/.kubeconfig)")
+var kubeconfigPath = flag.String("kubeconfig", os.Getenv("KUBECONFIG"), "kubeconfig file (default: KUBECONFIG)")
 
 // argumentValues holds the raw repeated flags so each TestRun gets a fresh default.
 var argumentValues []string
@@ -83,8 +83,7 @@ func resolveKubeconfig(path string, args []string) (string, error) {
 		path = value
 	}
 	if path == "" {
-		// Go runs this package's tests from tests/scale.
-		path = ".kubeconfig"
+		return "", fmt.Errorf("set KUBECONFIG or pass -kubeconfig")
 	}
 	if paths := filepath.SplitList(path); len(paths) > 1 {
 		return "", fmt.Errorf("kubeconfig %q lists multiple files: pass one path", path)

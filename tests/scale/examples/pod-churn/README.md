@@ -3,11 +3,11 @@
 Two Jobs each run two Pods concurrently and finish after six completions.
 Each real Pod sleeps for 30 seconds: up to four run at once and 12 run in total.
 
-Follow the [shared setup](../../README.md#setup), select `KUBECONFIG`, then run
+Follow the [shared setup](../../README.md#setup), set `KUBECONFIG`, then run
 from the repository root:
 
 ```sh
-task scale:install INSTALL_KWOK=false \
+task scale:install \
   HELM_VALUES_FILE=tests/scale/examples/pod-churn/values.yaml
 task scale:test -- \
   -plan "$PWD/tests/scale/examples/pod-churn/plan.yaml"

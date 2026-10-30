@@ -71,10 +71,10 @@ Edit the absolute kubeconfig path below before running these commands.
 
 ```sh
 export KUBECONFIG=/path/to/kubeconfig
-task scale:install KUBECONFIG="$KUBECONFIG" INSTALL_KWOK=false \
+task scale:install \
   HELM_VALUES_FILE=tests/scale/mixed-workload/values.yaml
 RUN_ID="mixed-$(date -u +%Y%m%d%H%M%S)"
-task scale:test KUBECONFIG="$KUBECONFIG" TEST_TIMEOUT=125m -- \
+task scale:test TEST_TIMEOUT=125m -- \
   -plan "$PWD/tests/scale/mixed-workload/plan.yaml" -arg run-id="$RUN_ID"
 ```
 

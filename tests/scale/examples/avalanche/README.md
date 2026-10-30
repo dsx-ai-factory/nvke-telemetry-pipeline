@@ -4,11 +4,11 @@ Two StatefulSets each run one Avalanche target for three minutes after readiness
 with 1,000 generated gauge series per target. One is scraped by its node collector;
 the other by the large-target pool.
 
-Follow the [shared setup](../../README.md#setup), select `KUBECONFIG`, then run
+Follow the [shared setup](../../README.md#setup), set `KUBECONFIG`, then run
 from the repository root:
 
 ```sh
-task scale:install INSTALL_KWOK=false \
+task scale:install \
   HELM_VALUES_FILE=tests/scale/examples/avalanche/values.yaml
 task scale:test -- \
   -plan "$PWD/tests/scale/examples/avalanche/plan.yaml"

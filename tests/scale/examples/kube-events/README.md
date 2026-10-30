@@ -4,11 +4,11 @@ One k6 Pod creates 100 owned Events with 1 KiB messages, then offers 10 PATCH
 requests/s for three minutes. It deletes the Events on completion; Pod ownership
 provides garbage-collection fallback on interruption.
 
-Follow the [shared setup](../../README.md#setup), select `KUBECONFIG`, then run
+Follow the [shared setup](../../README.md#setup), set `KUBECONFIG`, then run
 from the repository root:
 
 ```sh
-task scale:install INSTALL_KWOK=false \
+task scale:install \
   HELM_VALUES_FILE=tests/scale/examples/kube-events/values.yaml
 task scale:test TEST_TIMEOUT=15m -- \
   -plan "$PWD/tests/scale/examples/kube-events/plan.yaml"

@@ -4,10 +4,7 @@
 version: "3"
 
 vars:
-  # Each suite brings up its own cluster, so this is here to keep the one thing
-  # that must not differ between them in one place: the Kubernetes version they
-  # all run. Without it each caller inherits whatever the installed kind binary
-  # defaults to, and two clusters in the same repository drift apart silently.
+  # Kubernetes image shared by the development and e2e Kind clusters.
   # Oldest Kubernetes tested in CI. Override with NODE_IMAGE=<image>.
   NODE_IMAGE: '{{.NODE_IMAGE | default "kindest/node:v1.34.11@sha256:44e222ee2132dab25ff87301682f89eb82c7880ea3a1bf543bfe9708fd08d67d"}}'
   CERT_MANAGER_VERSION: v1.21.2

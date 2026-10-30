@@ -21,27 +21,24 @@ to write or adapt plans.
 
 ## Setup
 
-Requires kubectl, Helm 3 or 4, Task and Go. Local provisioning also requires
-Docker and Kind. Run commands from the repository root. Examples expect the
-`nktp` release in namespace `nktp`.
+Requires an existing Kubernetes cluster, kubectl, Helm 3 or 4, Task and Go.
+Use real worker and system pools sized for the workload. Record their node
+counts, sizes and placement with benchmark results. Cluster provisioning and
+deletion are managed outside this suite. Run commands from the repository
+root. Examples expect the `nktp` release in namespace `nktp`.
 
-Create a local cluster with the [Kind configuration](environment/kind-config.yaml):
-
-```sh
-export KUBECONFIG="$(task --silent scale:up)"
-```
-
-For an existing cluster, authenticate with its provider, then edit the absolute
-kubeconfig path below:
+Authenticate with your cluster provider, then set `KUBECONFIG` to one readable
+file with a current context. Edit the path before running:
 
 ```sh
 export KUBECONFIG=/path/to/kubeconfig
 ```
 
-`scale:up` only provisions the local cluster and writes `tests/scale/.kubeconfig`.
-`scale:install` installs cert-manager, KWOK and NKTP in the selected cluster,
-waits for readiness, then forwards [Prometheus](http://127.0.0.1:9090) and
+`scale:install` installs cert-manager and NKTP in the selected cluster, waits for
+readiness, then forwards [Prometheus](http://127.0.0.1:9090) and
 [Grafana](http://127.0.0.1:3000). Keep these local ports free.
+Use `task scale:forward:up` and `task scale:forward:down` to manage forwarding
+without reinstalling.
 
 ## Run a workload
 
@@ -49,7 +46,7 @@ Choose a directory from the table and follow its capacity and setup notes. For
 example:
 
 ```sh
-task scale:install INSTALL_KWOK=false
+task scale:install
 task scale:test -- -plan "$PWD/tests/scale/examples/telemetrygen/plan.yaml"
 ```
 
@@ -60,16 +57,21 @@ the file restores chart defaults and removes resources from the previous profile
 `extraObjects`. For an existing cluster, configure reuse of compatible shared
 components in the values file.
 
-`INSTALL_KWOK` defaults to `true`. Set it to `false` on both installation and
-uninstallation when KWOK is shared or not needed. The
-[KWOK policies](environment/kwok/stages) belong to environment setup.
+`INSTALL_KWOK` defaults to `false`. Set it to `true` on installation and
+uninstallation only for workloads that need simulated Kubernetes objects.
+The [KWOK policies](environment/kwok/stages) belong to environment setup.
+Simulated nodes do not represent physical benchmark capacity.
 
-Tests use the selected kubeconfig's current context. Without an override,
-`scale:test` uses `tests/scale/.kubeconfig`. Passing
-`KUBECONFIG="$KUBECONFIG"` as a Task variable selects the file set above. Relative Task
-paths resolve from the repository root, while `-plan` and `-kubeconfig` paths
-passed after `--` to `scale:test` resolve from `tests/scale`.
-Prefer absolute paths.
+Set `KUBECONFIG` for installation, workload tests, outage tests, forwarding and
+uninstallation. There is no default kubeconfig. Tests use the file's selected
+context.
+Relative Task paths resolve from the repository root. Paths passed with `-plan`
+and `-kubeconfig` after `--` resolve from `tests/scale` for `scale:test` and
+`tests/scale/backend-outage` for `scale:outage`.
+
+Direct `go test` runs resolve relative `KUBECONFIG` values from the package
+directory, `tests/scale` or `tests/scale/backend-outage`. Use an absolute
+`KUBECONFIG` for direct runs.
 
 For longer plans, set `TEST_TIMEOUT=30m` before `--`, allowing time for the plan
 and cleanup. The default is 12 minutes. The command prints the run ID, generator
@@ -86,14 +88,12 @@ temporary.
 For the telemetrygen setup above:
 
 ```sh
-task scale:uninstall INSTALL_KWOK=false
-task scale:down
+task scale:uninstall
 ```
 
 `scale:uninstall` removes NKTP and stops its forwards. Use the same `INSTALL_KWOK`
 value as installation. With `true`, it also removes the KWOK releases and
 completion policy. It preserves cert-manager, the cluster and kubeconfig.
 
-`scale:down` deletes only the local scale Kind cluster and its kubeconfig, even
-when another `KUBECONFIG` is exported. Failed setup leaves resources for
-inspection. Neither cleanup command runs automatically after a test.
+Failed setup leaves resources for inspection. Uninstall does not run
+automatically after a test.

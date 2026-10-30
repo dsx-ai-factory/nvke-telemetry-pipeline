@@ -140,9 +140,10 @@ Examples:
 
 - [NVCB](nvcb/Taskfile.yml) owns its test and snapshot update commands,
   exposed as `task nvcb:test` and `task nvcb:update`.
-- [Scale tests](tests/scale/Taskfile.yml) own local cluster provisioning
-  and teardown through `task scale:up` and `task scale:down`.
-  `task scale:install` sets up an existing cluster, and `task scale:test` runs a plan.
+- [Scale tests](tests/scale/README.md) require an existing cluster selected by
+  `KUBECONFIG`. Use `task scale:install` and `task scale:uninstall` to manage the
+  environment. From the repository root, run a plan with
+  `task scale:test -- -plan "$PWD/tests/scale/examples/telemetrygen/plan.yaml"`.
 
 ## Developer Certificate of Origin
 

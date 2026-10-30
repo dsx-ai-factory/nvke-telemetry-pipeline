@@ -18,9 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// kubeconfigPath selects the shared scale cluster or an explicitly supplied
-// file.
-var kubeconfigPath = flag.String("kubeconfig", "../.kubeconfig", "kubeconfig file relative to tests/scale/backend-outage (default: ../.kubeconfig)")
+// kubeconfigPath selects one file for the test cluster.
+var kubeconfigPath = flag.String("kubeconfig", os.Getenv("KUBECONFIG"), "kubeconfig file (default: KUBECONFIG)")
 
 var outageManifest = flag.String("outage-manifest", "collectors.yaml", "verification backend native manifest")
 var outageBackendMemoryLimit = flag.String("outage-backend-memory-limit", "1Gi", "verification Collector memory limit (empty uses manifest)")
@@ -68,6 +67,7 @@ type runConfig struct {
 	VerificationTimeout, DrainTimeout, HeapInterval                  time.Duration
 }
 
+// configFromFlags validates scenario flags and resolves the kubeconfig path.
 func configFromFlags(t *testing.T) runConfig {
 	t.Helper()
 	if flag.NArg() != 0 {
@@ -86,6 +86,7 @@ func configFromFlags(t *testing.T) runConfig {
 		t.Fatal("series/interval/recovery must be positive; baseline must cover at least one scrape interval")
 	}
 	kubeconfig := *kubeconfigPath
+	require.NotEmpty(t, kubeconfig, "set KUBECONFIG or pass -kubeconfig")
 	if len(filepath.SplitList(kubeconfig)) != 1 {
 		t.Fatal("kubeconfig must name exactly one file")
 	}

@@ -4,11 +4,11 @@ Two StatefulSets each run one Vector Pod for three minutes after readiness.
 One emits 100-byte bodies at 16 records/s; the other emits 64 KiB bodies at
 4 records/s. Logs follow runtime files → node collectors → logs gateway → LGTM.
 
-Follow the [shared setup](../../README.md#setup), select `KUBECONFIG`, then run
+Follow the [shared setup](../../README.md#setup), set `KUBECONFIG`, then run
 from the repository root:
 
 ```sh
-task scale:install INSTALL_KWOK=false \
+task scale:install \
   HELM_VALUES_FILE=tests/scale/examples/stdout-logs/values.yaml
 task scale:test -- \
   -plan "$PWD/tests/scale/examples/stdout-logs/plan.yaml"
