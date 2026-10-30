@@ -31,7 +31,9 @@ var outageVerificationScrapeTimeout = flag.Duration("outage-verification-scrape-
 var outageMode = flag.String("outage-mode", "outage", "test mode: outage or queue-overhead")
 var outageDuration = flag.Duration("outage-duration", time.Minute, "backend downtime in outage mode only")
 var outageBaseline = flag.Duration("outage-baseline", time.Minute, "healthy baseline scraping duration")
-var outageRecovery = flag.Duration("outage-recovery", 3*time.Minute, "maximum recovery observation window")
+var outageRecovery = flag.Duration("outage-recovery", 3*time.Minute, "recovery observation duration with continued input, or maximum drain time with paused input")
+var outageRecoveryInput = flag.Bool("outage-recovery-input", true, "outage mode: continue scraping through backend restoration and recovery")
+var outageRecoveryDrainTimeout = flag.Duration("outage-recovery-drain-timeout", 3*time.Minute, "maximum final drain time after recovery with continued input")
 var outageHeapInterval = flag.Duration("outage-heap-interval", 30*time.Second, "periodic Collector heap interval (0 disables)")
 var outageQueueOverheadScrapes = flag.Int("queue-overhead-scrapes", 2, "queue-overhead mode: successful input scrapes after baseline, then pause input")
 var outageQueueOverheadSettleTimeout = flag.Duration("queue-overhead-settle-timeout", time.Minute, "queue-overhead mode: maximum wait for in-flight requests to finish after pausing input")
@@ -65,6 +67,8 @@ type runConfig struct {
 	ScrapeSeries, OverheadScrapes                                    int
 	ScrapeInterval, Baseline, Duration, Recovery                     time.Duration
 	VerificationTimeout, DrainTimeout, HeapInterval                  time.Duration
+	RecoveryInput                                                    bool
+	RecoveryDrainTimeout                                             time.Duration
 }
 
 // configFromFlags validates scenario flags and resolves the kubeconfig path.
@@ -84,6 +88,12 @@ func configFromFlags(t *testing.T) runConfig {
 	}
 	if *outageScrapeSeries <= 0 || *outageScrapeInterval <= 0 || *outageBaseline < *outageScrapeInterval || *outageRecovery <= 0 || *outageVerificationScrapeTimeout <= 0 || *outageHeapInterval < 0 {
 		t.Fatal("series/interval/recovery must be positive; baseline must cover at least one scrape interval")
+	}
+	if *outageRecoveryDrainTimeout <= 0 {
+		t.Fatal("-outage-recovery-drain-timeout must be positive")
+	}
+	if *outageMode == "outage" && *outageRecoveryInput && *outageRecovery < *outageScrapeInterval {
+		t.Fatal("recovery with continued input must cover at least one scrape interval")
 	}
 	kubeconfig := *kubeconfigPath
 	require.NotEmpty(t, kubeconfig, "set KUBECONFIG or pass -kubeconfig")
@@ -112,7 +122,9 @@ func configFromFlags(t *testing.T) runConfig {
 		ScrapeInterval: *outageScrapeInterval, Baseline: *outageBaseline, Duration: *outageDuration,
 		Recovery: *outageRecovery, VerificationTimeout: *outageVerificationScrapeTimeout,
 		OverheadScrapes: *outageQueueOverheadScrapes, DrainTimeout: *outageQueueOverheadSettleTimeout,
-		HeapInterval: *outageHeapInterval,
+		HeapInterval:         *outageHeapInterval,
+		RecoveryInput:        *outageMode == "outage" && *outageRecoveryInput,
+		RecoveryDrainTimeout: *outageRecoveryDrainTimeout,
 	}
 }
 
@@ -126,6 +138,9 @@ func validateMode(mode string, duration, interval time.Duration, scrapes int, se
 			return fmt.Errorf("-outage-duration must cover at least one scrape interval")
 		}
 	case "queue-overhead":
+		if explicit["outage-recovery-input"] || explicit["outage-recovery-drain-timeout"] {
+			return fmt.Errorf("recovery input flags apply only to -outage-mode outage")
+		}
 		if explicit["outage-duration"] {
 			return fmt.Errorf("-outage-duration applies only to -outage-mode outage")
 		}

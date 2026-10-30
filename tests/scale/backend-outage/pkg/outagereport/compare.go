@@ -59,6 +59,11 @@ func Compare(paths [2]string, reports [2]Report) string {
 	section("Configuration")
 	row("Test result", testStatus)
 	row("Mode", func(r Report) string { return text(r.Mode) })
+	if reports[0].RecoveryInput != nil || reports[1].RecoveryInput != nil {
+		row("Continued input during recovery", func(r Report) string { return boolean(r.RecoveryInput) })
+		numeric("Recovery input duration", sec, func(r Report) *float64 { return r.RecoveryInputSeconds })
+		numeric("Final recovery drain", sec, func(r Report) *float64 { return r.RecoveryDrainSeconds })
+	}
 	row("Scrape template", func(r Report) string { return text(r.ScrapeTemplate) })
 	numeric("Series per scrape", count, func(r Report) *float64 { return r.ScrapeSeries })
 	numeric("Scrape text size", size, func(r Report) *float64 { return r.ScrapeBytes })
@@ -113,7 +118,7 @@ func Compare(paths [2]string, reports [2]Report) string {
 	if reports[0].VerificationError != "" || reports[1].VerificationError != "" {
 		row("Verification error", func(r Report) string { return text(r.VerificationError) })
 	}
-	numeric("Successful outage scrapes", count, func(r Report) *float64 {
+	numeric("Successful post-baseline scrapes", count, func(r Report) *float64 {
 		if r.Result == nil {
 			return nil
 		}

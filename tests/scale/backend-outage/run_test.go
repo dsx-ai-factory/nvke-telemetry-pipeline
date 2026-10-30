@@ -8,9 +8,14 @@ package backendoutage
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
 )
 
@@ -143,6 +149,10 @@ func (r *run) describeCollectors(gateway, scraper, backend *otelv1.OpenTelemetry
 		r.report["queue_overhead_settle_timeout"] = r.config.DrainTimeout.String()
 	} else {
 		r.report["outage_duration"] = r.config.Duration.String()
+		r.report["recovery_input"] = r.config.RecoveryInput
+		if r.config.RecoveryInput {
+			r.report["recovery_drain_timeout"] = r.config.RecoveryDrainTimeout.String()
+		}
 	}
 	r.report["gateway_memory_limiter"] = limiter
 	for _, item := range []struct {
@@ -316,8 +326,9 @@ func (r *run) takeBackendDown() {
 	r.report["backend_down_at"] = r.backendDownAt
 }
 
-// runOutage collects input while the backend is down, then pauses scraping
-// and records which scrapes must be delivered during recovery.
+// runOutage collects input while the backend is down. Normal outage mode
+// keeps scraping through recovery; paused-input and queue-overhead modes
+// stop input before measuring the backlog.
 func (r *run) runOutage() {
 	r.t.Helper()
 	r.setPhase("outage")
@@ -347,30 +358,78 @@ func (r *run) runOutage() {
 	} else if err := sleep(r.ctx, r.config.Duration); err != nil {
 		r.t.Fatal(err)
 	}
-	r.setPhase("outage_draining_scrape")
 	if r.queueOverhead() {
+		r.setPhase("outage_draining_scrape")
 		r.setScraping(false)
-	} else {
+	} else if !r.config.RecoveryInput {
+		r.setPhase("outage_draining_scrape")
 		r.pauseAndDrainScrapes()
 	}
-	produced, err := r.readCounts(r.scraper[8889], "outage_scraped_points_total")
+	var produced map[int]int
+	var err error
+	if r.config.RecoveryInput && !r.queueOverhead() {
+		produced, err = r.waitForOutageScrape()
+	} else {
+		produced, err = r.readCounts(r.scraper[8889], "outage_scraped_points_total")
+	}
 	if err != nil {
 		r.t.Fatal(err)
 	}
-	expected := map[int]int{}
-	for id, points := range produced {
-		if _, existed := r.baseline[id]; !existed {
-			expected[id] = points
-			if points != r.config.ScrapeSeries {
-				r.t.Errorf("outage scrape %d has %d points, want %d", id, points, r.config.ScrapeSeries)
-			}
-		}
-	}
+	expected, err := postBaselineScrapes(produced, r.baseline, r.config.ScrapeSeries, !r.config.RecoveryInput)
+	require.NoError(r.t, err)
 	if len(expected) == 0 {
 		r.t.Fatal("no successful scrapes during outage")
 	}
 	r.report["outage_scrapes"] = expected
 	r.expected = expected
+}
+
+// waitForOutageScrape lets active input finish at least one outage scrape
+// before restoring the backend. Other in-flight scrapes remain in the counts
+// for final accounting after recovery.
+func (r *run) waitForOutageScrape() (map[int]int, error) {
+	var counts map[int]int
+	err := wait.PollUntilContextTimeout(r.ctx, 250*time.Millisecond, r.config.VerificationTimeout, true, func(ctx context.Context) (bool, error) {
+		families, err := scrapeWithTimeout(ctx, "http://"+r.scraper[8889], r.config.VerificationTimeout)
+		if err != nil {
+			var transportErr *url.Error
+			if errors.As(err, &transportErr) && ctx.Err() == nil {
+				return false, nil // Retry transient metrics-request failures within the polling deadline.
+			}
+			return false, err
+		}
+		counts, err = receiptCounts(families, "outage_scraped_points_total", r.id)
+		if err != nil {
+			return false, err
+		}
+		for id, points := range counts {
+			if _, existed := r.baseline[id]; !existed && points == r.config.ScrapeSeries {
+				return true, nil
+			}
+		}
+		return false, nil
+	})
+	if err != nil {
+		return counts, fmt.Errorf("waiting for a completed outage scrape: %w", err)
+	}
+	return counts, nil
+}
+
+// postBaselineScrapes retains every successful input scrape after baseline.
+// Counts can be partial while input is active; final verification requires
+// complete scrapes so recovery traffic cannot be silently excluded.
+func postBaselineScrapes(produced, baseline map[int]int, series int, complete bool) (map[int]int, error) {
+	expected := map[int]int{}
+	for id, points := range produced {
+		if _, existed := baseline[id]; existed {
+			continue
+		}
+		if complete && points != series {
+			return nil, fmt.Errorf("scrape %d has %d points, want %d", id, points, series)
+		}
+		expected[id] = points
+	}
+	return expected, nil
 }
 
 // queueOverheadState saves a goroutine profile and checks a single pair of
@@ -498,7 +557,38 @@ func (r *run) runRecovery() {
 	r.monitor.setBackend(backend[1777])
 	r.setPhase("recovery")
 	start := time.Now()
-	received, deliveryErr := r.waitDelivery(r.expected, r.config.Recovery, true)
+	drainStart := start
+	drainTimeout := r.config.Recovery
+	if r.config.RecoveryInput {
+		before, err := r.readCounts(r.scraper[8889], "outage_scraped_points_total")
+		require.NoError(r.t, err)
+		require.NoError(r.t, sleep(r.ctx, r.config.Recovery))
+		r.report["recovery_input_seconds"] = time.Since(start).Seconds()
+		r.setPhase("recovery_draining")
+		drainStart = time.Now()
+		r.pauseAndDrainScrapes()
+		produced, err := r.readCounts(r.scraper[8889], "outage_scraped_points_total")
+		require.NoError(r.t, err)
+		r.expected, err = postBaselineScrapes(produced, r.baseline, r.config.ScrapeSeries, true)
+		require.NoError(r.t, err)
+		recoveryScrapes := map[int]int{}
+		outageScrapes := map[int]int{}
+		for id, points := range r.expected {
+			if _, existed := before[id]; existed {
+				outageScrapes[id] = points
+			} else {
+				recoveryScrapes[id] = points
+			}
+		}
+		r.report["outage_scrapes"] = outageScrapes
+		r.report["recovery_scrapes"] = recoveryScrapes
+		require.NotEmpty(r.t, recoveryScrapes, "no successful new scrapes during recovery")
+		drainTimeout = r.config.RecoveryDrainTimeout
+	}
+	received, deliveryErr := r.waitDelivery(r.expected, drainTimeout, true)
+	if r.config.RecoveryInput {
+		r.report["recovery_drain_seconds"] = time.Since(drainStart).Seconds()
+	}
 	r.report["recovery_seconds"] = time.Since(start).Seconds()
 	result := receiptSummary(r.expected, received)
 	r.report["result"] = result
@@ -563,6 +653,115 @@ func TestCollectorReporting(t *testing.T) {
 				assert.Equal(t, float64(8<<30), run.report[prefix+"memory_limit_bytes"])
 				assert.Equal(t, test.capacity, run.report[prefix+"queue_capacity_bytes"])
 				assert.Equal(t, test.percent, run.report[prefix+"queue_percent_of_memory_limit"])
+			}
+		})
+	}
+}
+
+// TestRecoveryDelivery checks that final accounting includes newly produced
+// recovery scrapes and rejects incomplete or undelivered recovery input.
+func TestRecoveryDelivery(t *testing.T) {
+	produced := map[int]int{1: 100, 2: 100, 3: 100}
+	baseline := map[int]int{1: 100}
+	expected, err := postBaselineScrapes(produced, baseline, 100, true)
+	require.NoError(t, err)
+	require.Equal(t, map[int]int{2: 100, 3: 100}, expected)
+	_, err = postBaselineScrapes(map[int]int{2: 100, 3: 50}, baseline, 100, true)
+	require.ErrorContains(t, err, "scrape 3 has 50 points, want 100")
+	partial, err := postBaselineScrapes(map[int]int{2: 100, 3: 50}, baseline, 100, false)
+	require.NoError(t, err)
+	require.Equal(t, 50, partial[3], "active input may contain an unfinished scrape")
+
+	for _, delivered := range []bool{false, true} {
+		t.Run(fmt.Sprintf("recovery_delivered=%t", delivered), func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				if req.URL.Path == "/metrics" {
+					_, _ = fmt.Fprintln(w, "# TYPE otelcol_exporter_queue_size gauge\notelcol_exporter_queue_size 0")
+					return
+				}
+				_, _ = fmt.Fprintln(w, "# TYPE outage_received_points_total counter\noutage_received_points_total{run_id=\"run\",sequence=\"2\"} 100")
+				if delivered {
+					_, _ = fmt.Fprintln(w, "outage_received_points_total{run_id=\"run\",sequence=\"3\"} 100")
+				}
+			}))
+			t.Cleanup(server.Close)
+			host := strings.TrimPrefix(server.URL, "http://")
+			timeout := 5 * time.Second
+			if !delivered {
+				timeout = 100 * time.Millisecond
+			}
+			ctx, cancel := context.WithTimeout(t.Context(), timeout)
+			defer cancel()
+			r := run{t: t, ctx: ctx, id: "run", config: runConfig{VerificationTimeout: time.Second},
+				backend: map[int]string{8889: host + "/backend"},
+				gateway: map[int]string{8888: host},
+				scraper: map[int]string{8888: host}}
+			received, err := r.waitDelivery(expected, time.Second, true)
+			if !delivered {
+				require.Error(t, err, "delivery of outage data alone must not pass")
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, 200, receiptSummary(expected, received)["received_points"])
+		})
+	}
+}
+
+// TestWaitForOutageScrape checks that baseline and partial counts cannot end
+// the wait, transport errors are retried, invalid receipts fail, and both
+// the polling deadline and cancellation stop it.
+func TestWaitForOutageScrape(t *testing.T) {
+	for _, mode := range []string{"completed", "transient", "timeout", "transport_timeout", "canceled", "invalid"} {
+		t.Run(mode, func(t *testing.T) {
+			polls := 0
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				polls++
+				if mode == "transport_timeout" || (mode == "transient" && polls == 1) {
+					connection, _, err := w.(http.Hijacker).Hijack()
+					if err != nil {
+						t.Error(err)
+						return
+					}
+					_ = connection.Close() // Fail the HTTP request before any response arrives.
+					return
+				}
+				_, _ = fmt.Fprintln(w, "# TYPE outage_scraped_points_total counter")
+				_, _ = fmt.Fprintln(w, `outage_scraped_points_total{run_id="run",sequence="1"} 100`)
+				if polls >= 2 {
+					points := 50
+					if mode == "invalid" {
+						points = -1
+					}
+					if (mode == "completed" || mode == "transient") && polls >= 3 {
+						points = 100
+					}
+					_, _ = fmt.Fprintf(w, "outage_scraped_points_total{run_id=\"run\",sequence=\"2\"} %d\n", points)
+				}
+				if mode == "canceled" {
+					cancel()
+				}
+			}))
+			t.Cleanup(server.Close)
+			timeout := 5 * time.Second
+			if mode == "timeout" || mode == "transport_timeout" {
+				timeout = 50 * time.Millisecond
+			}
+			r := run{ctx: ctx, id: "run", baseline: map[int]int{1: 100},
+				config:  runConfig{VerificationTimeout: timeout, ScrapeSeries: 100},
+				scraper: map[int]string{8889: strings.TrimPrefix(server.URL, "http://")}}
+			counts, err := r.waitForOutageScrape()
+			switch mode {
+			case "completed", "transient":
+				require.NoError(t, err)
+				assert.Equal(t, map[int]int{1: 100, 2: 100}, counts)
+			case "timeout", "transport_timeout":
+				require.ErrorIs(t, err, context.DeadlineExceeded)
+			case "canceled":
+				require.ErrorIs(t, err, context.Canceled)
+			case "invalid":
+				require.ErrorContains(t, err, "invalid verification counter")
 			}
 		})
 	}

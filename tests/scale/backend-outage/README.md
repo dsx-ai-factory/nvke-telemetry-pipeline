@@ -52,12 +52,19 @@ The test runs three phases:
    records refusals or exporter failures.
 2. **Outage** (`-outage-duration 1m`): stop the backend and resume scraping.
    This measures how the scraper and gateway buffer data and whether clients
-   experience backpressure. After one minute, pause input and let in-progress
-   scrapes finish before restoring the backend.
-3. **Recovery** (`-outage-recovery 3m`): once the backend is ready again, wait
-   up to three minutes for outage data to arrive and both queues to drain.
-   Input stays paused. The test reports recovery time and estimated missing
-   or duplicate points, and finishes early when delivery and draining complete.
+   experience backpressure. After one minute, restore the backend while input
+   continues.
+3. **Recovery** (`-outage-recovery 3m`): keep scraping through backend
+   restoration and for three minutes after the backend is ready. This exercises
+   draining a backlog while new metrics arrive. Then pause input and allow up
+   to `-outage-recovery-drain-timeout 3m` for all outage and recovery scrapes to
+   arrive and both queues to drain. The test requires at least one new scrape
+   during recovery and verifies all post-baseline input.
+
+Continued input is the default. Set `-outage-recovery-input=false` to pause
+before backend restoration and measure an isolated backlog drain; in that
+mode, `-outage-recovery` is the maximum drain time and recovery finishes early
+when delivery and draining complete. Queue-overhead mode always pauses input.
 
 Baseline and outage durations control active scraping windows and must each
 cover at least one scrape interval. Draining in-flight requests and restarting
@@ -135,7 +142,8 @@ that the gateway avoided backpressure: the scraper also buffers and retries.
 <summary>Example normal-outage result (100,000 series per scrape)</summary>
 
 Summary from `task scale:outage -- -outage-scrape-series 100000`, with a
-one-minute outage. The artifact path is shortened.
+one-minute outage and `-outage-recovery-input=false`. The artifact path is
+shortened.
 
 ```text
 results: /tmp/outage-example/report.json
@@ -182,6 +190,12 @@ avoided backpressure: the scraper also buffers and retries. When tuning, compare
 Stdout includes these results and their paths in `report.json`. Delivery checks
 count points per successful scrape, so partial loss and duplication within a
 scrape can cancel out. Compare the same actual scrape counts and point volumes.
+With continued input, `.result` includes all outage and recovery scrapes;
+`.recovery_scrapes` identifies scrapes first observed after recovery started.
+`.recovery_input_seconds` and `.recovery_drain_seconds` separate the loaded
+recovery window from the final drain. `.recovery_seconds` and recovery CPU/RPC
+measurements include both. Volume samples identify the final drain as
+`recovery_draining`.
 
 Generate a Markdown comparison from the repository root, editing the report
 paths for your runs:
@@ -234,7 +248,9 @@ Read `.gateway_volume` in `report.json`:
   Apparent file size can differ from allocated volume space.
 - `phases` shows average and peak sampled read/write bytes per second and
   IOPS per device. Compare these with queue occupancy and recovery time to
-  assess storage demand. Recovery drains the backlog with input paused.
+  assess storage demand. Recovery drains the backlog while new input arrives;
+  `recovery_draining` isolates the final drain after input pauses. Add
+  `-outage-recovery-input=false` when measuring recovery writes without new input.
 - Check `usage_errors`, `io_errors`, and `counter_resets` before using the
   measurements. Missing metrics are unavailable, not zero. If
   `io_activity_observed` is false, gateway I/O attribution remains unverified.
@@ -242,7 +258,10 @@ Read `.gateway_volume` in `report.json`:
 
 I/O counters cover the gateway container, excluding other workloads' activity.
 Other processes can still cause storage contention, and caching can hide physical
-reads or delay writes. Results depend on the workload and storage backend.
+reads or delay writes. Phase totals describe when I/O was observed; delayed
+writeback can reflect telemetry received in an earlier phase.
+Treat the results as observations of this workload;
+Kind local storage does not establish production-volume requirements.
 
 ## Measure in-memory queue heap overhead
 

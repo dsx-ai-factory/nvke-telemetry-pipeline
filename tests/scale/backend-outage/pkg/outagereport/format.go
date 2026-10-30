@@ -112,6 +112,9 @@ func overheadStatus(q *QueueOverhead) string {
 func Summary(path string, r Report) string {
 	var out strings.Builder
 	fmt.Fprintf(&out, "results: %s\n", path)
+	if r.RecoveryInput != nil {
+		fmt.Fprintf(&out, "recovery input: %s; active %s; final drain %s\n", boolean(r.RecoveryInput), number(r.RecoveryInputSeconds, sec), number(r.RecoveryDrainSeconds, sec))
+	}
 	for _, target := range []struct {
 		name, impactKey string
 		impact          Metrics

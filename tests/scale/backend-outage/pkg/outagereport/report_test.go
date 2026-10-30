@@ -45,6 +45,14 @@ func TestSummaryMeasurements(t *testing.T) {
 	}
 }
 
+func TestRecoveryInputReporting(t *testing.T) {
+	live := decode(t, `{"mode":"outage","recovery_input":true,"recovery_input_seconds":180,"recovery_drain_seconds":12}`)
+	paused := decode(t, `{"mode":"outage","recovery_input":false}`)
+	assert.Contains(t, Summary("live.json", live), "recovery input: true; active 180.00s; final drain 12.00s")
+	assert.Contains(t, Compare([2]string{"live.json", "paused.json"}, [2]Report{live, paused}), "| Continued input during recovery | true | false |")
+	assert.NotContains(t, Summary("old.json", Report{}), "recovery input:")
+}
+
 func TestCompareModesAndFailures(t *testing.T) {
 	for _, test := range []struct {
 		name, left, right string

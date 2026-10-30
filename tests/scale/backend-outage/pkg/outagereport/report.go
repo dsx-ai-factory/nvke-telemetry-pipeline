@@ -37,6 +37,9 @@ type Report struct {
 	ScraperQueueAtRestoreBytes *float64                    `json:"at_backend_restore_scraper_queue_bytes"`
 	Result                     *Delivery                   `json:"result"`
 	RecoverySeconds            *float64                    `json:"recovery_seconds"`
+	RecoveryInput              *bool                       `json:"recovery_input"`
+	RecoveryInputSeconds       *float64                    `json:"recovery_input_seconds"`
+	RecoveryDrainSeconds       *float64                    `json:"recovery_drain_seconds"`
 	VerificationComplete       *bool                       `json:"verification_complete"`
 	VerificationError          string                      `json:"verification_error"`
 	QueueOnlyOverheadEstimate  *QueueOverhead              `json:"queue_only_overhead_estimate"`
