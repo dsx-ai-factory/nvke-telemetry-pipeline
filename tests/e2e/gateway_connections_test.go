@@ -57,7 +57,7 @@ func TestGatewayConnections(t *testing.T) {
 			require.NoError(t, err, "creating Kubernetes client")
 			renderCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 			defer cancel()
-			args := []string{"template", ReleaseName, testenv.ChartPath, "--namespace", c.Namespace(), "--values", testenv.ValuesPath}
+			args := []string{"template", testenv.ReleaseName, testenv.ChartPath, "--namespace", c.Namespace(), "--values", testenv.ValuesPath}
 			for _, template := range []string{"gateway-logs", "gateway-metrics", "gateway-traces", "daemonset"} {
 				args = append(args, "--show-only", "templates/"+template+".yaml")
 			}

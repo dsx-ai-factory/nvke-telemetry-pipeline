@@ -28,6 +28,7 @@ task e2e:down    # delete the cluster
 | `-kubeconfig` | Cluster kubeconfig; specify explicitly to avoid using another context | `tests/e2e/.kubeconfig` via Task |
 | `-chart` | Chart directory | `nktp/` |
 | `-namespace` | Release namespace | `nktp` |
+| `-release-name` | Helm release to install or reuse | `nktp-e2e` |
 | `-values` | E2E values file | `tests/e2e/values.yaml` |
 | `-keep-release` | Reuse a deployed release if present and keep the release after testing | `false` |
 
@@ -38,9 +39,19 @@ E2E_CHART=/path/to/chart
 task e2e:test -- -chart "$E2E_CHART"
 ```
 
-With `-keep-release`, an existing deployed release is reused and `-chart` is
-ignored. If no deployed release exists, the suite installs the specified chart
-and keeps it after testing.
+With `-keep-release`, the deployed release selected by `-release-name` in
+`-namespace` is reused and `-chart` is ignored. If that release does not exist,
+the suite installs the specified chart and keeps it after testing.
+
+To reuse an existing installation, edit the kubeconfig path and release name:
+
+```sh
+E2E_KUBECONFIG=/path/to/cluster.kubeconfig
+E2E_RELEASE=nktp
+
+task e2e:test KUBECONFIG="$E2E_KUBECONFIG" -- \
+  -release-name "$E2E_RELEASE" -keep-release
+```
 
 By default, the suite replaces its existing release and removes it after testing;
 point it only at a disposable cluster.

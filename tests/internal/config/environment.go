@@ -42,6 +42,7 @@ func NewEnvironmentFromFlags() *Environment {
 		ValuesPath:       "values.yaml",
 		KeepRelease:      false,
 	}
+	flag.StringVar(&env.ReleaseName, "release-name", env.ReleaseName, "Helm release to install or reuse")
 	flag.StringVar(&env.ChartPath, "chart", env.ChartPath, "Path to the Helm chart under test")
 	flag.StringVar(&env.ValuesPath, "values", env.ValuesPath, "Path to Helm values.yaml file")
 	flag.BoolVar(&env.KeepRelease, "keep-release", env.KeepRelease, "Keep the existing deployed Helm release")
