@@ -23,7 +23,7 @@ tests:
           value: Always
       - equal:
           path: spec.initContainers[0].image
-          value: otel/opentelemetry-collector-k8s:0.162.0
+          value: otel/opentelemetry-collector-k8s:0.164.0
       - equal:
           path: spec.initContainers[0].startupProbe.httpGet.port
           value: 13134
@@ -267,7 +267,7 @@ tests:
           value: otc-sidecar
       - equal:
           path: spec.initContainers[0].image
-          value: otel/opentelemetry-collector-k8s:0.162.0
+          value: otel/opentelemetry-collector-k8s:0.164.0
       - equal:
           path: spec.initContainers[0].restartPolicy
           value: Always

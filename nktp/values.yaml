@@ -61,7 +61,7 @@ certManager:
 otelcol_image:
   registry: "" # Empty pulls from the image's default registry (Docker Hub for this repository).
   repository: otel/opentelemetry-collector-k8s
-  tag: 0.162.0
+  tag: 0.164.0
 
 # Target Allocator image used by the watchdog, daemonset, and large_target_metrics
 # allocators. global.imageRegistry replaces registry. Keep the tag equal to the
@@ -200,7 +200,7 @@ watchdog:
     # image:
     #   registry: ""
     #   repository: otel/opentelemetry-collector-k8s
-    #   tag: 0.162.0
+    #   tag: 0.164.0
     config:
       extensions:
         health_check:
@@ -383,7 +383,7 @@ watchdog:
       # image:
       #   registry: ""
       #   repository: otel/opentelemetry-collector-k8s
-      #   tag: 0.162.0
+      #   tag: 0.164.0
       config:
         extensions:
           health_check:
@@ -577,7 +577,7 @@ gateway_logs:
     # image:
     #   registry: ""
     #   repository: otel/opentelemetry-collector-k8s
-    #   tag: 0.162.0
+    #   tag: 0.164.0
     config:
       extensions:
         health_check:
@@ -721,7 +721,7 @@ gateway_logs:
       # image:
       #   registry: ""
       #   repository: otel/opentelemetry-collector-k8s
-      #   tag: 0.162.0
+      #   tag: 0.164.0
       config:
         extensions:
           health_check:
@@ -893,7 +893,7 @@ gateway_metrics:
     # image:
     #   registry: ""
     #   repository: otel/opentelemetry-collector-k8s
-    #   tag: 0.162.0
+    #   tag: 0.164.0
     config:
       extensions:
         health_check:
@@ -1037,7 +1037,7 @@ gateway_metrics:
       # image:
       #   registry: ""
       #   repository: otel/opentelemetry-collector-k8s
-      #   tag: 0.162.0
+      #   tag: 0.164.0
       config:
         extensions:
           health_check:
@@ -1209,7 +1209,7 @@ gateway_traces:
     # image:
     #   registry: ""
     #   repository: otel/opentelemetry-collector-k8s
-    #   tag: 0.162.0
+    #   tag: 0.164.0
     config:
       extensions:
         health_check:
@@ -1353,7 +1353,7 @@ gateway_traces:
       # image:
       #   registry: ""
       #   repository: otel/opentelemetry-collector-k8s
-      #   tag: 0.162.0
+      #   tag: 0.164.0
       config:
         extensions:
           health_check:
@@ -1639,7 +1639,7 @@ daemonset:
     # image:
     #   registry: ""
     #   repository: otel/opentelemetry-collector-k8s
-    #   tag: 0.162.0
+    #   tag: 0.164.0
     config:
       extensions:
         health_check:
@@ -2046,7 +2046,7 @@ daemonset:
       # image:
       #   registry: ""
       #   repository: otel/opentelemetry-collector-k8s
-      #   tag: 0.162.0
+      #   tag: 0.164.0
       config:
         extensions:
           health_check:
@@ -2282,7 +2282,7 @@ large_target_metrics:
     # image:
     #   registry: ""
     #   repository: otel/opentelemetry-collector-k8s
-    #   tag: 0.162.0
+    #   tag: 0.164.0
     config:
       extensions:
         health_check:
@@ -2416,7 +2416,7 @@ large_target_metrics:
       # image:
       #   registry: ""
       #   repository: otel/opentelemetry-collector-k8s
-      #   tag: 0.162.0
+      #   tag: 0.164.0
       config:
         extensions:
           health_check:
@@ -2569,7 +2569,7 @@ cluster_events:
     # image:
     #   registry: ""
     #   repository: otel/opentelemetry-collector-k8s
-    #   tag: 0.162.0
+    #   tag: 0.164.0
     config:
       extensions:
         health_check:
@@ -2701,7 +2701,7 @@ cluster_events:
       # image:
       #   registry: ""
       #   repository: otel/opentelemetry-collector-k8s
-      #   tag: 0.162.0
+      #   tag: 0.164.0
       config:
         extensions:
           health_check:

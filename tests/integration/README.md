@@ -20,7 +20,7 @@ before running the test. From the repository root:
 
 ```bash
 helm dependency build nktp --skip-refresh
-docker pull otel/opentelemetry-collector-k8s:0.162.0
+docker pull otel/opentelemetry-collector-k8s:0.164.0
 cd tests
 go test -tags integration -count=1 -v ./integration
 ```

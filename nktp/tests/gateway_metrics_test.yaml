@@ -121,7 +121,7 @@ tests:
     asserts:
       - equal:
           path: spec.image
-          value: mirror.example.com/otel/opentelemetry-collector-k8s:0.162.0
+          value: mirror.example.com/otel/opentelemetry-collector-k8s:0.164.0
 
   - it: passes workload overrides through and resolves the Collector image separately
     set:

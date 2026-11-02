@@ -195,7 +195,7 @@ tests:
     asserts:
       - equal:
           path: "spec.image"
-          value: "mirror.example.com/otel/opentelemetry-collector-k8s:0.162.0"
+          value: "mirror.example.com/otel/opentelemetry-collector-k8s:0.164.0"
         documentIndex: 0
       - equal:
           path: "spec.targetAllocator.image"

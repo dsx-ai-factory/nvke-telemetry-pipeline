@@ -166,7 +166,7 @@ tests:
                 flush_timeout: 1s
       - equal:
           path: spec.image
-          value: otel/opentelemetry-collector-k8s:0.162.0
+          value: otel/opentelemetry-collector-k8s:0.164.0
       - equal:
           path: metadata.labels["helm.sh/chart"]
           value: opentelemetry-kube-stack-0.25.1
@@ -337,7 +337,7 @@ tests:
     asserts:
       - equal:
           path: spec.image
-          value: mirror.example.com/otel/opentelemetry-collector-k8s:0.162.0
+          value: mirror.example.com/otel/opentelemetry-collector-k8s:0.164.0
       - equal:
           path: spec.targetAllocator.image
           value: mirror.example.com/open-telemetry/opentelemetry-operator/target-allocator:0.161.0
