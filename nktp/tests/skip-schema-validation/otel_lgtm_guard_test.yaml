@@ -1,0 +1,138 @@
+suite: otel-lgtm guard without schema validation
+templates:
+  - templates/otel-lgtm.yaml
+tests:
+  - it: accepts other environment variables and backend configuration mounts
+    set:
+      otel-lgtm:
+        env:
+          - name: ENABLE_LOGS_TEMPO
+            value: "true"
+        extraVolumes:
+          - name: backend-config
+            configMap:
+              name: custom-lgtm-config
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /otel-lgtm/loki-config.yaml
+            subPath: loki-config.yaml
+          - name: backend-config
+            mountPath: /otel-lgtm/tempo-overrides.yaml
+            subPath: tempo-overrides.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ENABLE_LOGS_TEMPO
+            value: "true"
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: backend-config
+            mountPath: /otel-lgtm/loki-config.yaml
+            subPath: loki-config.yaml
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: backend-config
+            mountPath: /otel-lgtm/tempo-overrides.yaml
+            subPath: tempo-overrides.yaml
+
+  - it: rejects Tempo's extra command-line arguments
+    set:
+      otel-lgtm:
+        env:
+          - name: TEMPO_EXTRA_ARGS
+            value: --config.expand-env=true
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.env entry "TEMPO_EXTRA_ARGS" is not supported
+
+  - it: rejects Tempo's extra command-line arguments from a ConfigMap
+    set:
+      otel-lgtm:
+        env:
+          - name: TEMPO_EXTRA_ARGS
+            valueFrom:
+              configMapKeyRef:
+                name: tempo-args
+                key: args
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.env entry "TEMPO_EXTRA_ARGS" is not supported
+
+  - it: rejects a bash startup file
+    set:
+      otel-lgtm:
+        env:
+          - name: BASH_ENV
+            value: /config/startup.sh
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.env entry "BASH_ENV" is not supported
+
+  - it: rejects mounts over Tempo's configuration
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /otel-lgtm/tempo-config.yaml
+            subPath: tempo-config.yaml
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.extraVolumeMounts mountPath "/otel-lgtm/tempo-config.yaml" is not supported
+
+  - it: rejects mounts over Tempo's binaries
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /otel-lgtm/tempo/
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.extraVolumeMounts mountPath "/otel-lgtm/tempo/" is not supported
+
+  - it: rejects mounts over the startup scripts
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /otel-lgtm/run-tempo.sh
+          - name: backend-config
+            mountPath: /otel-lgtm/common.sh
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.extraVolumeMounts mountPath "/otel-lgtm/run-tempo.sh" is not supported
+
+  - it: rejects mounts over the image's application directory or root
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.extraVolumeMounts mountPath "/" is not supported
+
+  - it: rejects relative mount paths
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: otel-lgtm/tempo-config.yaml
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.extraVolumeMounts mountPath "otel-lgtm/tempo-config.yaml" is not supported
+
+  - it: rejects non-normalized mount paths
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: //otel-lgtm/tempo-config.yaml
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.extraVolumeMounts mountPath "//otel-lgtm/tempo-config.yaml" is not supported

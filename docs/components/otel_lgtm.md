@@ -86,6 +86,12 @@ otel-lgtm:
       readOnly: true
 ```
 
+NKTP runs Tempo with the image's configuration, which enables OTLP receivers
+only. The chart rejects `TEMPO_EXTRA_ARGS` and `BASH_ENV` in `otel-lgtm.env`,
+and rejects mounts that are relative, not normalized, or placed at `/`,
+`/otel-lgtm`, `/otel-lgtm/tempo-config.yaml`, `/otel-lgtm/tempo`, or the
+image's `run-all.sh`, `run-tempo.sh`, `common.sh`, and `logging.sh` scripts.
+
 Use unique volume names and mount paths so the built-in dashboard and storage
 mounts remain intact. Restart LGTM after changing a ConfigMap mounted with
 `subPath`; those changes do not automatically roll the Deployment or update the

@@ -20,6 +20,41 @@
           }
         }
       }
+    },
+    "otel-lgtm": {
+      "type": "object",
+      "properties": {
+        "env": {
+          "type": "array",
+          "description": "Tempo's extra command-line arguments (TEMPO_EXTRA_ARGS) and a bash startup file (BASH_ENV) are not supported. NKTP runs Tempo with the image's configuration, which enables OTLP receivers only.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {"not": {"enum": ["TEMPO_EXTRA_ARGS", "BASH_ENV"]}}
+            }
+          }
+        },
+        "extraVolumeMounts": {
+          "type": "array",
+          "description": "Mount paths must be absolute and normalized, and must not replace /, /otel-lgtm, or Tempo's configuration, binaries, or startup scripts. NKTP runs Tempo with the image's configuration, which enables OTLP receivers only.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "mountPath": {
+                "type": "string",
+                "not": {
+                  "anyOf": [
+                    {"pattern": "^[^/]"},
+                    {"pattern": "//"},
+                    {"pattern": "(^|/)\\.\\.?(/|$)"},
+                    {"pattern": "^/(otel-lgtm(/(tempo-config\\.yaml|tempo|run-tempo\\.sh|run-all\\.sh|common\\.sh|logging\\.sh)(/.*)?)?/?)?$"}
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

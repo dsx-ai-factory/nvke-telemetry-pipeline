@@ -508,6 +508,57 @@ tests:
             name: p8s-storage
             mountPath: /data/prometheus
 
+  - it: rejects Tempo's extra command-line arguments
+    set:
+      otel-lgtm:
+        env:
+          - name: TEMPO_EXTRA_ARGS
+            value: --config.expand-env=true
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.*env
+
+  - it: rejects a bash startup file
+    set:
+      otel-lgtm:
+        env:
+          - name: BASH_ENV
+            value: /config/startup.sh
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.*env
+
+  - it: rejects mounts over Tempo's configuration
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /otel-lgtm/tempo-config.yaml
+            subPath: tempo-config.yaml
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.*extraVolumeMounts
+
+  - it: rejects mounts over the image's application directory
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /otel-lgtm
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.*extraVolumeMounts
+
+  - it: rejects mount paths that are not normalized
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /data/../otel-lgtm/run-tempo.sh
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.*extraVolumeMounts
+
   - it: enables anonymous admin access to Grafana
     documentSelector:
       path: kind
