@@ -32,10 +32,16 @@ type object = map[string]any
 
 func TestTelemetryRedaction(t *testing.T) {
 	image, config := renderedCollector(t.Context(), t)
-	// Adapt watchdog's received-telemetry pipelines to run without Kubernetes.
-	delete(config["receivers"].(object), "prometheus")
+	// Use local HTTP transport while preserving the rendered processor chains.
+	config["receivers"] = object{"otlp": object{
+		"protocols": object{"http": object{"endpoint": "0.0.0.0:4318"}},
+	}}
 	service := config["service"].(object)
-	service["pipelines"].(object)["metrics"].(object)["receivers"] = []string{"otlp"}
+	for _, signal := range []string{"logs", "metrics", "traces"} {
+		pipeline := service["pipelines"].(object)[signal].(object)
+		pipeline["receivers"] = []string{"otlp"}
+		pipeline["exporters"] = []string{"otlp_http"}
+	}
 	// Self-telemetry routing is checked in the chart tests.
 	service["telemetry"] = object{"metrics": object{"level": "none"}}
 	exporters, received := captureExports(t)
@@ -48,6 +54,14 @@ func TestTelemetryRedaction(t *testing.T) {
 				input, expected = redactionFixture(t)
 			} else {
 				input, expected = metadataFixture(t, signal)
+			}
+			// The watchdog's cluster processor adds the default name to every resource.
+			for _, resources := range expected {
+				for _, entry := range resources.([]any) {
+					resource := entry.(object)["resource"].(object)
+					attributes, _ := resource["attributes"].([]any)
+					resource["attributes"] = append(attributes, attribute("k8s.cluster.name", value("stringValue", "unknown")))
+				}
 			}
 			// Source and gateway redaction must preserve already-masked telemetry.
 			for hop := 0; hop < 2; hop++ {
