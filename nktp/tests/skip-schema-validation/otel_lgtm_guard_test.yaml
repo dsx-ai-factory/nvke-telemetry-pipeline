@@ -8,6 +8,8 @@ tests:
         env:
           - name: ENABLE_LOGS_TEMPO
             value: "true"
+          - name: path
+            value: /config
         extraVolumes:
           - name: backend-config
             configMap:
@@ -29,6 +31,11 @@ tests:
             name: ENABLE_LOGS_TEMPO
             value: "true"
       - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: path
+            value: /config
+      - contains:
           path: spec.template.spec.containers[0].volumeMounts
           content:
             name: backend-config
@@ -49,7 +56,7 @@ tests:
             value: --config.expand-env=true
     asserts:
       - failedTemplate:
-          errorPattern: otel-lgtm.env entry "TEMPO_EXTRA_ARGS" is not supported
+          errorPattern: otel-lgtm.env entry "TEMPO_EXTRA_ARGS" is unsupported by the Tempo startup guard
 
   - it: rejects Tempo's extra command-line arguments from a ConfigMap
     set:
@@ -62,7 +69,7 @@ tests:
                 key: args
     asserts:
       - failedTemplate:
-          errorPattern: otel-lgtm.env entry "TEMPO_EXTRA_ARGS" is not supported
+          errorPattern: otel-lgtm.env entry "TEMPO_EXTRA_ARGS" is unsupported by the Tempo startup guard
 
   - it: rejects a bash startup file
     set:
@@ -72,7 +79,7 @@ tests:
             value: /config/startup.sh
     asserts:
       - failedTemplate:
-          errorPattern: otel-lgtm.env entry "BASH_ENV" is not supported
+          errorPattern: otel-lgtm.env entry "BASH_ENV" is unsupported by the Tempo startup guard
 
   - it: rejects mounts over Tempo's configuration
     set:
@@ -136,3 +143,190 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: otel-lgtm.extraVolumeMounts mountPath "//otel-lgtm/tempo-config.yaml" is not supported
+
+  - it: rejects a PATH override
+    set:
+      otel-lgtm:
+        env:
+          - name: PATH
+            value: /config:/usr/bin:/bin
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.env entry "PATH" is unsupported by the Tempo startup guard
+
+  - it: rejects a PATH override from a ConfigMap
+    set:
+      otel-lgtm:
+        env:
+          - name: PATH
+            valueFrom:
+              configMapKeyRef:
+                name: lgtm-path
+                key: path
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.env entry "PATH" is unsupported by the Tempo startup guard
+
+  - it: rejects a PATH override that puts an executable ConfigMap first
+    set:
+      otel-lgtm:
+        env:
+          - name: PATH
+            value: /config:/usr/local/bin:/usr/bin:/bin
+        extraVolumes:
+          - name: wrapper
+            configMap:
+              name: bash-wrapper
+              defaultMode: 0755
+        extraVolumeMounts:
+          - name: wrapper
+            mountPath: /config
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.env entry "PATH" is unsupported by the Tempo startup guard
+
+  - it: rejects mounts over run-grafana.sh
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /otel-lgtm/run-grafana.sh
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.extraVolumeMounts mountPath "/otel-lgtm/run-grafana.sh" is not supported
+
+  - it: rejects mounts over run-loki.sh
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /otel-lgtm/run-loki.sh
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.extraVolumeMounts mountPath "/otel-lgtm/run-loki.sh" is not supported
+
+  - it: rejects mounts over run-otelcol.sh
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /otel-lgtm/run-otelcol.sh
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.extraVolumeMounts mountPath "/otel-lgtm/run-otelcol.sh" is not supported
+
+  - it: rejects mounts over run-prometheus.sh
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /otel-lgtm/run-prometheus.sh
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.extraVolumeMounts mountPath "/otel-lgtm/run-prometheus.sh" is not supported
+
+  - it: rejects mounts over run-pyroscope.sh
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /otel-lgtm/run-pyroscope.sh
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.extraVolumeMounts mountPath "/otel-lgtm/run-pyroscope.sh" is not supported
+
+  - it: rejects mounts over run-obi.sh
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /otel-lgtm/run-obi.sh
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.extraVolumeMounts mountPath "/otel-lgtm/run-obi.sh" is not supported
+
+  - it: rejects mounts over grafana-plugins.sh
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /otel-lgtm/grafana-plugins.sh
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.extraVolumeMounts mountPath "/otel-lgtm/grafana-plugins.sh" is not supported
+
+  - it: rejects an empty mount path
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.extraVolumeMounts mountPath "" is not supported
+
+  - it: rejects env entries without a name
+    set:
+      otel-lgtm:
+        env:
+          - value: /config
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.env entries must be objects with a non-empty string name
+
+  - it: rejects env entries with an empty name
+    set:
+      otel-lgtm:
+        env:
+          - name: ""
+            value: /config
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.env entries must be objects with a non-empty string name
+
+  - it: rejects env entries with a null name
+    set:
+      otel-lgtm:
+        env:
+          - name: null
+            value: /config
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.env entries must be objects with a non-empty string name
+
+  - it: rejects env entries with a numeric name
+    set:
+      otel-lgtm:
+        env:
+          - name: 1
+            value: /config
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.env entries must be objects with a non-empty string name
+
+  - it: rejects env entries given as strings
+    set:
+      otel-lgtm:
+        env:
+          - PATH=/config
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.env entries must be objects with a non-empty string name
+
+  - it: rejects env entries given as lists
+    set:
+      otel-lgtm:
+        env:
+          - [PATH, /config]
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.env entries must be objects with a non-empty string name
+
+  - it: rejects null env entries
+    set:
+      otel-lgtm:
+        env:
+          - null
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.env entries must be objects with a non-empty string name

@@ -1,13 +1,20 @@
 {{- $lgtm := index .Values "otel-lgtm" }}
 {{- /* Mirrors values.schema.json so --skip-schema-validation cannot bypass it. */}}
 {{- range $lgtm.env }}
-{{- if has (toString .name) (list "TEMPO_EXTRA_ARGS" "BASH_ENV") }}
-{{- fail (printf "otel-lgtm.env entry %q is not supported: Tempo's extra command-line arguments and a bash startup file are rejected" (toString .name)) }}
+{{- if not (kindIs "map" .) }}
+{{- fail "otel-lgtm.env entries must be objects with a non-empty string name" }}
+{{- end }}
+{{- $name := get . "name" }}
+{{- if or (not (kindIs "string" $name)) (eq (toString $name) "") }}
+{{- fail "otel-lgtm.env entries must be objects with a non-empty string name" }}
+{{- end }}
+{{- if has $name (list "TEMPO_EXTRA_ARGS" "BASH_ENV" "PATH") }}
+{{- fail (printf "otel-lgtm.env entry %q is unsupported by the Tempo startup guard" $name) }}
 {{- end }}
 {{- end }}
 {{- range $lgtm.extraVolumeMounts }}
-{{- if regexMatch "^[^/]|//|(^|/)\\.\\.?(/|$)|^/(otel-lgtm(/(tempo-config\\.yaml|tempo|run-tempo\\.sh|run-all\\.sh|common\\.sh|logging\\.sh)(/.*)?)?/?)?$" (toString .mountPath) }}
-{{- fail (printf "otel-lgtm.extraVolumeMounts mountPath %q is not supported: paths must be absolute and normalized and must not replace /, /otel-lgtm, or Tempo's configuration, binaries, or startup scripts" (toString .mountPath)) }}
+{{- if regexMatch "^$|^[^/]|//|(^|/)\\.\\.?(/|$)|^/(otel-lgtm(/(tempo-config\\.yaml|tempo|[^/]*\\.sh)(/.*)?)?/?)?$" (toString .mountPath) }}
+{{- fail (printf "otel-lgtm.extraVolumeMounts mountPath %q is not supported: paths must be absolute and normalized and must not replace /, /otel-lgtm, Tempo's configuration or binaries, or the image's top-level shell scripts" (toString .mountPath)) }}
 {{- end }}
 {{- end }}
 {{- $provider := `apiVersion: 1

@@ -26,28 +26,35 @@
       "properties": {
         "env": {
           "type": "array",
-          "description": "Tempo's extra command-line arguments (TEMPO_EXTRA_ARGS) and a bash startup file (BASH_ENV) are not supported. NKTP runs Tempo with the image's configuration, which enables OTLP receivers only.",
+          "description": "Entries must have a non-empty string name. TEMPO_EXTRA_ARGS, BASH_ENV, and PATH are not supported, whether set with value or valueFrom. NKTP runs Tempo with the image's configuration, which enables OTLP receivers only.",
           "items": {
             "type": "object",
+            "required": ["name"],
             "properties": {
-              "name": {"not": {"enum": ["TEMPO_EXTRA_ARGS", "BASH_ENV"]}}
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "not": {"enum": ["TEMPO_EXTRA_ARGS", "BASH_ENV", "PATH"]}
+              }
             }
           }
         },
         "extraVolumeMounts": {
           "type": "array",
-          "description": "Mount paths must be absolute and normalized, and must not replace /, /otel-lgtm, or Tempo's configuration, binaries, or startup scripts. NKTP runs Tempo with the image's configuration, which enables OTLP receivers only.",
+          "description": "Mount paths must be absolute and normalized, and must not replace /, /otel-lgtm, Tempo's configuration or binaries, or the image's top-level shell scripts. NKTP runs Tempo with the image's configuration, which enables OTLP receivers only.",
           "items": {
             "type": "object",
+            "required": ["mountPath"],
             "properties": {
               "mountPath": {
                 "type": "string",
+                "minLength": 1,
                 "not": {
                   "anyOf": [
                     {"pattern": "^[^/]"},
                     {"pattern": "//"},
                     {"pattern": "(^|/)\\.\\.?(/|$)"},
-                    {"pattern": "^/(otel-lgtm(/(tempo-config\\.yaml|tempo|run-tempo\\.sh|run-all\\.sh|common\\.sh|logging\\.sh)(/.*)?)?/?)?$"}
+                    {"pattern": "^/(otel-lgtm(/(tempo-config\\.yaml|tempo|[^/]*\\.sh)(/.*)?)?/?)?$"}
                   ]
                 }
               }

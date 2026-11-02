@@ -559,6 +559,190 @@ tests:
       - failedTemplate:
           errorPattern: otel-lgtm.*extraVolumeMounts
 
+  - it: rejects a PATH override
+    set:
+      otel-lgtm:
+        env:
+          - name: PATH
+            value: /config:/usr/bin:/bin
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.*env
+
+  - it: rejects a PATH override from a ConfigMap
+    set:
+      otel-lgtm:
+        env:
+          - name: PATH
+            valueFrom:
+              configMapKeyRef:
+                name: lgtm-path
+                key: path
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.*env
+
+  - it: rejects a PATH override that puts an executable ConfigMap first
+    set:
+      otel-lgtm:
+        env:
+          - name: PATH
+            value: /config:/usr/local/bin:/usr/bin:/bin
+        extraVolumes:
+          - name: wrapper
+            configMap:
+              name: bash-wrapper
+              defaultMode: 0755
+        extraVolumeMounts:
+          - name: wrapper
+            mountPath: /config
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.*env
+
+  - it: rejects mounts over run-grafana.sh
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /otel-lgtm/run-grafana.sh
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.*extraVolumeMounts
+
+  - it: rejects mounts over run-loki.sh
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /otel-lgtm/run-loki.sh
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.*extraVolumeMounts
+
+  - it: rejects mounts over run-otelcol.sh
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /otel-lgtm/run-otelcol.sh
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.*extraVolumeMounts
+
+  - it: rejects mounts over run-prometheus.sh
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /otel-lgtm/run-prometheus.sh
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.*extraVolumeMounts
+
+  - it: rejects mounts over run-pyroscope.sh
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /otel-lgtm/run-pyroscope.sh
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.*extraVolumeMounts
+
+  - it: rejects mounts over run-obi.sh
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /otel-lgtm/run-obi.sh
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.*extraVolumeMounts
+
+  - it: rejects mounts over grafana-plugins.sh
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: /otel-lgtm/grafana-plugins.sh
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.*extraVolumeMounts
+
+  - it: rejects an empty mount path
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+            mountPath: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.*extraVolumeMounts
+
+  - it: rejects mounts without a mount path
+    set:
+      otel-lgtm:
+        extraVolumeMounts:
+          - name: backend-config
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.*extraVolumeMounts
+
+  - it: rejects env entries without a name
+    set:
+      otel-lgtm:
+        env:
+          - value: /config
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.*env
+
+  - it: rejects env entries with an empty name
+    set:
+      otel-lgtm:
+        env:
+          - name: ""
+            value: /config
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.*env
+
+  - it: rejects env entries with a numeric name
+    set:
+      otel-lgtm:
+        env:
+          - name: 1
+            value: /config
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.*env
+
+  - it: rejects env entries given as strings
+    set:
+      otel-lgtm:
+        env:
+          - PATH=/config
+    asserts:
+      - failedTemplate:
+          errorPattern: otel-lgtm.*env
+
+  - it: accepts a lowercase path variable
+    set:
+      otel-lgtm:
+        env:
+          - name: path
+            value: /config
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: path
+            value: /config
+
   - it: enables anonymous admin access to Grafana
     documentSelector:
       path: kind
