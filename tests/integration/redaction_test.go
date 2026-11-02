@@ -78,12 +78,12 @@ func TestTelemetryRedaction(t *testing.T) {
 func renderedCollector(ctx context.Context, t *testing.T) (string, object) {
 	t.Helper()
 	if _, err := exec.LookPath("docker"); err != nil {
-		t.Skip("redaction integration test requires Docker")
+		collectorUnavailable(t, "redaction integration test requires Docker")
 	}
 	dockerCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	if output, err := exec.CommandContext(dockerCtx, "docker", "info", "--format", "{{.ServerVersion}}").CombinedOutput(); err != nil {
-		t.Skipf("Docker is unavailable: %s", output)
+		collectorUnavailable(t, "Docker is unavailable: %s", output)
 	}
 	var collector struct {
 		Spec struct {
@@ -100,7 +100,7 @@ func renderedCollector(ctx context.Context, t *testing.T) (string, object) {
 	defer cancel()
 	if err := exec.CommandContext(inspectCtx, "docker", "image", "inspect", collector.Spec.Image).Run(); err != nil {
 		require.NoError(t, inspectCtx.Err(), "inspecting Collector image %q", collector.Spec.Image)
-		t.Skipf("Collector image unavailable. Run docker pull %s before this test", collector.Spec.Image)
+		collectorUnavailable(t, "Collector image unavailable. Run docker pull %s before this test", collector.Spec.Image)
 	}
 	// Each workload repeats these rules in its native defaults.
 	reference := collector.Spec.Config["processors"].(object)
@@ -139,6 +139,14 @@ func renderedCollector(ctx context.Context, t *testing.T) (string, object) {
 		})
 	}
 	return collector.Spec.Image, collector.Spec.Config
+}
+
+func collectorUnavailable(t *testing.T, format string, args ...any) {
+	t.Helper()
+	if os.Getenv("NKTP_REQUIRE_COLLECTOR") == "true" {
+		t.Fatalf(format, args...)
+	}
+	t.Skipf(format, args...)
 }
 
 func metadataFixture(t *testing.T, signal string) (object, object) {

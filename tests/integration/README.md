@@ -2,6 +2,9 @@
 
 Tests of interactions between NKTP components, local processes, or test services without provisioning a Kubernetes cluster.
 
+The NKTP Chart CI workflow runs this suite on pull requests that change the chart,
+integration tests, or shared test dependencies.
+
 ## Goals
 
 - Validate component boundaries and assembled configurations beyond isolated unit behavior.
@@ -25,4 +28,5 @@ cd tests
 go test -tags integration -count=1 -v ./integration
 ```
 
-Collector tests require Docker and the pinned image, otherwise they report a skip.
+Local Collector tests skip when Docker or the pinned image is unavailable.
+CI sets `NKTP_REQUIRE_COLLECTOR=true` to fail instead of skipping.

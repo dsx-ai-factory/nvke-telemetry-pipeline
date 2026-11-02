@@ -10,6 +10,7 @@ on:
     paths:
       - 'nktp/**'
       - 'tests/e2e/**'
+      - 'tests/integration/**'
       - 'tests/internal/**'
       - 'tests/go.mod'
       - 'tests/go.sum'
@@ -58,6 +59,40 @@ jobs:
 
       - name: Run unit tests
         run: helm unittest nktp
+
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup chart
+        uses: ./.github/actions/setup-chart
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: tests/go.mod
+          cache-dependency-path: tests/go.sum
+
+      - name: Prepare Collector image
+        shell: bash
+        run: |
+          docker info >/dev/null
+          image="$(helm template redaction nktp --show-only templates/watchdog.yaml | yq -er '.spec.image')"
+          docker pull "$image"
+
+      - name: Run integration tests
+        working-directory: tests
+        env:
+          NKTP_REQUIRE_COLLECTOR: "true"
+        run: go test -tags integration -count=1 -v -timeout 5m ./integration
 
   e2e:
     name: End-to-End Tests (Kubernetes ${{ matrix.kubernetes }})
