@@ -28,9 +28,9 @@ Provide the following before installing NKTP.
   three integrations. See [More information](#more-information) for the
   documentation covering installation and configuration.
 - **SSD-backed persistent storage.** Each gateway replica requests a `1Gi`
-  volume and each watchdog replica a `3Gi` volume, using the default StorageClass
+  volume and each watchdog replica a `1Gi` volume, using the default StorageClass
   unless `storageClassName` is set in their `kubernetes.volumeClaimTemplates`.
-  At the minimum replica counts this requires eight volumes totaling 12Gi.
+  At the minimum replica counts this requires eight volumes totaling 8Gi.
   Set a suitable class before installation; unbound claims leave Collector Pods pending.
 - **Image registry access** to `docker.io`, `ghcr.io`, `quay.io` and
   `registry.k8s.io`, or mirrors of them. See [Image registry](#image-registry).
@@ -151,9 +151,9 @@ The chart renders each Collector configuration exactly as written. No other
 value changes it, so to change a pipeline, change its configuration.
 
 Each gateway defaults to an approximately 0.48 GiB persistent sending queue
-measured in serialized bytes. Watchdog has three persistent queues of the same
-capacity. Each gateway replica requests a `1Gi` volume and each watchdog replica
-a `3Gi` volume, retained on scale-down and deletion.
+measured in serialized bytes. Watchdog has three persistent queues of
+approximately 82MiB each, 246MiB total. Each gateway and watchdog replica
+requests a `1Gi` volume, retained on scale-down and deletion.
 Outage buffering capacity is serialized bytes/s per replica multiplied by the
 outage duration. Volume allocation also includes database overhead and is
 subject to provider minimums. Monitor queue utilization and enqueue failures.

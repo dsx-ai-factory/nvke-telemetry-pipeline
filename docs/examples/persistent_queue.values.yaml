@@ -12,7 +12,7 @@ watchdog:
           storageClassName: your-ssd-class
           resources:
             requests:
-              storage: 3Gi
+              storage: 1Gi
 
 gateway_logs:
   kubernetes:

@@ -139,7 +139,7 @@ The defaults apply the starting budget as follows:
 
 | Collector | `sending_queue.queue_size` (serialized bytes per signal) | Serialized capacity per replica | Volume request per replica |
 | --- | ---: | --- | --- |
-| Watchdog | `515396076` | Approximately 0.48GiB per signal, 1.44GiB total | `3Gi` |
+| Watchdog | `85899346` | Approximately 82MiB per signal, 246MiB total | `1Gi` |
 | Each gateway | `515396076` | Approximately 0.48GiB | `1Gi` |
 
 The [volume measurement](../../tests/scale/backend-outage/README.md#measure-persistent-queue-volume-usage-and-io)
@@ -164,8 +164,8 @@ With `whenScaled: Retain`, telemetry queued on a removed replica is sent when th
 
 ### Configure the queue
 
-The default configuration gives each gateway replica a retained `1Gi` claim
-and each watchdog replica a retained `3Gi` claim. Each claim is named `queue`
+The default configuration gives each gateway and watchdog replica a retained
+`1Gi` claim. Each claim is named `queue`
 and mounted at `/var/lib/otelcol/queue`. The exporter
 uses `file_storage/queue` at `/var/lib/otelcol/queue/data`. Sidecars and
 Collectors running on each node keep their queues in memory.
@@ -293,7 +293,7 @@ requests and memory outside the Go heap.
 
 | Collector | Memory example `sending_queue.queue_size` (serialized bytes per signal) | Serialized capacity per replica | Memory limit per replica |
 | --- | ---: | --- | --- |
-| Watchdog | `8388608` | 8MiB per signal, 24MiB total | `1Gi` |
+| Watchdog | `85899346` | Approximately 82MiB per signal, 246MiB total | `1Gi` |
 | Each gateway | `515396076` | Approximately 0.48GiB | `4Gi` |
 
 Choose serialized queue capacity using
@@ -323,8 +323,11 @@ The example sets `sending_queue.storage` and the `file_storage/queue`
 extension to `null` so Helm removes the inherited map entries. It replaces
 `service.extensions` and `volumeMounts` with lists retaining `health_check` and
 the internal TLS mount, and replaces `volumeClaimTemplates` with an empty list.
-The example uses 8MiB per watchdog signal and approximately 0.48GiB per
+The example uses approximately 82MiB per watchdog signal and 0.48GiB per
 gateway, with the memory limits listed in [Size memory](#size-memory).
+Watchdog's three queues together have the same serialized-capacity-to-memory-request
+ratio as one gateway queue: watchdog requests 256Mi, while each gateway
+requests 512Mi.
 
 Switching an existing installation to memory restarts the affected Collectors,
 as described in [Change the claim templates](#change-the-claim-templates).

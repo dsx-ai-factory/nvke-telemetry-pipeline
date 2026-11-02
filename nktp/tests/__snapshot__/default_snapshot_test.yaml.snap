@@ -13432,7 +13432,7 @@ matches the snapshot with default values:
                 sizer: bytes
               block_on_overflow: true
               num_consumers: 32
-              queue_size: 515396076
+              queue_size: 85899346
               sizer: bytes
               storage: file_storage/queue
             tls:
@@ -13722,7 +13722,7 @@ matches the snapshot with default values:
               - ReadWriteOnce
             resources:
               requests:
-                storage: 3Gi
+                storage: 1Gi
       volumeMounts:
         - mountPath: /etc/nktp/internal-tls/server
           name: internal-tls-server

@@ -45,8 +45,8 @@ The sidecar needs its own processor because the watchdog's own telemetry goes
 from the sidecar straight to the backend. When `global.clusterName` is empty,
 the value is `unknown`.
 
-Watchdog uses persistent exporter queues by default: approximately 0.48GiB of
-serialized telemetry per signal, sharing one `3Gi` volume per replica. Provide an
+Watchdog uses persistent exporter queues by default: approximately 82MiB of
+serialized telemetry per signal, 246MiB total, sharing one `1Gi` volume per replica. Provide an
 SSD-backed StorageClass. Its sidecar keeps its own queues in memory. See
 [Configure exporter queue storage](../guides/configure_exporter_queue_storage.md)
 for outage sizing, volume retention, upgrade behavior, and the in-memory

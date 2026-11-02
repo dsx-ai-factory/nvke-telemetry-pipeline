@@ -18,7 +18,7 @@ watchdog:
         otlp:
           sending_queue:
             storage: null
-            queue_size: 8388608 # Per signal; 24MiB total across the three queues.
+            queue_size: 85899346 # Per signal; about 246MiB total across the three queues.
       service:
         extensions: [health_check]
 

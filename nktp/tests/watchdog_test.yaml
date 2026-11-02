@@ -160,7 +160,7 @@ tests:
               storage: file_storage/queue
               block_on_overflow: true
               sizer: bytes
-              queue_size: 515396076
+              queue_size: 85899346
               num_consumers: 32
               batch:
                 sizer: bytes
@@ -855,7 +855,7 @@ tests:
               spec:
                 accessModes: [ReadWriteOnce]
                 resources:
-                  requests: {storage: 3Gi}
+                  requests: {storage: 1Gi}
       - equal:
           path: spec.persistentVolumeClaimRetentionPolicy
           value: {whenDeleted: Retain, whenScaled: Retain}
@@ -876,4 +876,4 @@ tests:
           value: file_storage/queue
       - equal:
           path: spec.config.exporters.otlp.sending_queue.queue_size
-          value: 515396076
+          value: 85899346

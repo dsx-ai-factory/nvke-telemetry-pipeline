@@ -184,7 +184,7 @@ watchdog:
           # storageClassName: your-ssd-class
           resources:
             requests:
-              storage: 3Gi
+              storage: 1Gi
     persistentVolumeClaimRetentionPolicy:
       whenDeleted: Retain
       whenScaled: Retain
@@ -317,7 +317,7 @@ watchdog:
             storage: file_storage/queue
             block_on_overflow: true
             sizer: bytes # Counts serialized telemetry, excluding database overhead.
-            queue_size: 515396076 # Per signal. Three queues share the 3Gi PVC.
+            queue_size: 85899346 # Per signal; about 246MiB total shares the 1Gi PVC.
             num_consumers: 32 # Export concurrency. Idle worker slots hold no batch payload.
             batch:
               sizer: bytes # Batch sizes use serialized bytes, matching queue accounting.

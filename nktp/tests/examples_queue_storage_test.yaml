@@ -107,4 +107,4 @@ tests:
           value: [health_check]
       - equal:
           path: spec.config.exporters.otlp.sending_queue.queue_size
-          value: 8388608
+          value: 85899346
