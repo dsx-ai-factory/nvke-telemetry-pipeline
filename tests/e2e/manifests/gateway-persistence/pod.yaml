@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: v1
+kind: Pod
+metadata:
+  generateName: gateway-persistence-sender-
+spec:
+  automountServiceAccountToken: false
+  terminationGracePeriodSeconds: 1
+  tolerations:
+    - operator: Exists
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: sender
+      image: "" # Set from the installed node Collector before creation.
+      imagePullPolicy: IfNotPresent
+      args: [--config=/config/config.yaml]
+      readinessProbe:
+        tcpSocket:
+          port: 4318
+      securityContext:
+        runAsUser: 65532
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
+      volumeMounts:
+        - name: config
+          mountPath: /config
+          readOnly: true
+        - name: tls
+          mountPath: /etc/nktp/internal-tls/client
+          readOnly: true
+  volumes:
+    - name: config
+      configMap:
+        name: "" # Set to the generated ConfigMap name before creation.
+    - name: tls
+      secret:
+        secretName: nktp-daemonset-client-tls

@@ -170,6 +170,8 @@ Do not change unless explicitly instructed:
 
 Always:
 
+- Follow the [e2e test authoring guidance](tests/e2e/README.md#adding-a-new-test)
+  when adding or modifying tests under `tests/e2e/`.
 - Keep `tests/e2e/README.md` focused on suite setup, execution, and shared
   infrastructure. Do not document individual tests or add test-specific run
   commands there. Put each test's purpose, prerequisites, assertions, and

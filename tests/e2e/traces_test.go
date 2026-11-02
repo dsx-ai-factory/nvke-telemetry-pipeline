@@ -123,37 +123,10 @@ done
 					return false, nil
 				}
 				// Tempo returns base64 IDs for the hex OTLP/JSON IDs sent above.
-				body, queryErr := proxyClient.Services(namespace).ProxyGet("http", "lgtm", "3000",
-					"/api/datasources/proxy/uid/tempo/api/v2/traces/"+traceID, nil).DoRaw(ctx)
+				response, queryErr := queryTempoTrace(ctx, proxyClient.Services(namespace), traceID)
 				lastErr = queryErr
 				if queryErr != nil {
 					return false, nil // A trace is initially absent while export completes.
-				}
-				var response struct {
-					Trace struct {
-						ResourceSpans []struct {
-							Resource struct {
-								Attributes []struct {
-									Key   string `json:"key"`
-									Value struct {
-										StringValue string `json:"stringValue"`
-									} `json:"value"`
-								} `json:"attributes"`
-							} `json:"resource"`
-							ScopeSpans []struct {
-								Spans []struct {
-									TraceID string `json:"traceId"`
-									SpanID  string `json:"spanId"`
-									Name    string `json:"name"`
-									Start   string `json:"startTimeUnixNano"`
-									End     string `json:"endTimeUnixNano"`
-								} `json:"spans"`
-							} `json:"scopeSpans"`
-						} `json:"resourceSpans"`
-					} `json:"trace"`
-				}
-				if err := json.Unmarshal(body, &response); err != nil {
-					return false, fmt.Errorf("decoding Tempo trace %s: %w", traceID, err)
 				}
 				for _, resource := range response.Trace.ResourceSpans {
 					attributes := map[string]string{}
@@ -173,7 +146,7 @@ done
 						}
 					}
 				}
-				lastErr = fmt.Errorf("Tempo returned trace %s without the expected span and resource attributes: %s", traceID, body)
+				lastErr = fmt.Errorf("Tempo returned trace %s without the expected span and resource attributes: %+v", traceID, response)
 				return false, nil
 			}, wait.WithContext(waitCtx), wait.WithTimeout(0), wait.WithInterval(5*time.Second), wait.WithImmediate())
 			require.NoError(t, err, "waiting for trace %s in Tempo; last query error: %v", traceID, lastErr)
@@ -181,4 +154,43 @@ done
 		}).
 		Feature()
 	testenv.Test(t, f)
+}
+
+type tempoTraceResponse struct {
+	Trace struct {
+		ResourceSpans []struct {
+			Resource struct {
+				Attributes []struct {
+					Key   string `json:"key"`
+					Value struct {
+						StringValue string `json:"stringValue"`
+					} `json:"value"`
+				} `json:"attributes"`
+			} `json:"resource"`
+			ScopeSpans []struct {
+				Spans []struct {
+					TraceID string `json:"traceId"`
+					SpanID  string `json:"spanId"`
+					Name    string `json:"name"`
+					Start   string `json:"startTimeUnixNano"`
+					End     string `json:"endTimeUnixNano"`
+				} `json:"spans"`
+			} `json:"scopeSpans"`
+		} `json:"resourceSpans"`
+	} `json:"trace"`
+}
+
+// queryTempoTrace reads a trace through LGTM's Grafana datasource proxy.
+// Tempo represents the OTLP trace and span IDs as base64 in this response.
+func queryTempoTrace(ctx context.Context, services coreclient.ServiceInterface, traceID string) (tempoTraceResponse, error) {
+	var response tempoTraceResponse
+	body, err := services.ProxyGet("http", "lgtm", "3000",
+		"/api/datasources/proxy/uid/tempo/api/v2/traces/"+traceID, nil).DoRaw(ctx)
+	if err != nil {
+		return response, err
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return response, fmt.Errorf("decoding Tempo trace %s: %w", traceID, err)
+	}
+	return response, nil
 }

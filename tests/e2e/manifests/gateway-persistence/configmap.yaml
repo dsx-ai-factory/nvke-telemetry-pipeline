@@ -1,0 +1,62 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  generateName: gateway-persistence-sender-
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          http:
+            endpoint: 0.0.0.0:4318
+    exporters:
+      otlp/metrics:
+        endpoint: nktp-gateway-metrics-collector:4317
+        tls:
+          ca_file: /etc/nktp/internal-tls/client/ca.crt
+          cert_file: /etc/nktp/internal-tls/client/tls.crt
+          key_file: /etc/nktp/internal-tls/client/tls.key
+        # Accept a post only after the gateway accepts it; the sender must
+        # retain no telemetry that could bypass gateway persistence checks.
+        sending_queue:
+          enabled: false
+        retry_on_failure:
+          enabled: false
+      otlp/logs:
+        endpoint: nktp-gateway-logs-collector:4317
+        tls:
+          ca_file: /etc/nktp/internal-tls/client/ca.crt
+          cert_file: /etc/nktp/internal-tls/client/tls.crt
+          key_file: /etc/nktp/internal-tls/client/tls.key
+        # Accept a post only after the gateway accepts it; the sender must
+        # retain no telemetry that could bypass gateway persistence checks.
+        sending_queue:
+          enabled: false
+        retry_on_failure:
+          enabled: false
+      otlp/traces:
+        endpoint: nktp-gateway-traces-collector:4317
+        tls:
+          ca_file: /etc/nktp/internal-tls/client/ca.crt
+          cert_file: /etc/nktp/internal-tls/client/tls.crt
+          key_file: /etc/nktp/internal-tls/client/tls.key
+        # Accept a post only after the gateway accepts it; the sender must
+        # retain no telemetry that could bypass gateway persistence checks.
+        sending_queue:
+          enabled: false
+        retry_on_failure:
+          enabled: false
+    service:
+      pipelines:
+        metrics:
+          receivers: [otlp]
+          exporters: [otlp/metrics]
+        logs:
+          receivers: [otlp]
+          exporters: [otlp/logs]
+        traces:
+          receivers: [otlp]
+          exporters: [otlp/traces]
