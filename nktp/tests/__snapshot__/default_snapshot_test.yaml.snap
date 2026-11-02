@@ -170,6 +170,25 @@ matches the snapshot with default values:
     apiVersion: cert-manager.io/v1
     kind: Certificate
     metadata:
+      name: nktp-nodeless-metrics-client
+      namespace: NAMESPACE
+    spec:
+      commonName: nktp-nodeless-metrics
+      duration: 2160h
+      issuerRef:
+        group: cert-manager.io
+        kind: Issuer
+        name: nktp-internal-ca-issuer
+      privateKey:
+        rotationPolicy: Always
+      renewBefore: 360h
+      secretName: nktp-nodeless-metrics-client-tls
+      usages:
+        - client auth
+  11: |
+    apiVersion: cert-manager.io/v1
+    kind: Certificate
+    metadata:
       name: nktp-cluster-events-client
       namespace: NAMESPACE
     spec:
@@ -185,7 +204,7 @@ matches the snapshot with default values:
       secretName: nktp-cluster-events-client-tls
       usages:
         - client auth
-  11: |
+  12: |
     apiVersion: cert-manager.io/v1
     kind: Certificate
     metadata:
@@ -204,7 +223,7 @@ matches the snapshot with default values:
       secretName: nktp-gateway-traces-client-tls
       usages:
         - client auth
-  12: |
+  13: |
     apiVersion: cert-manager.io/v1
     kind: Certificate
     metadata:
@@ -223,7 +242,7 @@ matches the snapshot with default values:
       secretName: nktp-gateway-logs-client-tls
       usages:
         - client auth
-  13: |
+  14: |
     apiVersion: cert-manager.io/v1
     kind: Certificate
     metadata:
@@ -242,7 +261,7 @@ matches the snapshot with default values:
       secretName: nktp-gateway-metrics-client-tls
       usages:
         - client auth
-  14: |
+  15: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -256,7 +275,7 @@ matches the snapshot with default values:
           - get
           - list
           - watch
-  15: |
+  16: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -269,7 +288,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-cluster-events-collector
         namespace: NAMESPACE
-  16: |
+  17: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: Role
     metadata:
@@ -285,7 +304,7 @@ matches the snapshot with default values:
         verbs:
           - get
           - update
-  17: |
+  18: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: RoleBinding
     metadata:
@@ -299,13 +318,13 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-cluster-events-collector
         namespace: NAMESPACE
-  18: |
+  19: |
     apiVersion: coordination.k8s.io/v1
     kind: Lease
     metadata:
       name: nktp-cluster-events
       namespace: NAMESPACE
-  19: |
+  20: |
     apiVersion: opentelemetry.io/v1beta1
     kind: OpenTelemetryCollector
     metadata:
@@ -513,7 +532,7 @@ matches the snapshot with default values:
               - key: ca.crt
                 path: ca.crt
             secretName: nktp-cluster-events-client-tls
-  20: |
+  21: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -550,7 +569,7 @@ matches the snapshot with default values:
           - get
           - list
           - watch
-  21: |
+  22: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -563,7 +582,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-daemonset-targetallocator
         namespace: NAMESPACE
-  22: |
+  23: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -575,7 +594,7 @@ matches the snapshot with default values:
           - nodes/metrics
         verbs:
           - get
-  23: |
+  24: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -588,7 +607,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-daemonset-collector
         namespace: NAMESPACE
-  24: |
+  25: |
     apiVersion: opentelemetry.io/v1beta1
     kind: OpenTelemetryCollector
     metadata:
@@ -711,6 +730,7 @@ matches the snapshot with default values:
                   - set(attributes["service.name"], "nktp-targetallocator") where IsMatch(attributes["k8s.pod.name"], "^nktp-daemonset-targetallocator-")
                   - set(attributes["service.name"], "nktp-watchdog-targetallocator") where IsMatch(attributes["k8s.pod.name"], "^nktp-watchdog-targetallocator-")
                   - set(attributes["service.name"], "nktp-large-target-metrics-targetallocator") where IsMatch(attributes["k8s.pod.name"], "^nktp-large-target-metrics-targetallocator-")
+                  - set(attributes["service.name"], "nktp-nodeless-metrics-targetallocator") where IsMatch(attributes["k8s.pod.name"], "^nktp-nodeless-metrics-targetallocator-")
         receivers:
           filelog:
             exclude:
@@ -1119,9 +1139,17 @@ matches the snapshot with default values:
                 operator: NotIn
                 values:
                   - "true"
+              - key: nktp.nvidia.io/nodeless-target
+                operator: NotIn
+                values:
+                  - "true"
           probeSelector:
             matchExpressions:
               - key: nktp.nvidia.io/large-target
+                operator: NotIn
+                values:
+                  - "true"
+              - key: nktp.nvidia.io/nodeless-target
                 operator: NotIn
                 values:
                   - "true"
@@ -1131,9 +1159,17 @@ matches the snapshot with default values:
                 operator: NotIn
                 values:
                   - "true"
+              - key: nktp.nvidia.io/nodeless-target
+                operator: NotIn
+                values:
+                  - "true"
           serviceMonitorSelector:
             matchExpressions:
               - key: nktp.nvidia.io/large-target
+                operator: NotIn
+                values:
+                  - "true"
+              - key: nktp.nvidia.io/nodeless-target
                 operator: NotIn
                 values:
                   - "true"
@@ -1245,7 +1281,7 @@ matches the snapshot with default values:
               - key: ca.crt
                 path: ca.crt
             secretName: nktp-daemonset-client-tls
-  25: |
+  26: |
     apiVersion: opentelemetry.io/v1beta1
     kind: OpenTelemetryCollector
     metadata:
@@ -1497,7 +1533,7 @@ matches the snapshot with default values:
               - key: ca.crt
                 path: ca.crt
             secretName: nktp-gateway-logs-client-tls
-  26: |
+  27: |
     apiVersion: opentelemetry.io/v1beta1
     kind: OpenTelemetryCollector
     metadata:
@@ -1749,7 +1785,7 @@ matches the snapshot with default values:
               - key: ca.crt
                 path: ca.crt
             secretName: nktp-gateway-metrics-client-tls
-  27: |
+  28: |
     apiVersion: opentelemetry.io/v1beta1
     kind: OpenTelemetryCollector
     metadata:
@@ -2001,7 +2037,7 @@ matches the snapshot with default values:
               - key: ca.crt
                 path: ca.crt
             secretName: nktp-gateway-traces-client-tls
-  28: |
+  29: |
     apiVersion: monitoring.coreos.com/v1
     kind: PodMonitor
     metadata:
@@ -2022,7 +2058,7 @@ matches the snapshot with default values:
           app.kubernetes.io/component: kube-state-metrics
           app.kubernetes.io/instance: RELEASE-NAME
           app.kubernetes.io/name: nktp-ksm-cluster
-  29: |
+  30: |
     apiVersion: monitoring.coreos.com/v1
     kind: PodMonitor
     metadata:
@@ -2043,7 +2079,7 @@ matches the snapshot with default values:
           app.kubernetes.io/component: kube-state-metrics
           app.kubernetes.io/instance: RELEASE-NAME
           app.kubernetes.io/name: nktp-ksm-configuration
-  30: |
+  31: |
     apiVersion: monitoring.coreos.com/v1
     kind: PodMonitor
     metadata:
@@ -2064,7 +2100,7 @@ matches the snapshot with default values:
           app.kubernetes.io/component: kube-state-metrics
           app.kubernetes.io/instance: RELEASE-NAME
           app.kubernetes.io/name: nktp-ksm-networking
-  31: |
+  32: |
     apiVersion: monitoring.coreos.com/v1
     kind: PodMonitor
     metadata:
@@ -2084,7 +2120,7 @@ matches the snapshot with default values:
           app.kubernetes.io/component: kube-state-metrics
           app.kubernetes.io/instance: RELEASE-NAME
           app.kubernetes.io/name: nktp-ksm-pods
-  32: |
+  33: |
     apiVersion: monitoring.coreos.com/v1
     kind: PodMonitor
     metadata:
@@ -2105,7 +2141,7 @@ matches the snapshot with default values:
           app.kubernetes.io/component: kube-state-metrics
           app.kubernetes.io/instance: RELEASE-NAME
           app.kubernetes.io/name: nktp-ksm-storage
-  33: |
+  34: |
     apiVersion: monitoring.coreos.com/v1
     kind: PodMonitor
     metadata:
@@ -2126,7 +2162,7 @@ matches the snapshot with default values:
           app.kubernetes.io/component: kube-state-metrics
           app.kubernetes.io/instance: RELEASE-NAME
           app.kubernetes.io/name: nktp-ksm-unscheduled-pods
-  34: |
+  35: |
     apiVersion: monitoring.coreos.com/v1
     kind: PodMonitor
     metadata:
@@ -2147,7 +2183,7 @@ matches the snapshot with default values:
           app.kubernetes.io/component: kube-state-metrics
           app.kubernetes.io/instance: RELEASE-NAME
           app.kubernetes.io/name: nktp-ksm-workloads
-  35: |
+  36: |
     apiVersion: v1
     kind: ServiceAccount
     metadata:
@@ -2157,7 +2193,7 @@ matches the snapshot with default values:
         app.kubernetes.io/name: nktp-ksm-cluster
       name: nktp-ksm-cluster
       namespace: NAMESPACE
-  36: |
+  37: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -2199,7 +2235,7 @@ matches the snapshot with default values:
         verbs:
           - list
           - watch
-  37: |
+  38: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -2216,7 +2252,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-ksm-cluster
         namespace: NAMESPACE
-  38: |
+  39: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -2241,7 +2277,7 @@ matches the snapshot with default values:
         verbs:
           - list
           - watch
-  39: |
+  40: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -2258,7 +2294,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-ksm-cluster
         namespace: NAMESPACE
-  40: |
+  41: |
     apiVersion: v1
     kind: ServiceAccount
     metadata:
@@ -2268,7 +2304,7 @@ matches the snapshot with default values:
         app.kubernetes.io/name: nktp-ksm-configuration
       name: nktp-ksm-configuration
       namespace: NAMESPACE
-  41: |
+  42: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -2285,7 +2321,7 @@ matches the snapshot with default values:
         verbs:
           - list
           - watch
-  42: |
+  43: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -2302,7 +2338,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-ksm-configuration
         namespace: NAMESPACE
-  43: |
+  44: |
     apiVersion: v1
     kind: ServiceAccount
     metadata:
@@ -2312,7 +2348,7 @@ matches the snapshot with default values:
         app.kubernetes.io/name: nktp-ksm-networking
       name: nktp-ksm-networking
       namespace: NAMESPACE
-  44: |
+  45: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -2344,7 +2380,7 @@ matches the snapshot with default values:
         verbs:
           - list
           - watch
-  45: |
+  46: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -2361,7 +2397,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-ksm-networking
         namespace: NAMESPACE
-  46: |
+  47: |
     apiVersion: v1
     kind: ServiceAccount
     metadata:
@@ -2371,7 +2407,7 @@ matches the snapshot with default values:
         app.kubernetes.io/name: nktp-ksm-pods
       name: nktp-ksm-pods
       namespace: NAMESPACE
-  47: |
+  48: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -2388,7 +2424,7 @@ matches the snapshot with default values:
         verbs:
           - list
           - watch
-  48: |
+  49: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -2405,7 +2441,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-ksm-pods
         namespace: NAMESPACE
-  49: |
+  50: |
     apiVersion: v1
     kind: ServiceAccount
     metadata:
@@ -2415,7 +2451,7 @@ matches the snapshot with default values:
         app.kubernetes.io/name: nktp-ksm-storage
       name: nktp-ksm-storage
       namespace: NAMESPACE
-  50: |
+  51: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -2439,7 +2475,7 @@ matches the snapshot with default values:
         verbs:
           - list
           - watch
-  51: |
+  52: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -2456,7 +2492,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-ksm-storage
         namespace: NAMESPACE
-  52: |
+  53: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -2473,7 +2509,7 @@ matches the snapshot with default values:
         verbs:
           - list
           - watch
-  53: |
+  54: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -2490,7 +2526,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-ksm-storage
         namespace: NAMESPACE
-  54: |
+  55: |
     apiVersion: v1
     kind: ServiceAccount
     metadata:
@@ -2500,7 +2536,7 @@ matches the snapshot with default values:
         app.kubernetes.io/name: nktp-ksm-unscheduled-pods
       name: nktp-ksm-unscheduled-pods
       namespace: NAMESPACE
-  55: |
+  56: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -2517,7 +2553,7 @@ matches the snapshot with default values:
         verbs:
           - list
           - watch
-  56: |
+  57: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -2534,7 +2570,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-ksm-unscheduled-pods
         namespace: NAMESPACE
-  57: |
+  58: |
     apiVersion: v1
     kind: ServiceAccount
     metadata:
@@ -2544,7 +2580,7 @@ matches the snapshot with default values:
         app.kubernetes.io/name: nktp-ksm-workloads
       name: nktp-ksm-workloads
       namespace: NAMESPACE
-  58: |
+  59: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -2593,7 +2629,7 @@ matches the snapshot with default values:
         verbs:
           - list
           - watch
-  59: |
+  60: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -2610,7 +2646,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-ksm-workloads
         namespace: NAMESPACE
-  60: |
+  61: |
     apiVersion: apps/v1
     kind: Deployment
     metadata:
@@ -2686,7 +2722,7 @@ matches the snapshot with default values:
             seccompProfile:
               type: RuntimeDefault
           serviceAccountName: nktp-ksm-cluster
-  61: |
+  62: |
     apiVersion: apps/v1
     kind: Deployment
     metadata:
@@ -2762,7 +2798,7 @@ matches the snapshot with default values:
             seccompProfile:
               type: RuntimeDefault
           serviceAccountName: nktp-ksm-configuration
-  62: |
+  63: |
     apiVersion: apps/v1
     kind: Deployment
     metadata:
@@ -2838,7 +2874,7 @@ matches the snapshot with default values:
             seccompProfile:
               type: RuntimeDefault
           serviceAccountName: nktp-ksm-networking
-  63: |
+  64: |
     apiVersion: apps/v1
     kind: DaemonSet
     metadata:
@@ -2917,7 +2953,7 @@ matches the snapshot with default values:
           serviceAccountName: nktp-ksm-pods
           tolerations:
             - operator: Exists
-  64: |
+  65: |
     apiVersion: apps/v1
     kind: Deployment
     metadata:
@@ -2993,7 +3029,7 @@ matches the snapshot with default values:
             seccompProfile:
               type: RuntimeDefault
           serviceAccountName: nktp-ksm-storage
-  65: |
+  66: |
     apiVersion: apps/v1
     kind: Deployment
     metadata:
@@ -3070,7 +3106,7 @@ matches the snapshot with default values:
             seccompProfile:
               type: RuntimeDefault
           serviceAccountName: nktp-ksm-unscheduled-pods
-  66: |
+  67: |
     apiVersion: apps/v1
     kind: Deployment
     metadata:
@@ -3146,7 +3182,7 @@ matches the snapshot with default values:
             seccompProfile:
               type: RuntimeDefault
           serviceAccountName: nktp-ksm-workloads
-  67: |
+  68: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -3183,7 +3219,7 @@ matches the snapshot with default values:
           - get
           - list
           - watch
-  68: |
+  69: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -3196,7 +3232,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-large-target-metrics-targetallocator
         namespace: NAMESPACE
-  69: |
+  70: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -3206,7 +3242,7 @@ matches the snapshot with default values:
           - /metrics
         verbs:
           - get
-  70: |
+  71: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -3219,7 +3255,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-large-target-metrics-collector
         namespace: NAMESPACE
-  71: |
+  72: |
     apiVersion: opentelemetry.io/v1beta1
     kind: OpenTelemetryCollector
     metadata:
@@ -3514,7 +3550,350 @@ matches the snapshot with default values:
               - key: ca.crt
                 path: ca.crt
             secretName: nktp-large-target-metrics-client-tls
-  72: |
+  73: |
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: nktp-nodeless-metrics-targetallocator-NAMESPACE
+    rules:
+      - apiGroups:
+          - ""
+        resources:
+          - pods
+          - services
+          - endpoints
+          - namespaces
+          - nodes
+        verbs:
+          - get
+          - list
+          - watch
+      - apiGroups:
+          - discovery.k8s.io
+        resources:
+          - endpointslices
+        verbs:
+          - get
+          - list
+          - watch
+      - apiGroups:
+          - networking.k8s.io
+        resources:
+          - ingresses
+        verbs:
+          - get
+          - list
+          - watch
+      - apiGroups:
+          - monitoring.coreos.com
+        resources:
+          - servicemonitors
+          - podmonitors
+          - probes
+          - scrapeconfigs
+        verbs:
+          - get
+          - list
+          - watch
+  74: |
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: nktp-nodeless-metrics-targetallocator-NAMESPACE
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: nktp-nodeless-metrics-targetallocator-NAMESPACE
+    subjects:
+      - kind: ServiceAccount
+        name: nktp-nodeless-metrics-targetallocator
+        namespace: NAMESPACE
+  75: |
+    apiVersion: opentelemetry.io/v1beta1
+    kind: OpenTelemetryCollector
+    metadata:
+      labels:
+        helm.sh/chart: opentelemetry-kube-stack-0.25.1
+      name: nktp-nodeless-metrics
+      namespace: NAMESPACE
+    spec:
+      config:
+        exporters:
+          otlp:
+            endpoint: nktp-gateway-metrics-collector:4317
+            retry_on_failure:
+              max_elapsed_time: 30m
+            sending_queue:
+              batch:
+                flush_timeout: 1s
+                max_size: 2097152
+                min_size: 1048576
+                sizer: bytes
+              block_on_overflow: true
+              num_consumers: 4
+              queue_size: 33554432
+              sizer: bytes
+            tls:
+              ca_file: /etc/nktp/internal-tls/client/ca.crt
+              cert_file: /etc/nktp/internal-tls/client/tls.crt
+              key_file: /etc/nktp/internal-tls/client/tls.key
+              reload_interval: 1h
+        extensions:
+          health_check:
+            endpoint: 0.0.0.0:13133
+        processors:
+          memory_limiter:
+            check_interval: 500ms
+            limit_percentage: 80
+            spike_limit_percentage: 25
+          redaction/basic_v1:
+            allow_all_keys: true
+            blocked_key_patterns:
+              - (?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$
+            blocked_values:
+              - (?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*
+              - (?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)
+            redact_all_types: true
+            summary: silent
+        receivers:
+          prometheus:
+            config:
+              global:
+                external_labels:
+                  nktp_metrics_pool: nodeless
+              scrape_configs: []
+        service:
+          extensions:
+            - health_check
+          pipelines:
+            metrics:
+              exporters:
+                - otlp
+              processors:
+                - memory_limiter
+                - redaction/basic_v1
+              receivers:
+                - prometheus
+          telemetry:
+            logs:
+              processors:
+                - batch:
+                    exporter:
+                      otlp:
+                        endpoint: http://127.0.0.1:4319
+                        protocol: http/protobuf
+            metrics:
+              readers:
+                - periodic:
+                    exporter:
+                      otlp:
+                        endpoint: http://127.0.0.1:4319
+                        protocol: http/protobuf
+            resource:
+              service.instance.id: ${env:POD_NAME}
+              service.name: nktp-nodeless-metrics
+            traces:
+              level: basic
+              processors:
+                - batch:
+                    exporter:
+                      otlp:
+                        endpoint: http://127.0.0.1:4319
+                        protocol: http/protobuf
+                    schedule_delay: 1000
+      env:
+        - name: GOMEMLIMIT
+          value: 384MiB
+        - name: GOGC
+          value: "50"
+      image: otel/opentelemetry-collector-k8s:0.164.0
+      initContainers:
+        - args:
+            - --config=yaml:{"exporters":{"otlp":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":4194304,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":10000},"decision_wait":"5s","num_traces":1000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-nodeless-metrics-sidecar"},"traces":{"level":"none"}}}}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: GOMEMLIMIT
+              value: 96MiB
+          image: otel/opentelemetry-collector-k8s:0.164.0
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 13134
+          name: otc-sidecar
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          restartPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          startupProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /
+              port: 13134
+            periodSeconds: 1
+          volumeMounts:
+            - mountPath: /etc/nktp/internal-tls/client
+              name: internal-tls-client
+              readOnly: true
+      managementState: managed
+      mode: statefulset
+      podDisruptionBudget:
+        maxUnavailable: 1
+      podSecurityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      priorityClassName: nktp-telemetry-critical
+      replicas: 2
+      resources:
+        limits:
+          cpu: "1"
+          memory: 1Gi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        readOnlyRootFilesystem: true
+      targetAllocator:
+        allocationStrategy: consistent-hashing
+        collectorTargetReloadInterval: 10s
+        enabled: true
+        env:
+          - name: OTEL_SERVICE_NAME
+            value: nktp-nodeless-metrics-targetallocator
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: OTEL_RESOURCE_ATTRIBUTES
+            value: service.instance.id=$(POD_NAME)
+        image: ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:0.161.0
+        mtls:
+          enabled: true
+          useCertManager: true
+        observability:
+          metrics:
+            enableMetrics: false
+        podSecurityContext:
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+        prometheusCR:
+          denyFSAccessThroughSMs: false
+          enabled: true
+          podMonitorSelector:
+            matchExpressions:
+              - key: nktp.nvidia.io/nodeless-target
+                operator: In
+                values:
+                  - "true"
+              - key: nktp.nvidia.io/large-target
+                operator: NotIn
+                values:
+                  - "true"
+          probeSelector:
+            matchExpressions:
+              - key: nktp.nvidia.io/nodeless-target
+                operator: In
+                values:
+                  - "true"
+              - key: nktp.nvidia.io/large-target
+                operator: NotIn
+                values:
+                  - "true"
+          scrapeConfigSelector:
+            matchExpressions:
+              - key: nktp.nvidia.io/nodeless-target
+                operator: In
+                values:
+                  - "true"
+              - key: nktp.nvidia.io/large-target
+                operator: NotIn
+                values:
+                  - "true"
+          serviceMonitorSelector:
+            matchExpressions:
+              - key: nktp.nvidia.io/nodeless-target
+                operator: In
+                values:
+                  - "true"
+              - key: nktp.nvidia.io/large-target
+                operator: NotIn
+                values:
+                  - "true"
+        replicas: 1
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          readOnlyRootFilesystem: true
+        telemetry:
+          metrics:
+            readers:
+              - periodic:
+                  exporter:
+                    otlpGrpc:
+                      endpoint: nktp-watchdog-collector:4320
+                      temporalityPreference: cumulative
+                      tls:
+                        insecure: true
+                  interval: 30s
+      terminationGracePeriodSeconds: 60
+      topologySpreadConstraints:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: nktp-nodeless-metrics-collector
+          maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: nktp-nodeless-metrics-collector
+          maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+      upgradeStrategy: automatic
+      volumeMounts:
+        - mountPath: /etc/nktp/internal-tls/client
+          name: internal-tls-client
+          readOnly: true
+      volumes:
+        - name: internal-tls-client
+          secret:
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+              - key: ca.crt
+                path: ca.crt
+            secretName: nktp-nodeless-metrics-client-tls
+  76: |
     apiVersion: v1
     data:
       nktp.yaml: |
@@ -3532,7 +3911,7 @@ matches the snapshot with default values:
     metadata:
       name: lgtm-dashboard-provider
       namespace: NAMESPACE
-  73: |
+  77: |
     apiVersion: v1
     data:
       nktp-cluster-events.json: |
@@ -13235,7 +13614,7 @@ matches the snapshot with default values:
     metadata:
       name: lgtm-dashboards
       namespace: NAMESPACE
-  74: |
+  78: |
     apiVersion: v1
     kind: Service
     metadata:
@@ -13261,7 +13640,7 @@ matches the snapshot with default values:
           targetPort: 4318
       selector:
         app: lgtm
-  75: |
+  79: |
     apiVersion: apps/v1
     kind: Deployment
     metadata:
@@ -13338,7 +13717,7 @@ matches the snapshot with default values:
               name: p8s-storage
             - emptyDir: {}
               name: pyroscope-storage
-  76: |
+  80: |
     apiVersion: scheduling.k8s.io/v1
     description: Prioritizes NKTP telemetry below Kubernetes system-critical Pods.
     globalDefault: false
@@ -13347,7 +13726,7 @@ matches the snapshot with default values:
       name: nktp-telemetry-critical
     preemptionPolicy: PreemptLowerPriority
     value: 1000000000
-  77: |
+  81: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -13360,7 +13739,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-watchdog-collector
         namespace: NAMESPACE
-  78: |
+  82: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: Role
     metadata:
@@ -13384,7 +13763,7 @@ matches the snapshot with default values:
           - get
           - list
           - watch
-  79: |
+  83: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: RoleBinding
     metadata:
@@ -13398,7 +13777,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-watchdog-targetallocator
         namespace: NAMESPACE
-  80: |
+  84: |
     apiVersion: opentelemetry.io/v1beta1
     kind: OpenTelemetryCollector
     metadata:

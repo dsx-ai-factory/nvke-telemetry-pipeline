@@ -370,7 +370,7 @@ tests:
             service.instance.id: ${env:POD_NAME}
             k8s.node.name: ${env:NODE_NAME}
 
-  - it: allocates per node and excludes large-target and kubelet ServiceMonitors
+  - it: allocates per node and excludes large-target, nodeless-target and kubelet ServiceMonitors
     asserts:
       - equal:
           path: spec.targetAllocator
@@ -423,13 +423,20 @@ tests:
               serviceMonitorSelector:
                 matchExpressions:
                   - {key: nktp.nvidia.io/large-target, operator: NotIn, values: ["true"]}
+                  - {key: nktp.nvidia.io/nodeless-target, operator: NotIn, values: ["true"]}
                   - {key: app, operator: NotIn, values: [kube-prometheus-stack-kubelet, prometheus-operator-kubelet]}
               podMonitorSelector:
-                matchExpressions: [{key: nktp.nvidia.io/large-target, operator: NotIn, values: ["true"]}]
+                matchExpressions:
+                  - {key: nktp.nvidia.io/large-target, operator: NotIn, values: ["true"]}
+                  - {key: nktp.nvidia.io/nodeless-target, operator: NotIn, values: ["true"]}
               probeSelector:
-                matchExpressions: [{key: nktp.nvidia.io/large-target, operator: NotIn, values: ["true"]}]
+                matchExpressions:
+                  - {key: nktp.nvidia.io/large-target, operator: NotIn, values: ["true"]}
+                  - {key: nktp.nvidia.io/nodeless-target, operator: NotIn, values: ["true"]}
               scrapeConfigSelector:
-                matchExpressions: [{key: nktp.nvidia.io/large-target, operator: NotIn, values: ["true"]}]
+                matchExpressions:
+                  - {key: nktp.nvidia.io/large-target, operator: NotIn, values: ["true"]}
+                  - {key: nktp.nvidia.io/nodeless-target, operator: NotIn, values: ["true"]}
 
   - it: uses the global image and release namespace with an existing Operator
     release:

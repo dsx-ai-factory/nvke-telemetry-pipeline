@@ -77,6 +77,26 @@ and `node-exporter.prometheus.monitor.tlsConfig` to trust the certificate), and 
 token (`node-exporter.prometheus.monitor.bearerTokenFile`) whose identity Kubernetes RBAC allows to read the metrics, because
 kube-rbac-proxy authorizes each request.
 
+## Blackbox exporter
+
+[prometheus-blackbox-exporter](https://github.com/prometheus-community/helm-charts/tree/main/charts/prometheus-blackbox-exporter)
+probes endpoints over HTTP, TCP, DNS, gRPC, and ICMP, and returns the result as
+metrics. NKTP does **not** install it by default. Enable it to probe endpoints
+declared with Probe resources:
+
+```yaml
+blackbox-exporter:
+  enabled: true
+```
+
+The bundled chart is pinned to 11.20.2, which installs blackbox_exporter 0.29.1.
+NKTP names it `nktp-blackbox-exporter`, runs 2 replicas with `RuntimeDefault`
+seccomp and small resource limits, and enables its self-monitoring
+ServiceMonitor. Its image reads `global.imageRegistry`. Other settings pass
+through under `blackbox-exporter` using the upstream chart's values. See
+[Blackbox probing](nodeless_metrics.md#blackbox-probing) for how Probes reach the
+nodeless metrics pool.
+
 ## Metrics server
 
 [metrics-server](https://github.com/kubernetes-sigs/metrics-server) serves the Kubernetes

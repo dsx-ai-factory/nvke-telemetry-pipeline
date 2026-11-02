@@ -27,11 +27,13 @@ flowchart LR
     scrapes --> ds
   end
   large["Large scrape targets"] --> ltm["Large-target<br/>metrics pool"]
+  nodeless["Probes and targets<br/>without a node"] --> nlm["Nodeless<br/>metrics pool"]
   events["Kubernetes Events"] --> ev["Cluster event<br/>reader"]
   ds -- logs --> gl["Logs gateway"]
   ds -- metrics --> gm["Metrics gateway"]
   ds -- traces --> gt["Traces gateway"]
   ltm -- metrics --> gm
+  nlm -- metrics --> gm
   ev -- logs --> gl
   gl --> be[("Backend<br/>otel-lgtm by default")]
   gm --> be
@@ -42,6 +44,7 @@ flowchart LR
 | --- | --- | --- | --- | --- |
 | [Node collector](../components/node_collector.md) | `daemonset` | DaemonSet on every node, including tainted nodes | OTLP from workloads on its node, pod logs, journal, host authentication and audit logs, Kubernetes API audit log, kubelet and cAdvisor metrics, and scrape targets on its node | The gateway for each signal |
 | [Large-target metrics pool](../components/large_target_metrics.md) | `large_target_metrics` | StatefulSet, 2 to 32 replicas | Monitors labeled `nktp.nvidia.io/large-target: "true"` | Metrics gateway |
+| [Nodeless metrics pool](../components/nodeless_metrics.md) | `nodeless_metrics` | StatefulSet, 2 replicas | Monitors labeled `nktp.nvidia.io/nodeless-target: "true"`, such as Probes | Metrics gateway |
 | [Cluster event reader](../components/cluster_events.md) | `cluster_events` | StatefulSet, 2 replicas, one elected reader | Kubernetes Events | Logs gateway |
 | [Logs, metrics, and traces gateways](../components/gateways.md) | `gateway_logs`, `gateway_metrics`, `gateway_traces` | One StatefulSet each, 2 to 128 replicas | OTLP over gRPC with mTLS | Backend |
 | [Watchdog](../components/watchdog.md) | `watchdog` | StatefulSet, 2 to 16 replicas | Self-telemetry from NKTP components | Backend |
@@ -53,17 +56,18 @@ change the exporter in that Collector's configuration.
 
 ## Metrics scraping
 
-Three Target Allocators decide which Collector replica scrapes each target. The
+Four Target Allocators decide which Collector replica scrapes each target. The
 [target allocation design](../designs/target_allocation.md) explains why each
 scraping Collector requires one.
 
 | Target Allocator | Strategy | Discovers | Assigns to |
 | --- | --- | --- | --- |
-| Node (`daemonset`) | `per-node` | ServiceMonitors, PodMonitors, Probes, and ScrapeConfigs without the large-target label | The node collector on the target's node |
+| Node (`daemonset`) | `per-node` | ServiceMonitors, PodMonitors, Probes, and ScrapeConfigs without the large-target or nodeless-target label | The node collector on the target's node |
 | Large-target (`large_target_metrics`) | `consistent-hashing` | The same resource kinds with `nktp.nvidia.io/large-target: "true"` | One replica of the large-target pool |
+| Nodeless (`nodeless_metrics`) | `consistent-hashing` | The same resource kinds with `nktp.nvidia.io/nodeless-target: "true"` and without the large-target label | One replica of the nodeless pool |
 | Watchdog (`watchdog`) | `consistent-hashing` | The watchdog's own scrape jobs; Prometheus CR discovery is off | One watchdog replica |
 
-The bundled exporters are split between the first two:
+The bundled exporters are split between the node and large-target allocators:
 
 - node-exporter and the kube-state-metrics DaemonSet are scraped by the node
   collector on the same node.

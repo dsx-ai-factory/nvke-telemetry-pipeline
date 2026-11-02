@@ -1,0 +1,45 @@
+suite: nodeless metrics RBAC
+release:
+  namespace: nktp
+templates:
+  - templates/nodeless-metrics-rbac.yaml
+tests:
+  - it: grants discovery access to the allocator without Secret access
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: kind
+          value: ClusterRole
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: nktp-nodeless-metrics-targetallocator-nktp
+        documentIndex: 0
+      - equal:
+          path: rules
+          value:
+            - {apiGroups: [""], resources: [pods, services, endpoints, namespaces, nodes], verbs: [get, list, watch]}
+            - {apiGroups: [discovery.k8s.io], resources: [endpointslices], verbs: [get, list, watch]}
+            - {apiGroups: [networking.k8s.io], resources: [ingresses], verbs: [get, list, watch]}
+            - {apiGroups: [monitoring.coreos.com], resources: [servicemonitors, podmonitors, probes, scrapeconfigs], verbs: [get, list, watch]}
+        documentIndex: 0
+      - equal:
+          path: subjects
+          value: [{kind: ServiceAccount, name: nktp-nodeless-metrics-targetallocator, namespace: nktp}]
+        documentIndex: 1
+
+  - it: binds a custom allocator account in the release namespace
+    release:
+      namespace: telemetry
+    set:
+      nodeless_metrics.kubernetes.targetAllocator.serviceAccount: probe-discovery
+    asserts:
+      - equal:
+          path: subjects
+          value: [{kind: ServiceAccount, name: probe-discovery, namespace: telemetry}]
+        documentIndex: 1
+      - equal:
+          path: roleRef.name
+          value: nktp-nodeless-metrics-targetallocator-telemetry
+        documentIndex: 1

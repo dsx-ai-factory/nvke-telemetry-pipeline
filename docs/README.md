@@ -33,11 +33,12 @@ Each page covers one top-level key in `nktp/values.yaml`.
 - [Node collector](components/node_collector.md) (`daemonset`)
 - [Gateways](components/gateways.md) (`gateway_logs`, `gateway_metrics`, `gateway_traces`)
 - [Large-target metrics](components/large_target_metrics.md) (`large_target_metrics`)
+- [Nodeless metrics](components/nodeless_metrics.md) (`nodeless_metrics`, `blackbox-exporter`)
 - [Cluster events](components/cluster_events.md) (`cluster_events`)
 - [Watchdog](components/watchdog.md) (`watchdog`)
 - [kube-state-metrics](components/kube_state_metrics.md) (`kube-state-metrics`)
 - [otel-lgtm](components/otel_lgtm.md) (`otel-lgtm`)
-- [Managed dependencies](components/dependencies.md) (`opentelemetry-kube-stack`, `node-exporter`, `metrics-server`)
+- [Managed dependencies](components/dependencies.md) (`opentelemetry-kube-stack`, `node-exporter`, `metrics-server`, `blackbox-exporter`)
 
 ## Develop NKTP
 

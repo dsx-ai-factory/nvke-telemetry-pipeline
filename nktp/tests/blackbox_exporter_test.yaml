@@ -1,0 +1,76 @@
+suite: blackbox-exporter
+release:
+  name: test
+  namespace: nktp
+templates:
+  - charts/blackbox-exporter/templates/*.yaml
+  # Keeps the suite rendering when blackbox-exporter is off, which is the default.
+  - templates/otel-lgtm.yaml
+tests:
+  - it: omits the exporter by default
+    asserts:
+      - containsDocument:
+          apiVersion: apps/v1
+          kind: Deployment
+          name: nktp-blackbox-exporter
+        not: true
+      - containsDocument:
+          apiVersion: monitoring.coreos.com/v1
+          kind: ServiceMonitor
+          name: nktp-blackbox-exporter
+        not: true
+
+  - it: runs the pinned exporter with two restricted replicas when enabled
+    set:
+      blackbox-exporter.enabled: true
+    template: charts/blackbox-exporter/templates/deployment.yaml
+    asserts:
+      - containsDocument:
+          apiVersion: apps/v1
+          kind: Deployment
+          name: nktp-blackbox-exporter
+      - equal:
+          path: spec.replicas
+          value: 2
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: quay.io/prometheus/blackbox-exporter:v0.29.1
+      - equal:
+          path: spec.template.spec.securityContext.seccompProfile.type
+          value: RuntimeDefault
+      - equal:
+          path: spec.template.spec.containers[0].securityContext
+          value:
+            runAsUser: 1000
+            runAsGroup: 1000
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+      - equal:
+          path: spec.template.spec.containers[0].resources
+          value:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {cpu: 200m, memory: 128Mi}
+
+  - it: declares its own metrics for the node collector without the nodeless-target label
+    set:
+      blackbox-exporter.enabled: true
+    template: charts/blackbox-exporter/templates/selfservicemonitor.yaml
+    asserts:
+      - containsDocument:
+          apiVersion: monitoring.coreos.com/v1
+          kind: ServiceMonitor
+          name: nktp-blackbox-exporter
+      - notExists:
+          path: metadata.labels["nktp.nvidia.io/nodeless-target"]
+
+  - it: mirrors the image through global.imageRegistry
+    set:
+      blackbox-exporter.enabled: true
+      global.imageRegistry: mirror.example.com
+    template: charts/blackbox-exporter/templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: mirror.example.com/prometheus/blackbox-exporter:v0.29.1

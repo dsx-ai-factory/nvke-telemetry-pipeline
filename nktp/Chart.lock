@@ -8,5 +8,8 @@ dependencies:
 - name: metrics-server
   repository: https://kubernetes-sigs.github.io/metrics-server/
   version: 3.13.1
-digest: sha256:3fff0996e43fdc0b34044e3ef09c34878f1ddb885ca199ba72c9f2c2a3beb981
-generated: "2026-10-21T20:24:23.428212+05:30"
+- name: prometheus-blackbox-exporter
+  repository: https://prometheus-community.github.io/helm-charts
+  version: 11.20.2
+digest: sha256:7eeeee9bb621d2947dd94f36b19e7c1b9eb7f76cf1e5d476e4cb69309528d796
+generated: "2026-11-02T20:08:59.982734+05:30"

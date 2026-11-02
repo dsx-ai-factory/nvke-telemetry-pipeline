@@ -18,6 +18,7 @@ registries at install time and are not redistributed with this chart.
 | opentelemetry-kube-stack / prometheus-node-exporter | 4.48.0 | Copyright The Prometheus Community Authors | Apache-2.0 | https://github.com/prometheus-community/helm-charts |
 | prometheus-node-exporter | 4.56.1 | Copyright The Prometheus Community Authors | Apache-2.0 | https://github.com/prometheus-community/helm-charts |
 | metrics-server | 3.13.1 | Copyright The Kubernetes Authors | Apache-2.0 | https://github.com/kubernetes-sigs/metrics-server |
+| prometheus-blackbox-exporter | 11.20.2 | Copyright The Prometheus Community Authors | Apache-2.0 | https://github.com/prometheus-community/helm-charts |
 
 ## Upstream NOTICE files
 
