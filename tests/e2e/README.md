@@ -40,8 +40,10 @@ task e2e:test -- -chart "$E2E_CHART"
 ```
 
 With `-keep-release`, the deployed release selected by `-release-name` in
-`-namespace` is reused and `-chart` is ignored. If that release does not exist,
-the suite installs the specified chart and keeps it after testing.
+`-namespace` is reused, skipping installation from `-chart` and `-values`.
+If that release does not exist, the suite installs it using those inputs and
+keeps it after testing. Chart reapplication checks still use `-chart` and
+`-values`, even when installation is skipped.
 
 To reuse an existing installation, edit the kubeconfig path and release name:
 

@@ -6,19 +6,15 @@
 package e2e
 
 import (
-	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"io"
 	"math/big"
 	"net"
-	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -32,10 +28,11 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
-	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/features"
@@ -44,49 +41,33 @@ import (
 
 // TestGatewayConnections checks that gRPC connection rotation lets existing
 // Collectors reach new gateway replicas while all clients keep delivering.
-// Isolated fixtures use the chart's connection settings with shorter intervals.
+// Isolated test Pods use installed Collectors' connection settings with
+// shorter rotation intervals.
 // A control without rotation must use only the original gateway for one minute.
 // Cleanup removes the fixture namespace and its resources.
 func TestGatewayConnections(t *testing.T) {
-	collectors := map[string]*collectorSpec{}
+	collectors := map[string]map[string]any{}
 	var k kubernetes.Interface
 	f := features.New("Gateway connection rotation").
-		Setup(func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
+		WithSetup("ReadInstalledCollectors", func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
 			var err error
 			k, err = kubernetes.NewForConfig(c.Client().RESTConfig())
 			require.NoError(t, err, "creating Kubernetes client")
-			renderCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+			readCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 			defer cancel()
-			args := []string{"template", testenv.ReleaseName, testenv.ChartPath, "--namespace", c.Namespace(), "--values", testenv.ValuesPath}
-			for _, template := range []string{"gateway-logs", "gateway-metrics", "gateway-traces", "daemonset"} {
-				args = append(args, "--show-only", "templates/"+template+".yaml")
-			}
-			rendered, err := exec.CommandContext(renderCtx, "helm", args...).Output()
-			require.NoError(t, err, "rendering the chart's connection settings")
-			decoder := kubeyaml.NewYAMLOrJSONDecoder(bytes.NewReader(rendered), 4096)
-			for {
-				var object struct {
-					Metadata metav1.ObjectMeta `json:"metadata"`
-					Spec     *collectorSpec    `json:"spec"`
-				}
-				err := decoder.Decode(&object)
-				if err == io.EOF {
-					break
-				}
-				require.NoError(t, err)
-				require.NotNil(t, object.Spec)
-				collectors[object.Metadata.Name] = object.Spec
+			for _, name := range []string{"nktp-gateway-logs", "nktp-gateway-metrics", "nktp-gateway-traces", "nktp-daemonset"} {
+				collector := &unstructured.Unstructured{}
+				collector.SetGroupVersionKind(schema.GroupVersionKind{Group: "opentelemetry.io", Version: "v1beta1", Kind: "OpenTelemetryCollector"})
+				require.NoError(t, c.Client().Resources(c.Namespace()).Get(readCtx, name, c.Namespace(), collector),
+					"reading installed Collector %s", name)
+				spec := connectionMap(t, collector.Object, "spec")
+				connectionString(t, spec, "image")
+				collectors[name] = spec
 			}
 
 			for _, name := range []string{"nktp-gateway-logs", "nktp-gateway-metrics", "nktp-gateway-traces"} {
-				configured := collectors[name]
-				require.NotNil(t, configured)
-				require.NotNil(t, configured.Config.Receivers.OTLP)
-				listener, found := configured.Config.Receivers.OTLP.Protocols["grpc"]
-				require.True(t, found)
-				require.NotNil(t, listener.Keepalive)
-				require.NotNil(t, listener.Keepalive.ServerParameters)
-				age, err := time.ParseDuration(listener.Keepalive.ServerParameters.MaxConnectionAge)
+				ageText := connectionString(t, collectors[name], "config", "receivers", "otlp", "protocols", "grpc", "keepalive", "server_parameters", "max_connection_age")
+				age, err := time.ParseDuration(ageText)
 				require.NoError(t, err, "%s max_connection_age must be a duration", name)
 				require.Positive(t, age, "%s must enable connection rotation", name)
 			}
@@ -115,10 +96,11 @@ func TestGatewayConnections(t *testing.T) {
 			require.NotNil(t, clientCollector)
 			fixtureGateway := collectors["nktp-gateway-logs"]
 			protocol := tc.protocol
-			listener, found := fixtureGateway.Config.Receivers.OTLP.Protocols[protocol]
-			require.True(t, found, "logs gateway must accept %s", protocol)
-			_, portText, err := net.SplitHostPort(listener.Endpoint)
-			require.NoError(t, err, "parsing gateway listener %q", listener.Endpoint)
+			// NestedMap returns a deep copy so fixture edits cannot affect other cases.
+			listener := connectionMap(t, fixtureGateway, "config", "receivers", "otlp", "protocols", protocol)
+			endpoint := connectionString(t, listener, "endpoint")
+			_, portText, err := net.SplitHostPort(endpoint)
+			require.NoError(t, err, "parsing gateway listener %q", endpoint)
 			portNumber, err := strconv.ParseUint(portText, 10, 16)
 			require.NoError(t, err)
 			require.Positive(t, portNumber)
@@ -175,44 +157,40 @@ func TestGatewayConnections(t *testing.T) {
 				}), "waiting for fixture pods to be removed")
 			})
 
-			require.NotNil(t, listener.TLS, "gateway connections must retain mTLS")
 			// Substitute fixture credentials while preserving TLS policy settings.
-			serverTLS := *listener.TLS
-			serverTLS.CertFile = "/etc/nktp/internal-tls/server/tls.crt"
-			serverTLS.KeyFile = "/etc/nktp/internal-tls/server/tls.key"
-			serverTLS.ClientCAFile = "/etc/nktp/internal-tls/server/ca.crt"
-			serverTLS.CAPEM, serverTLS.CertPEM, serverTLS.KeyPEM = "", "", ""
-			if serverTLS.CAFile != "" {
-				serverTLS.CAFile = "/etc/nktp/internal-tls/server/ca.crt"
+			serverTLS := connectionMap(t, listener, "tls")
+			serverTLS["cert_file"] = "/etc/nktp/internal-tls/server/tls.crt"
+			serverTLS["key_file"] = "/etc/nktp/internal-tls/server/tls.key"
+			serverTLS["client_ca_file"] = "/etc/nktp/internal-tls/server/ca.crt"
+			delete(serverTLS, "ca_pem")
+			delete(serverTLS, "cert_pem")
+			delete(serverTLS, "key_pem")
+			if value, found := serverTLS["ca_file"]; found && value != "" {
+				connectionString(t, serverTLS, "ca_file")
+				serverTLS["ca_file"] = "/etc/nktp/internal-tls/server/ca.crt"
 			}
-			listener.TLS = &serverTLS
+			listener["tls"] = serverTLS
 			if protocol == "grpc" {
-				// Shorten rotation without mutating the defaults used by other cases.
-				require.NotNil(t, listener.Keepalive)
-				keepalive := *listener.Keepalive
-				parameters := *keepalive.ServerParameters
-				keepalive.ServerParameters = &parameters
-				listener.Keepalive = &keepalive
-				listener.Keepalive.ServerParameters.MaxConnectionAge = "5s"
-				listener.Keepalive.ServerParameters.MaxConnectionAgeGrace = "2s"
+				require.NoError(t, unstructured.SetNestedField(listener, "5s", "keepalive", "server_parameters", "max_connection_age"))
+				require.NoError(t, unstructured.SetNestedField(listener, "2s", "keepalive", "server_parameters", "max_connection_age_grace"))
 				if !tc.rotate {
-					listener.Keepalive.ServerParameters.MaxConnectionAge = ""
+					unstructured.RemoveNestedField(listener, "keepalive", "server_parameters", "max_connection_age")
 				}
 			}
-			gatewayConfig := collectorConfig{
-				Receivers: collectorReceivers{OTLP: &otlpReceiver{
-					Protocols: map[string]otlpListener{protocol: listener},
+			gatewayConfig := map[string]any{
+				"receivers": map[string]any{"otlp": map[string]any{
+					"protocols": map[string]any{protocol: listener},
 				}},
-				Exporters: map[string]collectorExporter{
-					"debug": {Verbosity: "detailed", SamplingInitial: 10, SamplingThereafter: 1},
+				"exporters": map[string]any{
+					"debug": map[string]any{"verbosity": "detailed", "sampling_initial": 10, "sampling_thereafter": 1},
 				},
-				Service: collectorService{Pipelines: map[string]collectorPipeline{
-					"logs":    {Receivers: []string{"otlp"}, Exporters: []string{"debug"}},
-					"metrics": {Receivers: []string{"otlp"}, Exporters: []string{"debug"}},
-					"traces":  {Receivers: []string{"otlp"}, Exporters: []string{"debug"}},
+				"service": map[string]any{"pipelines": map[string]any{
+					"logs":    map[string]any{"receivers": []string{"otlp"}, "exporters": []string{"debug"}},
+					"metrics": map[string]any{"receivers": []string{"otlp"}, "exporters": []string{"debug"}},
+					"traces":  map[string]any{"receivers": []string{"otlp"}, "exporters": []string{"debug"}},
 				}},
 			}
-			var clientConfig collectorConfig
+			var clientConfig map[string]any
 			// Fixed fixture components stay in native Collector YAML.
 			require.NoError(t, yaml.Unmarshal([]byte(`
 receivers:
@@ -245,29 +223,31 @@ service:
 `), &clientConfig))
 			for signal, receiver := range map[string]string{"logs": "file_log", "metrics": "prometheus", "traces": "otlp"} {
 				exporterName := "otlp_grpc/" + signal
-				exporter, found := clientCollector.Config.Exporters[exporterName]
-				require.True(t, found, "the chart must configure %s", exporterName)
-				require.NotEmpty(t, exporter.Endpoint, "%s must have a destination", exporterName)
-				require.NotNil(t, exporter.TLS, "%s must retain mTLS", exporterName)
-				clientTLS := *exporter.TLS
-				clientTLS.CAFile = "/etc/nktp/internal-tls/client/ca.crt"
-				clientTLS.CertFile = "/etc/nktp/internal-tls/client/tls.crt"
-				clientTLS.KeyFile = "/etc/nktp/internal-tls/client/tls.key"
-				clientTLS.CAPEM, clientTLS.CertPEM, clientTLS.KeyPEM = "", "", ""
-				if clientTLS.ServerNameOverride != "" {
-					clientTLS.ServerNameOverride = "gateway." + ns.Name + ".svc"
+				exporter := connectionMap(t, clientCollector, "config", "exporters", exporterName)
+				connectionString(t, exporter, "endpoint")
+				clientTLS := connectionMap(t, exporter, "tls")
+				clientTLS["ca_file"] = "/etc/nktp/internal-tls/client/ca.crt"
+				clientTLS["cert_file"] = "/etc/nktp/internal-tls/client/tls.crt"
+				clientTLS["key_file"] = "/etc/nktp/internal-tls/client/tls.key"
+				delete(clientTLS, "ca_pem")
+				delete(clientTLS, "cert_pem")
+				delete(clientTLS, "key_pem")
+				if value, found := clientTLS["server_name_override"]; found && value != "" {
+					connectionString(t, clientTLS, "server_name_override")
+					clientTLS["server_name_override"] = "gateway." + ns.Name + ".svc"
 				}
-				exporter.TLS = &clientTLS
-				exporter.Endpoint = net.JoinHostPort("gateway."+ns.Name+".svc", portText)
-				if exporter.Authority != "" {
-					exporter.Authority = exporter.Endpoint
+				exporter["tls"] = clientTLS
+				exporter["endpoint"] = net.JoinHostPort("gateway."+ns.Name+".svc", portText)
+				if value, found := exporter["authority"]; found && value != "" {
+					connectionString(t, exporter, "authority")
+					exporter["authority"] = exporter["endpoint"]
 				}
-				clientConfig.Exporters[exporterName] = exporter
-				clientConfig.Service.Pipelines[signal] = collectorPipeline{
-					Receivers: []string{receiver}, Exporters: []string{exporterName},
-				}
+				require.NoError(t, unstructured.SetNestedMap(clientConfig, exporter, "exporters", exporterName))
+				require.NoError(t, unstructured.SetNestedMap(clientConfig, map[string]any{
+					"receivers": []any{receiver}, "exporters": []any{exporterName},
+				}, "service", "pipelines", signal))
 			}
-			for name, config := range map[string]collectorConfig{"gateway": gatewayConfig, "clients": clientConfig} {
+			for name, config := range map[string]map[string]any{"gateway": gatewayConfig, "clients": clientConfig} {
 				data, err := yaml.Marshal(config)
 				require.NoError(t, err)
 				_, err = k.CoreV1().ConfigMaps(ns.Name).Create(ctx, &corev1.ConfigMap{
@@ -284,8 +264,8 @@ service:
 			}, metav1.CreateOptions{})
 			require.NoError(t, err)
 			createConnectionTLS(ctx, t, k, ns.Name)
-			createConnectionGateway(ctx, t, k, ns.Name, "gateway-0", fixtureGateway.Image, port)
-			createConnectionClients(ctx, t, k, ns.Name, clientCollector.Image, clientCount)
+			createConnectionGateway(ctx, t, k, ns.Name, "gateway-0", connectionString(t, fixtureGateway, "image"), port)
+			createConnectionClients(ctx, t, k, ns.Name, connectionString(t, clientCollector, "image"), clientCount)
 			stage = "waiting for initial gateway and client pods"
 			require.NoError(t, waitConnectionPods(ctx, k, ns.Name, clientCount+gatewayCount, nil, reportPods), stage)
 			pods, err := k.CoreV1().Pods(ns.Name).List(ctx, metav1.ListOptions{})
@@ -310,7 +290,7 @@ service:
 			}
 			require.NoError(t, err, stage)
 			stage = "adding gateway-1 and waiting for its pod"
-			createConnectionGateway(ctx, t, k, ns.Name, "gateway-1", fixtureGateway.Image, port)
+			createConnectionGateway(ctx, t, k, ns.Name, "gateway-1", connectionString(t, fixtureGateway, "image"), port)
 			gatewayCount++
 			require.NoError(t, waitConnectionPods(ctx, k, ns.Name, clientCount+gatewayCount, identities, reportPods), stage)
 			stage = "waiting for both gateway Service endpoints"
@@ -387,195 +367,24 @@ service:
 	testenv.Test(t, f.Feature())
 }
 
-// Only fields inspected or changed by the test need Go types. Component
-// configuration passed through unchanged remains opaque JSON.
-type collectorSpec struct {
-	Image  string          `json:"image"`
-	Config collectorConfig `json:"config"`
+// connectionMap copies the selected settings before the fixture changes them.
+func connectionMap(t *testing.T, object map[string]any, fields ...string) map[string]any {
+	t.Helper()
+	value, found, err := unstructured.NestedMap(object, fields...)
+	require.NoError(t, err, "reading %s", strings.Join(fields, "."))
+	require.True(t, found, "missing required configuration %s", strings.Join(fields, "."))
+	require.NotNil(t, value, "configuration %s must be a map", strings.Join(fields, "."))
+	return value
 }
 
-type collectorConfig struct {
-	Receivers collectorReceivers           `json:"receivers"`
-	Exporters map[string]collectorExporter `json:"exporters"`
-	Service   collectorService             `json:"service"`
-}
-
-type collectorReceivers struct {
-	OTLP       *otlpReceiver   `json:"otlp,omitempty"`
-	FileLog    json.RawMessage `json:"file_log,omitempty"`
-	Prometheus json.RawMessage `json:"prometheus,omitempty"`
-}
-
-// Adapted from the Collector v0.162.0 OTLP receiver schema:
-// https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/receiver/otlpreceiver/config.go
-type otlpReceiver struct {
-	Protocols map[string]otlpListener `json:"protocols"`
-}
-
-// Adapted from the Collector v0.162.0 gRPC and OTLP/HTTP receiver schemas:
-// https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/config/configgrpc/generated_config.go
-// https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/config/confighttp/server.go
-// https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/receiver/otlpreceiver/config.go
-// Strict decoding makes new fields require review here. Nested options that the
-// fixture never changes remain intact as raw JSON for the Collector to validate.
-type otlpListener struct {
-	Endpoint             string          `json:"endpoint"`
-	Transport            string          `json:"transport,omitempty"`
-	TLS                  *collectorTLS   `json:"tls,omitempty"`
-	Auth                 json.RawMessage `json:"auth,omitempty"`
-	IncludeMetadata      json.RawMessage `json:"include_metadata,omitempty"`
-	MaxConcurrentStreams json.RawMessage `json:"max_concurrent_streams,omitempty"`
-	MaxRecvMsgSizeMiB    json.RawMessage `json:"max_recv_msg_size_mib,omitempty"`
-	Middlewares          json.RawMessage `json:"middlewares,omitempty"`
-	ReadBufferSize       json.RawMessage `json:"read_buffer_size,omitempty"`
-	WriteBufferSize      json.RawMessage `json:"write_buffer_size,omitempty"`
-	Keepalive            *struct {
-		EnforcementPolicy json.RawMessage `json:"enforcement_policy,omitempty"`
-		IdleTimeout       string          `json:"idle_timeout,omitempty"`
-		ServerParameters  *struct {
-			MaxConnectionAge      string `json:"max_connection_age,omitempty"`
-			MaxConnectionAgeGrace string `json:"max_connection_age_grace,omitempty"`
-			MaxConnectionIdle     string `json:"max_connection_idle,omitempty"`
-			Time                  string `json:"time,omitempty"`
-			Timeout               string `json:"timeout,omitempty"`
-		} `json:"server_parameters,omitempty"`
-	} `json:"keepalive,omitempty"`
-	CORS                  json.RawMessage `json:"cors,omitempty"`
-	MaxRequestBodySize    json.RawMessage `json:"max_request_body_size,omitempty"`
-	ResponseHeaders       json.RawMessage `json:"response_headers,omitempty"`
-	CompressionAlgorithms json.RawMessage `json:"compression_algorithms,omitempty"`
-	ReadTimeout           json.RawMessage `json:"read_timeout,omitempty"`
-	ReadHeaderTimeout     json.RawMessage `json:"read_header_timeout,omitempty"`
-	WriteTimeout          json.RawMessage `json:"write_timeout,omitempty"`
-	IdleTimeout           json.RawMessage `json:"idle_timeout,omitempty"`
-	KeepAlivesEnabled     json.RawMessage `json:"keep_alives_enabled,omitempty"`
-	TracesURLPath         json.RawMessage `json:"traces_url_path,omitempty"`
-	MetricsURLPath        json.RawMessage `json:"metrics_url_path,omitempty"`
-	LogsURLPath           json.RawMessage `json:"logs_url_path,omitempty"`
-}
-
-// Adapted from the Collector v0.162.0 OTLP exporter and gRPC client schemas:
-// https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/exporter/otlpexporter/config.go
-// https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/config/configgrpc/generated_config.go
-// Debug exporter fields support fixture observation:
-// https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/exporter/debugexporter/config.go
-type collectorExporter struct {
-	Endpoint           string          `json:"endpoint,omitempty"`
-	TLS                *collectorTLS   `json:"tls,omitempty"`
-	RetryOnFailure     json.RawMessage `json:"retry_on_failure,omitempty"`
-	SendingQueue       json.RawMessage `json:"sending_queue,omitempty"`
-	Timeout            json.RawMessage `json:"timeout,omitempty"`
-	Auth               json.RawMessage `json:"auth,omitempty"`
-	Authority          string          `json:"authority,omitempty"`
-	BalancerName       json.RawMessage `json:"balancer_name,omitempty"`
-	Compression        json.RawMessage `json:"compression,omitempty"`
-	Headers            json.RawMessage `json:"headers,omitempty"`
-	Keepalive          json.RawMessage `json:"keepalive,omitempty"`
-	Middlewares        json.RawMessage `json:"middlewares,omitempty"`
-	ReadBufferSize     json.RawMessage `json:"read_buffer_size,omitempty"`
-	WriteBufferSize    json.RawMessage `json:"write_buffer_size,omitempty"`
-	UserAgent          json.RawMessage `json:"user_agent,omitempty"`
-	WaitForReady       json.RawMessage `json:"wait_for_ready,omitempty"`
-	Verbosity          string          `json:"verbosity,omitempty"`
-	SamplingInitial    int             `json:"sampling_initial,omitempty"`
-	SamplingThereafter int             `json:"sampling_thereafter,omitempty"`
-}
-
-// Adapted from the Collector v0.162.0 client and server TLS schemas:
-// https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/config/configtls/generated_config.go
-type collectorTLS struct {
-	CAFile                      string          `json:"ca_file,omitempty"`
-	CAPEM                       string          `json:"ca_pem,omitempty"`
-	CertFile                    string          `json:"cert_file,omitempty"`
-	CertPEM                     string          `json:"cert_pem,omitempty"`
-	KeyFile                     string          `json:"key_file,omitempty"`
-	KeyPEM                      string          `json:"key_pem,omitempty"`
-	ClientCAFile                string          `json:"client_ca_file,omitempty"`
-	ServerNameOverride          string          `json:"server_name_override,omitempty"`
-	CipherSuites                json.RawMessage `json:"cipher_suites,omitempty"`
-	CurvePreferences            json.RawMessage `json:"curve_preferences,omitempty"`
-	IncludeInsecureCipherSuites json.RawMessage `json:"include_insecure_cipher_suites,omitempty"`
-	IncludeSystemCACertsPool    json.RawMessage `json:"include_system_ca_certs_pool,omitempty"`
-	MaxVersion                  json.RawMessage `json:"max_version,omitempty"`
-	MinVersion                  json.RawMessage `json:"min_version,omitempty"`
-	ReloadInterval              json.RawMessage `json:"reload_interval,omitempty"`
-	TPM                         json.RawMessage `json:"tpm,omitempty"`
-	ReloadClientCAFile          json.RawMessage `json:"client_ca_file_reload,omitempty"`
-	Insecure                    json.RawMessage `json:"insecure,omitempty"`
-	InsecureSkipVerify          json.RawMessage `json:"insecure_skip_verify,omitempty"`
-}
-
-func (l *otlpListener) UnmarshalJSON(data []byte) error {
-	type listener otlpListener
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode((*listener)(l)); err != nil {
-		return fmt.Errorf("gateway listener configuration: %w", err)
-	}
-	return nil
-}
-
-func (e *collectorExporter) UnmarshalJSON(data []byte) error {
-	type exporter collectorExporter
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode((*exporter)(e)); err != nil {
-		return fmt.Errorf("Collector exporter configuration: %w", err)
-	}
-	return nil
-}
-
-func (r *otlpReceiver) UnmarshalJSON(data []byte) error {
-	type receiver otlpReceiver
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode((*receiver)(r)); err != nil {
-		return fmt.Errorf("OTLP receiver configuration: %w", err)
-	}
-	return nil
-}
-
-func TestConnectionConfigDecoding(t *testing.T) {
-	for _, tc := range []struct {
-		name   string
-		data   string
-		target any
-	}{
-		{name: "exporter", data: `{"endpoint":"gateway:4317","compression":"gzip","timeout":"3s","keepalive":{"time":"30s"},"sending_queue":{"batch":{"flush_timeout":"1s"}},"tls":{"min_version":"1.3","reload_interval":"2h"}}`, target: &collectorExporter{}},
-		{name: "grpc_receiver", data: `{"protocols":{"grpc":{"endpoint":"0.0.0.0:14317","max_concurrent_streams":10,"tls":{"client_ca_file_reload":true},"keepalive":{"enforcement_policy":{"min_time":"1s"},"server_parameters":{"max_connection_age":"7m","max_connection_idle":"1m"}}}}}`, target: &otlpReceiver{}},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			require.NoError(t, json.Unmarshal([]byte(tc.data), tc.target))
-			encoded, err := json.Marshal(tc.target)
-			require.NoError(t, err)
-			assert.JSONEq(t, tc.data, string(encoded), "connection options must survive decoding and encoding")
-		})
-	}
-	for _, tc := range []struct {
-		name   string
-		data   string
-		target any
-	}{
-		{name: "exporter", data: `{"future_option":true}`, target: &collectorExporter{}},
-		{name: "tls", data: `{"tls":{"future_option":true}}`, target: &collectorExporter{}},
-		{name: "receiver", data: `{"future_option":true}`, target: &otlpReceiver{}},
-		{name: "listener", data: `{"protocols":{"grpc":{"future_option":true}}}`, target: &otlpReceiver{}},
-		{name: "server_parameters", data: `{"keepalive":{"server_parameters":{"future_option":true}}}`, target: &otlpListener{}},
-	} {
-		t.Run("unknown_"+tc.name, func(t *testing.T) {
-			require.ErrorContains(t, json.Unmarshal([]byte(tc.data), tc.target), `unknown field "future_option"`)
-		})
-	}
-}
-
-type collectorService struct {
-	Pipelines map[string]collectorPipeline `json:"pipelines"`
-	Telemetry json.RawMessage              `json:"telemetry,omitempty"`
-}
-
-type collectorPipeline struct {
-	Receivers []string `json:"receivers"`
-	Exporters []string `json:"exporters"`
+// connectionString reads a nonempty string required by the fixture.
+func connectionString(t *testing.T, object map[string]any, fields ...string) string {
+	t.Helper()
+	value, found, err := unstructured.NestedString(object, fields...)
+	require.NoError(t, err, "reading %s", strings.Join(fields, "."))
+	require.True(t, found, "missing required configuration %s", strings.Join(fields, "."))
+	require.NotEmpty(t, value, "configuration %s must not be empty", strings.Join(fields, "."))
+	return value
 }
 
 func connectionPodTemplate(image, role string, port int32) corev1.PodTemplateSpec {
