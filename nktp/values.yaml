@@ -497,6 +497,7 @@ watchdog:
 
 # Log gateway. Exports all logs from the cluster.
 gateway_logs:
+  enabled: true # Set false to omit this gateway and its internal TLS certificates. Senders are not reconfigured.
   kubernetes:
     mode: statefulset # Stable replica identities support per-replica volumes for optional persistent queues.
     replicas: 2
@@ -813,6 +814,7 @@ gateway_logs:
 
 # Metric gateway. Exports all metrics from the cluster.
 gateway_metrics:
+  enabled: true # Set false to omit this gateway and its internal TLS certificates. Senders are not reconfigured.
   kubernetes:
     mode: statefulset # Stable replica identities support per-replica volumes for optional persistent queues.
     replicas: 2
@@ -1129,6 +1131,7 @@ gateway_metrics:
 
 # Trace gateway. Exports all traces from the cluster.
 gateway_traces:
+  enabled: true # Set false to omit this gateway and its internal TLS certificates. Senders are not reconfigured.
   kubernetes:
     mode: statefulset # Stable replica identities support per-replica volumes for optional persistent queues.
     replicas: 2

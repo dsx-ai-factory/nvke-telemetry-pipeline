@@ -192,6 +192,26 @@ tests:
             kind: ClusterIssuer
             group: cert-manager.io
 
+  - it: omits the server and client certificates of disabled gateways
+    set:
+      gateway_logs.enabled: false
+      gateway_traces.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 9
+      - containsDocument: {apiVersion: cert-manager.io/v1, kind: Certificate, name: nktp-gateway-logs-server}
+        not: true
+      - containsDocument: {apiVersion: cert-manager.io/v1, kind: Certificate, name: nktp-gateway-logs-client}
+        not: true
+      - containsDocument: {apiVersion: cert-manager.io/v1, kind: Certificate, name: nktp-gateway-traces-server}
+        not: true
+      - containsDocument: {apiVersion: cert-manager.io/v1, kind: Certificate, name: nktp-gateway-traces-client}
+        not: true
+      - containsDocument: {apiVersion: cert-manager.io/v1, kind: Certificate, name: nktp-gateway-metrics-server, any: true}
+      - containsDocument: {apiVersion: cert-manager.io/v1, kind: Certificate, name: nktp-gateway-metrics-client, any: true}
+      - containsDocument: {apiVersion: cert-manager.io/v1, kind: Certificate, name: nktp-watchdog-server, any: true}
+      - containsDocument: {apiVersion: cert-manager.io/v1, kind: Certificate, name: nktp-daemonset-client, any: true}
+
   - it: creates no certificate resources when internal TLS is disabled
     set:
       certManager.internalTLS.enabled: false

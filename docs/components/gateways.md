@@ -15,6 +15,11 @@ Gateways accept OTLP/gRPC on port 4317 by default. An HTTP receiver requires
 explicit configuration, including TLS, under
 `<gateway>.otelcol.config.receivers.otlp.protocols.http`.
 
+Set `<gateway>.enabled: false` to omit a gateway and its internal TLS server and
+client certificates, for example when the Collectors export straight to an
+upstream endpoint. Senders are not reconfigured: point every exporter that
+targets the gateway elsewhere.
+
 ## Collector connections
 
 Node Collectors send logs, metrics and traces to their gateways over OTLP/gRPC

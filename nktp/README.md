@@ -137,6 +137,10 @@ Each Collector component has the same values structure:
 | `<component>.otelcol.image` | An image override for this component only. |
 | `<component>.kubernetes` | `OpenTelemetryCollector` settings such as replicas, resources, env, volumes, autoscaler, and Target Allocator. |
 
+The gateways also take `<gateway>.enabled`, which defaults to `true`. Setting it
+to `false` omits the gateway and its internal TLS certificates. Collectors that
+send to it are not reconfigured; see `docs/components/gateways.md`.
+
 The chart renders each Collector configuration exactly as written. No other
 value changes it, so to change a pipeline, change its configuration.
 
