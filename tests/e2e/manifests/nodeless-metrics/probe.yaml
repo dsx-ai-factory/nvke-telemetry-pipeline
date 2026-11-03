@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# A Probe has no node, so only the nodeless pool can scrape it. The blackbox
+# exporter probes its own health endpoint, which keeps the check in-cluster.
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: nktp-e2e-nodeless-probe
+  labels:
+    nktp.nvidia.io/nodeless-target: "true"
+spec:
+  interval: 15s
+  module: http_2xx
+  prober:
+    url: nktp-blackbox-exporter:9115
+  targets:
+    staticConfig:
+      static:
+        - http://nktp-blackbox-exporter:9115/-/healthy
