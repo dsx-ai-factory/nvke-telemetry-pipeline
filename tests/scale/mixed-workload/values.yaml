@@ -83,12 +83,6 @@ daemonset:
         telemetry: &loadTelemetry
           metrics:
             level: detailed
-            views:
-              - selector: {meter_name: go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc}
-                stream: {aggregation: {drop: {}}}
-              - selector: {meter_name: go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp}
-                stream: {aggregation: {drop: {}}}
-          traces: {level: none}
         pipelines:
           logs:
             exporters: [otlp/logs, count/scale_payload]

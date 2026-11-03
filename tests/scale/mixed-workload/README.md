@@ -5,6 +5,9 @@
 - Paths: node, Events and large-target collectors → gateways → blackhole
 - NKTP: chart resource and autoscaling defaults, with mTLS for collector-to-gateway and observation traffic
 
+The node collector, gateways, large-target pool and Event reader use detailed
+self-telemetry metrics. Metric views and tracing retain the chart defaults.
+
 ## Load
 
 The plan runs nine generators in parallel within one stage, alongside a shared
