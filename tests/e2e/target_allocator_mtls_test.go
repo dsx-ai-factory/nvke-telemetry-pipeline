@@ -15,12 +15,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/internal/funcs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	coreclient "k8s.io/client-go/kubernetes/typed/core/v1"
+	"sigs.k8s.io/e2e-framework/klient/decoder"
 	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/features"
@@ -28,8 +30,13 @@ import (
 
 // TestTargetAllocatorMTLS checks certificates and HTTPS configuration for every
 // Collector/Target Allocator pair. New target requests must reach the mTLS handler.
+// The nodeless pool asks for targets only while it has a job, so the labeled
+// Probe stays applied for the whole feature.
 func TestTargetAllocatorMTLS(t *testing.T) {
-	f := features.New("Target Allocator mTLS")
+	namespace := testenv.EnvConf().Namespace()
+	f := features.New("Target Allocator mTLS").
+		Setup(funcs.ApplyResources(FieldManager, "manifests/nodeless-metrics", "*.yaml", decoder.MutateNamespace(namespace))).
+		Teardown(funcs.DeleteResources(FieldManager, "manifests/nodeless-metrics", "*.yaml", decoder.MutateNamespace(namespace)))
 	for _, collectorName := range []string{"nktp-daemonset", "nktp-large-target-metrics", "nktp-nodeless-metrics", "nktp-watchdog"} {
 		metricServiceName := collectorName + "-targetallocator"
 		if collectorName == "nktp-daemonset" {
