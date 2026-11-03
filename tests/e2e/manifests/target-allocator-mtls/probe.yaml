@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Gives the nodeless pool a job, so its Collector asks the Target Allocator for
+# targets. The name differs from the nodeless metrics Probe, whose foreground
+# deletion may still be in progress when this test starts.
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: nktp-e2e-mtls-probe
+  labels:
+    nktp.nvidia.io/nodeless-target: "true"
+spec:
+  interval: 15s
+  module: http_2xx
+  prober:
+    url: nktp-blackbox-exporter:9115
+  targets:
+    staticConfig:
+      static:
+        - http://nktp-blackbox-exporter:9115/-/healthy

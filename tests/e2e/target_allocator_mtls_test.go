@@ -30,13 +30,13 @@ import (
 
 // TestTargetAllocatorMTLS checks certificates and HTTPS configuration for every
 // Collector/Target Allocator pair. New target requests must reach the mTLS handler.
-// The nodeless pool asks for targets only while it has a job, so the labeled
+// The nodeless pool asks for targets only while it has a job, so a labeled
 // Probe stays applied for the whole feature.
 func TestTargetAllocatorMTLS(t *testing.T) {
 	namespace := testenv.EnvConf().Namespace()
 	f := features.New("Target Allocator mTLS").
-		Setup(funcs.ApplyResources(FieldManager, "manifests/nodeless-metrics", "*.yaml", decoder.MutateNamespace(namespace))).
-		Teardown(funcs.DeleteResources(FieldManager, "manifests/nodeless-metrics", "*.yaml", decoder.MutateNamespace(namespace)))
+		Setup(funcs.ApplyResources(FieldManager, "manifests/target-allocator-mtls", "*.yaml", decoder.MutateNamespace(namespace))).
+		Teardown(funcs.DeleteResources(FieldManager, "manifests/target-allocator-mtls", "*.yaml", decoder.MutateNamespace(namespace)))
 	for _, collectorName := range []string{"nktp-daemonset", "nktp-large-target-metrics", "nktp-nodeless-metrics", "nktp-watchdog"} {
 		metricServiceName := collectorName + "-targetallocator"
 		if collectorName == "nktp-daemonset" {
