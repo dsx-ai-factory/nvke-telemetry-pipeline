@@ -17,11 +17,6 @@ daemonset:
     targetAllocator: *allocatorPlacement
   otelcol:
     config:
-      receivers:
-        prometheus:
-          config:
-            global:
-              extra_scrape_metrics: true
       connectors:
         count/scale_payload:
           logs:
@@ -161,11 +156,6 @@ large_target_metrics:
     targetAllocator: *allocatorPlacement
   otelcol:
     config:
-      receivers:
-        prometheus:
-          config:
-            global:
-              extra_scrape_metrics: true
       service:
         telemetry: *loadTelemetry
 
@@ -399,7 +389,7 @@ opentelemetry-kube-stack:
                 - context: metric
                   condition: >-
                     IsMatch(metric.name, "^(nktp_scale_.+|vector_component_sent_(events|bytes)_total|up)$") or
-                    IsMatch(metric.name, "^scrape_(body_size_bytes|duration_seconds|samples_scraped|samples_post_metric_relabeling)$") or
+                    IsMatch(metric.name, "^scrape_(duration_seconds|samples_scraped|samples_post_metric_relabeling)$") or
                     IsMatch(metric.name, "^container_(cpu_usage_seconds_total|cpu_cfs_(periods|throttled_periods)_total|memory_(working_set|usage)_bytes)$") or
                     IsMatch(metric.name, "^kube_pod_(info|labels|status_(phase|ready)|container_(status_(ready|running|restarts_total|last_terminated_reason)|resource_(requests|limits))|init_container_status_.+)$") or
                     IsMatch(metric.name, "^(kube_node_(info|status_condition|status_allocatable)|kube_horizontalpodautoscaler_.+|node_memory_MemAvailable_bytes)$")
