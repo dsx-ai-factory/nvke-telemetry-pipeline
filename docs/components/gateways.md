@@ -42,6 +42,10 @@ Use `<gateway>.otelcol.config` for Collector configuration and
 `<gateway>.kubernetes` for Kubernetes workload configuration. Autoscaling
 requires the Kubernetes resource metrics API. Retain `GOMEMLIMIT` and `GOGC` when
 replacing `<gateway>.kubernetes.env`.
+To grant the gateways more Kubernetes API access, see
+[Kubernetes API access](node_collector.md#kubernetes-api-access).
+The examples there are for the node Collector; bind the rules to each gateway's
+service account from the table in that section instead.
 
 Each gateway's sending queue holds approximately 0.48 GiB of serialized
 telemetry, 12% of its default 4 GiB container limit. Processing and incoming

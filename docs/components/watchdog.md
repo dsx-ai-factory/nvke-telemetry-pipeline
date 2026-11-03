@@ -49,6 +49,10 @@ Include `GOMEMLIMIT` and `GOGC` in any replacement `watchdog.kubernetes.env` lis
 to retain these settings.
 The Collector Pod inherits `priorityClass.name`; override
 `watchdog.kubernetes.priorityClassName` to use another class or `""` to opt out.
+To grant this Collector more Kubernetes API access, see
+[Kubernetes API access](node_collector.md#kubernetes-api-access).
+The examples there are for the node Collector; bind the rules to this Collector's
+service account from the table in that section instead.
 
 ## Redaction
 

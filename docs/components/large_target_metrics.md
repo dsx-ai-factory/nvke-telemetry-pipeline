@@ -57,6 +57,10 @@ metrics Target Allocator. Component availability, labels, ports, and network
 exposure vary between Kubernetes distributions, so a rendered ServiceMonitor
 does not by itself guarantee a reachable target. The large-target Collector's
 service account has read-only authorization for the `/metrics` non-resource URL.
+To grant this Collector more Kubernetes API access, see
+[Kubernetes API access](node_collector.md#kubernetes-api-access).
+The examples there are for the node Collector; bind the rules to this Collector's
+service account from the table in that section instead.
 
 The ServiceMonitors from opentelemetry-kube-stack 0.22.0 reference bearer-token
 and, for secure endpoints, CA files in the Collector container. The large-target

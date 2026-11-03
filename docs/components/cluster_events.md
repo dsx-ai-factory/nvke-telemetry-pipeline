@@ -49,5 +49,9 @@ reader's Lease permissions to that name. Set `extensions.k8s_leader_elector.leas
 in the Collector configuration to change the name. Use a literal name so Helm can
 create the matching Lease. If using another Lease namespace, provision the Lease
 and its RBAC there separately.
+To grant this Collector more Kubernetes API access, see
+[Kubernetes API access](node_collector.md#kubernetes-api-access).
+The examples there are for the node Collector; bind the rules to this Collector's
+service account from the table in that section instead.
 
 Size for the active reader rather than averaging active and standby replicas.
