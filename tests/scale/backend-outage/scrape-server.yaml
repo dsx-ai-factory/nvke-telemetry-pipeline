@@ -16,7 +16,26 @@ spec:
       initContainers:
         - name: seed
           image: public.ecr.aws/docker/library/busybox:1.37.0
-          command: [sh, -c, 'cat /seed/[0-9]* | gzip -dc > /scrapes/metrics.paused']
+          command:
+            - sh
+            - -ec
+            - |
+              cat /seed/[0-9]* | gzip -dc > /scrapes/metrics.paused
+              mkdir -p /scrapes/cgi-bin /scrapes/requests
+              cat > /scrapes/cgi-bin/metrics <<'EOF'
+              #!/bin/sh
+              request=$(mktemp -d /scrapes/requests/XXXXXX) || exit 1
+              # The hard link records an attempt before writing the response,
+              # even if canceled, and races atomically with pausing the payload.
+              if ln /scrapes/metrics "$request/payload" 2>/dev/null; then
+                printf 'Content-Type: text/plain; version=0.0.4\r\n\r\n'
+                cat "$request/payload"
+              else
+                rmdir "$request"
+                printf 'Status: 503 Service Unavailable\r\n\r\n'
+              fi
+              EOF
+              chmod +x /scrapes/cgi-bin/metrics
           resources:
             requests: {cpu: 100m, memory: 16Mi}
             limits: {cpu: '1', memory: 64Mi}

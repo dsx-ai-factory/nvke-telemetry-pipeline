@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -27,6 +28,9 @@ import (
 	"sigs.k8s.io/e2e-framework/klient/decoder"
 )
 
+// setScraping exposes or hides the payload. Pausing also snapshots the number
+// of payload requests; each retained hard link counts one attempt without
+// copying the payload, including requests canceled before Collector accounting.
 func (r *run) setScraping(active bool) {
 	r.t.Helper()
 	from, to := "/scrapes/metrics", "/scrapes/metrics.paused"
@@ -35,6 +39,13 @@ func (r *run) setScraping(active bool) {
 	}
 	_, err := r.cluster.exec(r.ctx, "outage-scrape-server", "http", "mv", from, to)
 	require.NoError(r.t, err)
+	if !active {
+		count, err := r.cluster.exec(r.ctx, "outage-scrape-server", "http", "sh", "-c", "find /scrapes/requests -type f | wc -l")
+		require.NoError(r.t, err)
+		r.scrapeAttempts, err = strconv.Atoi(strings.TrimSpace(string(count)))
+		require.NoError(r.t, err)
+		r.report["scrape_attempts"] = r.scrapeAttempts
+	}
 }
 
 // scrapePayload repeats the template samples for fake pods with unique
@@ -196,6 +207,48 @@ func (c cluster) installScrapeServer(ctx context.Context, path string) error {
 		return fmt.Errorf("scrape size=%q, expected %d bytes", size, stat.Size())
 	}
 	return nil
+}
+
+// TestScrapeRequests counts payload attempts across active windows and excludes
+// paused requests. Serving the payload never limits subsequent requests.
+func TestScrapeRequests(t *testing.T) {
+	root := t.TempDir()
+	scrapes, seed := filepath.Join(root, "scrapes"), filepath.Join(root, "seed")
+	require.NoError(t, os.MkdirAll(scrapes, 0755))
+	require.NoError(t, os.MkdirAll(seed, 0755))
+	var compressed bytes.Buffer
+	writer := gzip.NewWriter(&compressed)
+	_, err := writer.Write([]byte("test_metric 1\n"))
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+	require.NoError(t, os.WriteFile(filepath.Join(seed, "000000"), compressed.Bytes(), 0600))
+	objects, err := decoder.DecodeAllFiles(t.Context(), os.DirFS("."), "scrape-server.yaml")
+	require.NoError(t, err)
+	deployment := objects[0].(*appsv1.Deployment)
+	init := deployment.Spec.Template.Spec.InitContainers[0].Command[2]
+	init = strings.ReplaceAll(strings.ReplaceAll(init, "/scrapes", scrapes), "/seed/", seed+"/")
+	output, err := exec.CommandContext(t.Context(), "sh", "-ec", init).CombinedOutput()
+	require.NoError(t, err, "%s", output)
+	for _, requests := range []int{3, 2} {
+		require.NoError(t, os.Rename(filepath.Join(scrapes, "metrics.paused"), filepath.Join(scrapes, "metrics")))
+		for range requests {
+			output, err := exec.CommandContext(t.Context(), "sh", filepath.Join(scrapes, "cgi-bin", "metrics")).CombinedOutput()
+			require.NoError(t, err, "%s", output)
+			assert.Contains(t, string(output), "test_metric 1\n")
+		}
+		require.NoError(t, os.Rename(filepath.Join(scrapes, "metrics"), filepath.Join(scrapes, "metrics.paused")))
+		before, err := filepath.Glob(filepath.Join(scrapes, "requests", "*", "payload"))
+		require.NoError(t, err)
+		output, err := exec.CommandContext(t.Context(), "sh", filepath.Join(scrapes, "cgi-bin", "metrics")).CombinedOutput()
+		require.NoError(t, err, "%s", output)
+		assert.Contains(t, string(output), "503 Service Unavailable")
+		after, err := filepath.Glob(filepath.Join(scrapes, "requests", "*", "payload"))
+		require.NoError(t, err)
+		assert.Equal(t, before, after)
+	}
+	requests, err := filepath.Glob(filepath.Join(scrapes, "requests", "*", "payload"))
+	require.NoError(t, err)
+	assert.Len(t, requests, 5)
 }
 
 func TestScrapePayload(t *testing.T) {

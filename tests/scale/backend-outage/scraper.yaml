@@ -13,6 +13,7 @@ spec:
         config:
           scrape_configs:
             - job_name: outage-scrape-server
+              metrics_path: /cgi-bin/metrics
               scrape_interval: 30s
               scrape_timeout: 10s
               fallback_scrape_protocol: PrometheusText0.0.4
