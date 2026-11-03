@@ -50,9 +50,9 @@ Provide the following before installing NKTP.
   mounts host paths for pod logs, journald and `/proc`. node-exporter uses the
   host network and PID namespaces, host paths, and host port 9100. The
   `baseline` and `restricted` Pod Security levels reject these Pods.
-- **Capacity.** The defaults are sized for large clusters: about 10 CPU and
-  26 GiB of memory in requests for the cluster-wide components, plus about
-  1.1 CPU and 2.2 GiB on every node for the per-node DaemonSets.
+- **Capacity.** The defaults are sized for large clusters: about 5.1 CPU and
+  14.2 GiB of memory in requests for the cluster-wide components, plus about
+  0.6 CPU and 1.2 GiB on every node for the per-node DaemonSets.
 
 ## Install
 
