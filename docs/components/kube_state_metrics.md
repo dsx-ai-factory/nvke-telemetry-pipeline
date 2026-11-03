@@ -30,6 +30,12 @@ Shared `kubernetes` defaults can be overridden under each workload. `resources`,
 configures Pod security, and remaining fields configure the Pod spec.
 Set `serviceAccount` to use an existing account.
 
+KSM Pods inherit `priorityClass.name` when non-empty, including when
+`priorityClass.create: false` references an existing class. Override
+`kube-state-metrics.kubernetes.priorityClassName` for all KSM Pods, or set
+`kubernetes.priorityClassName` under `daemonset` or `deployments.<name>` for a
+specific workload. An explicit `""` opts out of inheritance.
+
 When overriding scheduling settings, ensure the node Collector runs on every node
 where the KSM DaemonSet runs so it can scrape the local KSM endpoint.
 

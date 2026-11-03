@@ -2614,6 +2614,7 @@ matches the snapshot with default values:
                 runAsUser: 65534
           nodeSelector:
             kubernetes.io/os: linux
+          priorityClassName: nktp-telemetry-critical
           securityContext:
             runAsNonRoot: true
             seccompProfile:
@@ -2689,6 +2690,7 @@ matches the snapshot with default values:
                 runAsUser: 65534
           nodeSelector:
             kubernetes.io/os: linux
+          priorityClassName: nktp-telemetry-critical
           securityContext:
             runAsNonRoot: true
             seccompProfile:
@@ -2764,6 +2766,7 @@ matches the snapshot with default values:
                 runAsUser: 65534
           nodeSelector:
             kubernetes.io/os: linux
+          priorityClassName: nktp-telemetry-critical
           securityContext:
             runAsNonRoot: true
             seccompProfile:
@@ -2840,6 +2843,7 @@ matches the snapshot with default values:
                 runAsUser: 65534
           nodeSelector:
             kubernetes.io/os: linux
+          priorityClassName: nktp-telemetry-critical
           securityContext:
             runAsNonRoot: true
             seccompProfile:
@@ -2917,6 +2921,7 @@ matches the snapshot with default values:
                 runAsUser: 65534
           nodeSelector:
             kubernetes.io/os: linux
+          priorityClassName: nktp-telemetry-critical
           securityContext:
             runAsNonRoot: true
             seccompProfile:
@@ -2993,6 +2998,7 @@ matches the snapshot with default values:
                 runAsUser: 65534
           nodeSelector:
             kubernetes.io/os: linux
+          priorityClassName: nktp-telemetry-critical
           securityContext:
             runAsNonRoot: true
             seccompProfile:
@@ -3068,6 +3074,7 @@ matches the snapshot with default values:
                 runAsUser: 65534
           nodeSelector:
             kubernetes.io/os: linux
+          priorityClassName: nktp-telemetry-critical
           securityContext:
             runAsNonRoot: true
             seccompProfile:

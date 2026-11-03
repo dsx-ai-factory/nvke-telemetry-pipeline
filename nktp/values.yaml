@@ -27,7 +27,8 @@ global:
   # Telemetry that already has k8s.cluster.name keeps it. Empty sets "unknown".
   clusterName: ""
 
-# Cluster-scoped class inherited by all NKTP Collectors, below system-critical Pods.
+# Cluster-scoped class inherited by all NKTP Collectors and kube-state-metrics,
+# below system-critical Pods.
 # Disable creation and set name to use an existing class. With creation disabled,
 # name: "" uses the cluster's default priority. 
 # A workload's kubernetes.priorityClassName overrides this default; "" opts out.
@@ -2819,6 +2820,8 @@ kube-state-metrics:
   # Kubernetes labels exposed by KSM, using entries such as pods=[app.kubernetes.io/name].
   metricLabelsAllowlist: []
   # Shared Kubernetes defaults. Each workload can override these fields.
+  # Inherits priorityClass.name unless priorityClassName is set here or per workload.
+  # Set priorityClassName: "" to opt out.
   kubernetes:
     resources:
       requests:

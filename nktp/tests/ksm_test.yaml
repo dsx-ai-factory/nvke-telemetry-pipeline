@@ -62,6 +62,104 @@ tests:
           path: metadata.name
           value: nktp-ksm-workloads-0
 
+  - it: assigns the telemetry priority class to every KSM workload
+    asserts:
+      - equal:
+          path: spec.template.spec.priorityClassName
+          value: nktp-telemetry-critical
+
+  - it: inherits an existing priority class on the DaemonSet and every Deployment shard
+    set:
+      priorityClass.create: false
+      priorityClass.name: platform-observability
+      kube-state-metrics.deployments.workloads.shards: 2
+    asserts:
+      - hasDocuments:
+          count: 8
+      - equal:
+          path: spec.template.spec.priorityClassName
+          value: platform-observability
+
+  - it: omits the priority class when no shared name is configured
+    set:
+      priorityClass.create: false
+      priorityClass.name: ""
+    asserts:
+      - notExists:
+          path: spec.template.spec.priorityClassName
+
+  - it: preserves a shared KSM priority override
+    set:
+      kube-state-metrics.kubernetes.priorityClassName: ksm-priority
+    asserts:
+      - equal:
+          path: spec.template.spec.priorityClassName
+          value: ksm-priority
+
+  - it: preserves a shared KSM priority opt-out
+    set:
+      kube-state-metrics.kubernetes.priorityClassName: ""
+    asserts:
+      - equal:
+          path: spec.template.spec.priorityClassName
+          value: ""
+
+  - it: preserves workload priority overrides and opt-outs while other groups inherit
+    set:
+      kube-state-metrics.daemonset.kubernetes.priorityClassName: node-priority
+      kube-state-metrics.deployments.workloads.kubernetes.priorityClassName: ""
+      kube-state-metrics.deployments.workloads.shards: 2
+    asserts:
+      - equal:
+          path: spec.template.spec.priorityClassName
+          value: node-priority
+        documentSelector:
+          path: metadata.name
+          value: nktp-ksm-pods
+      - equal:
+          path: spec.template.spec.priorityClassName
+          value: ""
+        documentSelector:
+          path: metadata.name
+          value: nktp-ksm-workloads-0
+      - equal:
+          path: spec.template.spec.priorityClassName
+          value: ""
+        documentSelector:
+          path: metadata.name
+          value: nktp-ksm-workloads-1
+      - equal:
+          path: spec.template.spec.priorityClassName
+          value: nktp-telemetry-critical
+        documentSelector:
+          path: metadata.name
+          value: nktp-ksm-cluster-0
+
+  - it: gives workload priority settings precedence over shared KSM settings
+    set:
+      kube-state-metrics.kubernetes.priorityClassName: ksm-priority
+      kube-state-metrics.daemonset.kubernetes.priorityClassName: ""
+      kube-state-metrics.deployments.workloads.kubernetes.priorityClassName: deployment-priority
+    asserts:
+      - equal:
+          path: spec.template.spec.priorityClassName
+          value: ""
+        documentSelector:
+          path: metadata.name
+          value: nktp-ksm-pods
+      - equal:
+          path: spec.template.spec.priorityClassName
+          value: deployment-priority
+        documentSelector:
+          path: metadata.name
+          value: nktp-ksm-workloads-0
+      - equal:
+          path: spec.template.spec.priorityClassName
+          value: ksm-priority
+        documentSelector:
+          path: metadata.name
+          value: nktp-ksm-cluster-0
+
   - it: exposes configured Kubernetes labels in node-local and central workloads
     set:
       kube-state-metrics.metricLabelsAllowlist:
