@@ -22,7 +22,7 @@ internal traces and links to the component dashboards. Workload readiness uses
 kube-state-metrics through the metrics gateway. Collector and Target Allocator
 self metrics use watchdog and do not require the metrics gateway. Target
 Allocator counts stay separate for each replica. Disabling LGTM removes its dashboards. Target Allocator metrics
-continue to flow to the backend configured in watchdog, which must support delta metrics.
+continue to flow to the backend configured in watchdog.
 
 Export and queue admission delays use internal spans through Tempo's TraceQL
 metrics support. Container resource tables show requests and limits for up to

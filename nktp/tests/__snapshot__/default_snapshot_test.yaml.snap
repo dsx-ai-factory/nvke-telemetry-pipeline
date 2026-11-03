@@ -13212,8 +13212,6 @@ matches the snapshot with default values:
                   value: "true"
                 - name: GF_AUTH_ANONYMOUS_ORG_ROLE
                   value: Admin
-                - name: PROMETHEUS_EXTRA_ARGS
-                  value: --enable-feature=otlp-deltatocumulative
                 - name: GF_PLUGINS_DISABLE_PLUGINS
                   value: stackdriver
               image: grafana/otel-lgtm:0.38.0

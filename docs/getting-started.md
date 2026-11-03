@@ -117,8 +117,7 @@ and the watchdog's [sidecar](architecture/self_telemetry.md), which carries the
 watchdog's own telemetry. Point all of them at your backend and turn off the
 default LGTM backend. The default exporters use OTLP/gRPC. Check which protocol
 your backend accepts for each signal; see [Secure gateway export](guides/secure_gateway_export.md)
-for HTTP configuration. The metrics backend must also accept delta-temporality
-metrics, which the Target Allocators send.
+for HTTP configuration.
 
 ```yaml
 otel-lgtm:

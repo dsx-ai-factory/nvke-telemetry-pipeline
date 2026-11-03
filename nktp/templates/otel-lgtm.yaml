@@ -110,11 +110,6 @@ spec:
               value: "true"
             - name: GF_AUTH_ANONYMOUS_ORG_ROLE
               value: Admin
-            # Work around Target Allocator 0.159.0 exporting bridged Prometheus counters
-            # as delta despite cumulative temporality being requested.
-            # https://jirasw.nvidia.com/browse/NKX-16798
-            - name: PROMETHEUS_EXTRA_ARGS
-              value: --enable-feature=otlp-deltatocumulative
             {{- /* stackdriver stays first so Grafana never parses the value as a JSON list. */}}
             {{- $disabledPlugins := list "stackdriver" }}
             {{- $pluginEnv := list }}

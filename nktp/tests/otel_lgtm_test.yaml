@@ -783,18 +783,18 @@ tests:
       value: Deployment
     asserts:
       - equal:
-          path: spec.template.spec.containers[0].env[3]
+          path: spec.template.spec.containers[0].env[2]
           value:
             name: GF_PLUGINS_DISABLE_PLUGINS
             value: stackdriver,grafana-pyroscope-datasource
       - equal:
-          path: spec.template.spec.containers[0].env[4]
+          path: spec.template.spec.containers[0].env[3]
           value:
             name: ENABLE_LOGS_LOKI
             value: "true"
       - lengthEqual:
           path: spec.template.spec.containers[0].env
-          count: 5
+          count: 4
 
   - it: adds the Cloud Monitoring plugin to plugins disabled through env valueFrom
     set:
@@ -810,7 +810,7 @@ tests:
       value: Deployment
     asserts:
       - equal:
-          path: spec.template.spec.containers[0].env[3]
+          path: spec.template.spec.containers[0].env[2]
           value:
             name: NKTP_GF_PLUGINS_DISABLE_PLUGINS_0
             valueFrom:
@@ -818,13 +818,13 @@ tests:
                 name: grafana-plugins
                 key: disabled
       - equal:
-          path: spec.template.spec.containers[0].env[4]
+          path: spec.template.spec.containers[0].env[3]
           value:
             name: GF_PLUGINS_DISABLE_PLUGINS
             value: stackdriver,$(NKTP_GF_PLUGINS_DISABLE_PLUGINS_0)
       - lengthEqual:
           path: spec.template.spec.containers[0].env
-          count: 5
+          count: 4
 
   - it: keeps the Cloud Monitoring plugin disabled when env clears the variable
     set:
@@ -843,18 +843,7 @@ tests:
             value: stackdriver
       - lengthEqual:
           path: spec.template.spec.containers[0].env
-          count: 4
-
-  - it: converts delta counters pushed by Target Allocators at the backend
-    documentSelector:
-      path: kind
-      value: Deployment
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: PROMETHEUS_EXTRA_ARGS
-            value: --enable-feature=otlp-deltatocumulative
+          count: 3
 
   - it: exposes Prometheus, Grafana and OTLP ports
     documentSelector:
