@@ -56,7 +56,7 @@ tests:
       - equal:
           path: spec.config.service.pipelines
           value:
-            metrics: {receivers: [otlp], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp]}
+            metrics: {receivers: [otlp], processors: [memory_limiter, redaction/basic_v1_metrics, transform/cluster], exporters: [otlp]}
       - equal:
           path: spec.config.processors.memory_limiter
           value:
@@ -64,7 +64,7 @@ tests:
             limit_percentage: 80
             spike_limit_percentage: 25
       - exists:
-          path: spec.config.processors["redaction/basic_v1"]
+          path: spec.config.processors["redaction/basic_v1_metrics"]
       - equal:
           path: spec.config.exporters.otlp.endpoint
           value: lgtm:4317

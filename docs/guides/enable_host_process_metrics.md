@@ -33,7 +33,7 @@ daemonset:
         pipelines:
           metrics/process:
             receivers: [hostmetrics]
-            processors: [memory_limiter, resource/node, redaction/basic_v1]
+            processors: [memory_limiter, resource/node, redaction/basic_v1_metrics]
             exporters: [otlp/metrics]
 ```
 
@@ -89,7 +89,7 @@ daemonset:
       service:
         pipelines:
           metrics/process:
-            processors: [memory_limiter, resource/node, transform/process, redaction/basic_v1]
+            processors: [memory_limiter, resource/node, transform/process, redaction/basic_v1_metrics]
 ```
 
 To reduce volume:

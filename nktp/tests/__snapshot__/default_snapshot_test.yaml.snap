@@ -692,6 +692,17 @@ matches the snapshot with default values:
               - (?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)
             redact_all_types: true
             summary: silent
+          redaction/basic_v1_metrics:
+            allow_all_keys: true
+            blocked_key_patterns:
+              - (?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$
+            blocked_values:
+              - (?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*
+              - (?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)
+            ignored_keys:
+              - secret
+            redact_all_types: true
+            summary: silent
           resource/node:
             attributes:
               - action: upsert
@@ -960,7 +971,7 @@ matches the snapshot with default values:
               processors:
                 - memory_limiter
                 - resource/node
-                - redaction/basic_v1
+                - redaction/basic_v1_metrics
               receivers:
                 - prometheus
                 - prometheus/kubelet
@@ -1526,13 +1537,15 @@ matches the snapshot with default values:
             check_interval: 500ms
             limit_percentage: 80
             spike_limit_percentage: 25
-          redaction/basic_v1:
+          redaction/basic_v1_metrics:
             allow_all_keys: true
             blocked_key_patterns:
               - (?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$
             blocked_values:
               - (?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*
               - (?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)
+            ignored_keys:
+              - secret
             redact_all_types: true
             summary: silent
           transform/cluster:
@@ -1564,7 +1577,7 @@ matches the snapshot with default values:
                 - otlp
               processors:
                 - memory_limiter
-                - redaction/basic_v1
+                - redaction/basic_v1_metrics
                 - transform/cluster
               receivers:
                 - otlp
@@ -3204,13 +3217,15 @@ matches the snapshot with default values:
             check_interval: 500ms
             limit_percentage: 80
             spike_limit_percentage: 15
-          redaction/basic_v1:
+          redaction/basic_v1_metrics:
             allow_all_keys: true
             blocked_key_patterns:
               - (?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$
             blocked_values:
               - (?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*
               - (?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)
+            ignored_keys:
+              - secret
             redact_all_types: true
             summary: silent
         receivers:
@@ -3234,7 +3249,7 @@ matches the snapshot with default values:
                 - otlp
               processors:
                 - memory_limiter
-                - redaction/basic_v1
+                - redaction/basic_v1_metrics
                 - batch
               receivers:
                 - prometheus

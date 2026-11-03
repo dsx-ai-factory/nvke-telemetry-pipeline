@@ -135,7 +135,17 @@ func renderedCollector(ctx context.Context, t *testing.T) (string, object) {
 			rendered := command(t, "helm", "template", "redaction", "../../nktp", "--show-only", "templates/"+workload+".yaml")
 			require.NoError(t, yaml.Unmarshal(rendered, &other))
 			processors := other.Spec.Config.Processors
-			require.Equal(t, reference["redaction/basic_v1"], processors["redaction/basic_v1"])
+			if workload != "gateway-metrics" && workload != "large-target-metrics" {
+				require.Equal(t, reference["redaction/basic_v1"], processors["redaction/basic_v1"])
+			}
+			if workload == "daemonset" || workload == "gateway-metrics" || workload == "large-target-metrics" {
+				// Metrics pipelines that can carry kube-state-metrics series keep its secret label, which holds Secret names.
+				metrics := object{"ignored_keys": []any{"secret"}}
+				for key, value := range reference["redaction/basic_v1"].(object) {
+					metrics[key] = value
+				}
+				require.Equal(t, metrics, processors["redaction/basic_v1_metrics"])
+			}
 		})
 	}
 	return collector.Spec.Image, collector.Spec.Config

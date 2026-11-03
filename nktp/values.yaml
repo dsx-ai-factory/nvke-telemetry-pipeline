@@ -919,10 +919,11 @@ gateway_metrics:
                   max_connection_age: 1m
                   max_connection_age_grace: 30s # Increase if in-flight exports need longer before forced closure.
       processors:
-        redaction/basic_v1:
+        redaction/basic_v1_metrics:
           allow_all_keys: true
           redact_all_types: true
           summary: silent
+          ignored_keys: [secret] # kube-state-metrics puts Secret names in the secret label.
           blocked_key_patterns:
             - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
           blocked_values:
@@ -992,7 +993,7 @@ gateway_metrics:
         pipelines:
           metrics:
             receivers: [otlp]
-            processors: [memory_limiter, redaction/basic_v1, transform/cluster]
+            processors: [memory_limiter, redaction/basic_v1_metrics, transform/cluster]
             exporters: [otlp]
   # Native sidecar for this workload's own telemetry. It buffers through outages,
   # keeps only error and slow traces, and exports over gRPC to nktp-watchdog-collector:4317.
@@ -1848,6 +1849,16 @@ daemonset:
           blocked_values:
             - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
             - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
+        redaction/basic_v1_metrics:
+          allow_all_keys: true
+          redact_all_types: true
+          summary: silent
+          ignored_keys: [secret] # kube-state-metrics puts Secret names in the secret label.
+          blocked_key_patterns:
+            - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
+          blocked_values:
+            - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
+            - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
         memory_limiter:
           check_interval: 500ms # Poll Go heap Alloc. Bursts can allocate between checks.
           limit_percentage: 80 # Hard heap threshold, 1638.4Mi. Leaves room below the container cap.
@@ -1993,7 +2004,7 @@ daemonset:
             exporters: [otlp/watchdog]
           metrics:
             receivers: [prometheus, prometheus/kubelet, otlp]
-            processors: [memory_limiter, resource/node, redaction/basic_v1]
+            processors: [memory_limiter, resource/node, redaction/basic_v1_metrics]
             exporters: [otlp/metrics]
           traces:
             receivers: [otlp]
@@ -2302,10 +2313,11 @@ large_target_metrics:
             # The Target Allocator supplies scrape jobs and assigned targets from monitoring CRs.
             scrape_configs: []
       processors:
-        redaction/basic_v1:
+        redaction/basic_v1_metrics:
           allow_all_keys: true
           redact_all_types: true
           summary: silent
+          ignored_keys: [secret] # kube-state-metrics puts Secret names in the secret label.
           blocked_key_patterns:
             - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
           blocked_values:
@@ -2371,7 +2383,7 @@ large_target_metrics:
         pipelines:
           metrics:
             receivers: [prometheus]
-            processors: [memory_limiter, redaction/basic_v1, batch]
+            processors: [memory_limiter, redaction/basic_v1_metrics, batch]
             exporters: [otlp]
   # Native sidecar for this workload's own telemetry. It buffers through outages,
   # keeps only error and slow traces, and exports over gRPC to nktp-watchdog-collector:4317.

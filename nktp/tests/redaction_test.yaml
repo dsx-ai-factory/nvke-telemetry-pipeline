@@ -1,7 +1,10 @@
 suite: basic telemetry redaction
 templates:
   - templates/daemonset.yaml
+  - templates/gateway-logs.yaml
   - templates/gateway-metrics.yaml
+  - templates/gateway-traces.yaml
+  - templates/large-target-metrics.yaml
 tests:
   - it: uses safe redaction defaults
     template: templates/daemonset.yaml
@@ -15,27 +18,85 @@ tests:
       - equal:
           path: spec.config.processors["redaction/basic_v1"].summary
           value: silent
+  - it: exempts the secret label in daemonset metrics but not in its logs and traces
+    template: templates/daemonset.yaml
+    asserts:
+      - equal:
+          path: spec.config.processors["redaction/basic_v1_metrics"].ignored_keys
+          value: [secret]
+      - notExists:
+          path: spec.config.processors["redaction/basic_v1"].ignored_keys
+      - equal:
+          path: spec.config.service.pipelines.metrics.processors
+          value: [memory_limiter, resource/node, redaction/basic_v1_metrics]
+      - equal:
+          path: spec.config.service.pipelines.logs.processors
+          value: [memory_limiter, resource/node, redaction/basic_v1]
+      - equal:
+          path: spec.config.service.pipelines.traces.processors
+          value: [memory_limiter, resource/node, redaction/basic_v1]
+  - it: exempts the secret label in the metrics gateway
+    template: templates/gateway-metrics.yaml
+    asserts:
+      - equal:
+          path: spec.config.processors["redaction/basic_v1_metrics"].ignored_keys
+          value: [secret]
+      - notExists:
+          path: spec.config.processors["redaction/basic_v1"]
+      - equal:
+          path: spec.config.service.pipelines.metrics.processors
+          value: [memory_limiter, redaction/basic_v1_metrics, transform/cluster]
+  - it: exempts the secret label in large-target metrics
+    template: templates/large-target-metrics.yaml
+    asserts:
+      - equal:
+          path: spec.config.processors["redaction/basic_v1_metrics"].ignored_keys
+          value: [secret]
+        documentIndex: 0
+      - notExists:
+          path: spec.config.processors["redaction/basic_v1"]
+        documentIndex: 0
+      - equal:
+          path: spec.config.service.pipelines.metrics.processors
+          value: [memory_limiter, redaction/basic_v1_metrics, batch]
+        documentIndex: 0
+  - it: keeps the secret label redacted in the logs gateway
+    template: templates/gateway-logs.yaml
+    asserts:
+      - notExists:
+          path: spec.config.processors["redaction/basic_v1"].ignored_keys
+      - equal:
+          path: spec.config.service.pipelines.logs.processors
+          value: [memory_limiter, redaction/basic_v1, transform/cluster]
+  - it: keeps the secret label redacted in the traces gateway
+    template: templates/gateway-traces.yaml
+    asserts:
+      - notExists:
+          path: spec.config.processors["redaction/basic_v1"].ignored_keys
+      - equal:
+          path: spec.config.service.pipelines.traces.processors
+          value: [memory_limiter, redaction/basic_v1, transform/cluster]
   - it: respects native rule overrides and processor order
     template: templates/gateway-metrics.yaml
     set:
-      gateway_metrics.otelcol.config.processors.redaction/basic_v1.blocked_key_patterns: ['^password$$']
+      gateway_metrics.otelcol.config.processors.redaction/basic_v1_metrics.blocked_key_patterns: ['^password$$']
       gateway_metrics.otelcol.config.processors.batch: {}
-      gateway_metrics.otelcol.config.service.pipelines.metrics.processors: [memory_limiter, redaction/basic_v1, batch]
+      gateway_metrics.otelcol.config.service.pipelines.metrics.processors: [memory_limiter, redaction/basic_v1_metrics, batch]
     asserts:
       - equal:
-          path: spec.config.processors["redaction/basic_v1"].blocked_key_patterns
+          path: spec.config.processors["redaction/basic_v1_metrics"].blocked_key_patterns
           value: ['^password$$']
       - equal:
           path: spec.config.service.pipelines.metrics.processors
-          value: [memory_limiter, redaction/basic_v1, batch]
+          value: [memory_limiter, redaction/basic_v1_metrics, batch]
   - it: allows removing redaction through native overrides
     template: templates/gateway-metrics.yaml
     set:
-      gateway_metrics.otelcol.config.processors.redaction/basic_v1: null
+      gateway_metrics.otelcol.config.processors.redaction/basic_v1_metrics: null
       gateway_metrics.otelcol.config.service.pipelines.metrics.processors: [memory_limiter]
     asserts:
       - notExists:
-          path: spec.config.processors["redaction/basic_v1"]
+          path: spec.config.processors["redaction/basic_v1_metrics"]
       - equal:
           path: spec.config.service.pipelines.metrics.processors
           value: [memory_limiter]
