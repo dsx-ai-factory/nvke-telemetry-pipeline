@@ -281,7 +281,10 @@ func isolateQueueStorage(spec *otelv1.OpenTelemetryCollectorSpec) error {
 		return err
 	}
 	config := &spec.Config
-	if config.Extensions == nil || config.Extensions.Object[storage] == nil {
+	if config.Extensions == nil {
+		return fmt.Errorf("queue storage extension %q is absent", storage)
+	}
+	if _, exists := config.Extensions.Object[storage]; !exists {
 		return fmt.Errorf("queue storage extension %q is absent", storage)
 	}
 	delete(queue, "storage")
