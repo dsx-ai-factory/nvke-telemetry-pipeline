@@ -37,6 +37,9 @@ func TestTelemetryRedaction(t *testing.T) {
 		"protocols": object{"http": object{"endpoint": "0.0.0.0:4318"}},
 	}}
 	service := config["service"].(object)
+	// The capture exporter disables queueing, so storage extensions are unused.
+	delete(config, "extensions")
+	delete(service, "extensions")
 	for _, signal := range []string{"logs", "metrics", "traces"} {
 		pipeline := service["pipelines"].(object)[signal].(object)
 		pipeline["receivers"] = []string{"otlp"}
