@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -27,13 +28,24 @@ import (
 	"sigs.k8s.io/e2e-framework/klient/decoder"
 )
 
+// enableScraping creates one token per targeted scrape before exposing the
+// phase to HTTP requests. Pausing hides the remaining tokens.
+const enableScraping = `mkdir /scrapes/next
+for i in $(seq 1 "$1"); do
+  touch "/scrapes/next/$i"
+done
+mv /scrapes/next /scrapes/available`
+
 func (r *run) setScraping(active bool) {
 	r.t.Helper()
-	from, to := "/scrapes/metrics", "/scrapes/metrics.paused"
+	command := `paused=$(mktemp -d /scrapes/paused.XXXXXX)
+mv /scrapes/available "$paused/"`
+	args := []string{}
 	if active {
-		from, to = to, from
+		command = enableScraping
+		args = []string{strconv.Itoa(r.scrapeTarget)}
 	}
-	_, err := r.cluster.exec(r.ctx, "outage-scrape-server", "http", "mv", from, to)
+	_, err := r.cluster.exec(r.ctx, "outage-scrape-server", "http", append([]string{"sh", "-ec", command, "sh"}, args...)...)
 	require.NoError(r.t, err)
 }
 
@@ -196,6 +208,40 @@ func (c cluster) installScrapeServer(ctx context.Context, path string) error {
 		return fmt.Errorf("scrape size=%q, expected %d bytes", size, stat.Size())
 	}
 	return nil
+}
+
+// TestScrapeLimit exercises the payload server's script with a two-scrape budget.
+func TestScrapeLimit(t *testing.T) {
+	root := t.TempDir()
+	scrapes, seed := filepath.Join(root, "scrapes"), filepath.Join(root, "seed")
+	require.NoError(t, os.MkdirAll(scrapes, 0755))
+	require.NoError(t, os.MkdirAll(seed, 0755))
+	var compressed bytes.Buffer
+	writer := gzip.NewWriter(&compressed)
+	_, err := writer.Write([]byte("test_metric 1\n"))
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+	require.NoError(t, os.WriteFile(filepath.Join(seed, "000000"), compressed.Bytes(), 0600))
+	objects, err := decoder.DecodeAllFiles(t.Context(), os.DirFS("."), "scrape-server.yaml")
+	require.NoError(t, err)
+	deployment := objects[0].(*appsv1.Deployment)
+	init := deployment.Spec.Template.Spec.InitContainers[0].Command[2]
+	init = strings.ReplaceAll(strings.ReplaceAll(init, "/scrapes", scrapes), "/seed/", seed+"/")
+	output, err := exec.CommandContext(t.Context(), "sh", "-ec", init).CombinedOutput()
+	require.NoError(t, err, "%s", output)
+	enable := strings.ReplaceAll(enableScraping, "/scrapes", scrapes)
+	output, err = exec.CommandContext(t.Context(), "sh", "-ec", enable, "sh", "2").CombinedOutput()
+	require.NoError(t, err, "%s", output)
+	for i := range 3 {
+		output, err := exec.CommandContext(t.Context(), "sh", filepath.Join(scrapes, "cgi-bin", "metrics")).CombinedOutput()
+		require.NoError(t, err, "%s", output)
+		if i < 2 {
+			assert.Contains(t, string(output), "test_metric 1\n")
+		} else {
+			assert.Contains(t, string(output), "503 Service Unavailable")
+			assert.NotContains(t, string(output), "test_metric")
+		}
+	}
 }
 
 func TestScrapePayload(t *testing.T) {

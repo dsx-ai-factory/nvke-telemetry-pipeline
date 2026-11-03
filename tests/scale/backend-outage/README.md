@@ -58,7 +58,8 @@ The test runs three phases:
    restoration and for two minutes after the backend is ready. This exercises
    draining a backlog while new metrics arrive. Then pause input and allow up
    to `-outage-recovery-drain-timeout 3m` for all outage and recovery scrapes to
-   arrive and both queues to drain. The test requires at least one new scrape
+   arrive and both queues to drain. Input is capped at the combined outage and
+   recovery scrape target below. The test requires at least one new scrape
    during recovery and verifies all post-baseline input.
 
 Continued input is the default. Set `-outage-recovery-input=false` to pause
@@ -67,8 +68,14 @@ mode, `-outage-recovery` is the maximum drain time and recovery finishes early
 when delivery and draining complete. Queue-overhead mode always pauses input.
 
 Baseline and outage durations control active scraping windows and must each
-cover at least one scrape interval. Draining in-flight requests and restarting
-the backend add elapsed time beyond those windows.
+cover at least one scrape interval. Scrape targets are each duration divided by
+the scrape interval, rounded down. With continued recovery input, outage and
+recovery share one combined target, including scrapes during backend restoration.
+The default 30-second interval gives four baseline scrapes and eight post-baseline
+scrapes. The payload server caps input at these targets; verification fails if
+any targeted scrape is missing or incomplete. Queue-overhead mode uses
+`-queue-overhead-scrapes` as its outage target instead. Draining requests and
+restarting the backend add elapsed time beyond the configured windows.
 
 Select a template with `-outage-scrape-template`; paths are relative to
 `tests/scale/backend-outage`, or absolute:

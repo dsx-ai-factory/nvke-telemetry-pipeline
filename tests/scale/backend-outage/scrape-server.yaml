@@ -16,7 +16,28 @@ spec:
       initContainers:
         - name: seed
           image: public.ecr.aws/docker/library/busybox:1.37.0
-          command: [sh, -c, 'cat /seed/[0-9]* | gzip -dc > /scrapes/metrics.paused']
+          command:
+            - sh
+            - -ec
+            - |
+              cat /seed/[0-9]* | gzip -dc > /scrapes/metrics.paused
+              mkdir -p /scrapes/cgi-bin /scrapes/claimed
+              cat > /scrapes/cgi-bin/metrics <<'EOF'
+              #!/bin/sh
+              claim=$(mktemp -d /scrapes/claimed/XXXXXX) || exit 1
+              # Moving a token atomically enforces the phase's scrape ceiling,
+              # including requests canceled before reaching the Collector.
+              for token in /scrapes/available/*; do
+                if mv "$token" "$claim/token" 2>/dev/null; then
+                  printf 'Content-Type: text/plain; version=0.0.4\r\n\r\n'
+                  cat /scrapes/metrics.paused
+                  exit
+                fi
+              done
+              rmdir "$claim"
+              printf 'Status: 503 Service Unavailable\r\n\r\n'
+              EOF
+              chmod +x /scrapes/cgi-bin/metrics
           resources:
             requests: {cpu: 100m, memory: 16Mi}
             limits: {cpu: '1', memory: 64Mi}

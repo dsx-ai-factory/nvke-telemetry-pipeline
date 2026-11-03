@@ -683,7 +683,7 @@ func TestScraperDerivation(t *testing.T) {
 				RunID:            "test-run", Interval: 2 * time.Second, Image: test.image, DisableBatch: test.disableBatch,
 			})
 			require.NoError(t, err)
-			expected := testExpected(t, "outage-scraper", `prometheus: {config: {global: {sample_limit: 200000}, scrape_configs: [{job_name: outage-scrape-server, scrape_interval: 2s, scrape_timeout: 2s, fallback_scrape_protocol: PrometheusText0.0.4, static_configs: [{targets: ["outage-scrape-server:8080"]}]}]}}`, "outage-gateway-collector:4317", collectorExpectation{
+			expected := testExpected(t, "outage-scraper", `prometheus: {config: {global: {sample_limit: 200000}, scrape_configs: [{job_name: outage-scrape-server, metrics_path: /cgi-bin/metrics, scrape_interval: 2s, scrape_timeout: 2s, fallback_scrape_protocol: PrometheusText0.0.4, static_configs: [{targets: ["outage-scrape-server:8080"]}]}]}}`, "outage-gateway-collector:4317", collectorExpectation{
 				memory: test.wantMemory, request: test.wantRequest, runtime: test.wantRuntime,
 				image: test.wantImage, queue: test.wantQueue, spike: 25,
 			})
