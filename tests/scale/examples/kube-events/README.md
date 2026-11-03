@@ -1,7 +1,7 @@
 # Kubernetes Events with k6
 
 One k6 Pod creates 100 owned Events with 1 KiB messages, then offers 10 PATCH
-requests/s for three minutes. It deletes the Events on completion; Pod ownership
+requests/s for three minutes. It deletes the Events on completion. Pod ownership
 provides garbage-collection fallback on interruption.
 
 Follow the [shared setup](../../README.md#setup), set `KUBECONFIG`, then run
@@ -17,8 +17,7 @@ task scale:test TEST_TIMEOUT=15m -- \
 [values.yaml](values.yaml) supplies the script and namespace-scoped RBAC.
 The report shows successful/failed patches, dropped iterations, latency and Event
 collector acceptance. k6 writes its own counters to bundled Prometheus. NKTP’s
-default Event deduplication can coalesce updates; offered patches are not the
-number of exported log records.
+Event reader emits every update by default.
 
 Edit `count`, `rate` and `duration` in `events.js` inside the values file. Increase
 plan, Pod and Go timeouts together for longer runs. k6 fails on API errors or

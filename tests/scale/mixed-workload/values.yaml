@@ -175,9 +175,6 @@ cluster_events:
     tolerations: *systemTolerations
   otelcol:
     config:
-      receivers:
-        k8s_events:
-          dedup_interval: 0s
       connectors:
         count/scale_events:
           logs:
