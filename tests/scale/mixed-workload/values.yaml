@@ -257,20 +257,6 @@ opentelemetry-kube-stack:
     nodeSelector: *systemSelector
     tolerations: *systemTolerations
   extraObjects:
-    # Use the same issuer here if overriding certManager.internalTLS.issuerRef.
-    - apiVersion: cert-manager.io/v1
-      kind: Certificate
-      metadata:
-        name: nktp-mixed-workload-client
-        namespace: '{{ .Release.Namespace }}'
-      spec:
-        secretName: nktp-mixed-workload-client-tls
-        commonName: nktp-mixed-workload
-        duration: 2160h
-        renewBefore: 360h
-        usages: [client auth]
-        privateKey: {rotationPolicy: Always}
-        issuerRef: {name: nktp-internal-ca-issuer, kind: Issuer, group: cert-manager.io}
     - apiVersion: monitoring.coreos.com/v1
       kind: PodMonitor
       metadata:
@@ -332,11 +318,6 @@ opentelemetry-kube-stack:
         image: otel/opentelemetry-collector-k8s:0.159.0
         mode: deployment
         replicas: 8
-        volumes:
-          - name: observation-tls
-            secret: {secretName: nktp-mixed-workload-client-tls}
-        volumeMounts:
-          - {name: observation-tls, mountPath: /etc/nktp/internal-tls/client, readOnly: true}
         nodeSelector: *systemSelector
         tolerations: *systemTolerations
         topologySpreadConstraints:
@@ -418,10 +399,7 @@ opentelemetry-kube-stack:
                       exporter:
                         otlp:
                           protocol: grpc
-                          endpoint: https://nktp-watchdog-collector:4317
-                          certificate: /etc/nktp/internal-tls/client/ca.crt
-                          client_certificate: /etc/nktp/internal-tls/client/tls.crt
-                          client_key: /etc/nktp/internal-tls/client/tls.key
+                          endpoint: http://lgtm:4317
             pipelines:
               metrics:
                 receivers: [otlp]
@@ -751,12 +729,9 @@ opentelemetry-kube-stack:
               sending_queue:
                 enabled: false
             otlp/observations:
-              endpoint: nktp-watchdog-collector:4317
+              endpoint: lgtm:4317
               tls:
-                ca_file: /etc/nktp/internal-tls/client/ca.crt
-                cert_file: /etc/nktp/internal-tls/client/tls.crt
-                key_file: /etc/nktp/internal-tls/client/tls.key
-                reload_interval: 1h
+                insecure: true
               sending_queue:
                 enabled: false
           service:
@@ -772,10 +747,7 @@ opentelemetry-kube-stack:
                       exporter:
                         otlp:
                           protocol: grpc
-                          endpoint: https://nktp-watchdog-collector:4317
-                          certificate: /etc/nktp/internal-tls/client/ca.crt
-                          client_certificate: /etc/nktp/internal-tls/client/tls.crt
-                          client_key: /etc/nktp/internal-tls/client/tls.key
+                          endpoint: http://lgtm:4317
               traces: {level: none}
             pipelines:
               metrics/load:

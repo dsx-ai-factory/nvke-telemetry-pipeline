@@ -3,7 +3,10 @@
 - [Plan](plan.yaml) · [Profile](values.yaml) · [Load model](busy-node.md)
 - Load: 100k series and about 4 GiB/hour each of logs and spans per worker
 - Paths: node, Events and large-target collectors → gateways → blackhole
-- NKTP: chart resource and autoscaling defaults, with mTLS for collector-to-gateway and observation traffic
+- NKTP: chart resource and autoscaling defaults, with mTLS for collector-to-gateway traffic
+- Observations: blackhole self-telemetry and OTLP adapter observations and
+  self-telemetry go directly to LGTM over plaintext OTLP/gRPC. NKTP
+  self-telemetry keeps its watchdog path.
 
 ## Load
 
@@ -56,7 +59,7 @@ The combined workload has 24.4M synthetic series.
 | Generators | 100 | 16 vCPU / 32 GiB | `nodeGroup=customer-cpu` |
 | NKTP and support | 8 | 64 vCPU / 128 GiB | `nodeGroup=system-cpu` |
 
-- Setup: [shared prerequisites](../README.md#setup), existing fleet, healthy Metrics Server for HPA. Workers must reach LGTM on port 9090 for k6 metrics.
+- Setup: [shared prerequisites](../README.md#setup), existing fleet, healthy Metrics Server for HPA. Workers must reach LGTM on port 4317 for OTLP adapter telemetry and port 9090 for k6 metrics.
 - Placement: 101 synthetic Pods on 46 workers and 102 on 54 workers, plus platform services. Reserve Pod slots and addresses.
 - Blackhole and bundled LGTM: 72 CPU / 80 GiB requested, plus capacity for NKTP and HPA.
 - Profile: adapt placement and API access settings to your cluster. Keep an untainted node for Helm cleanup. Set `CERT_MANAGER_VALUES_FILE` if needed.
@@ -64,8 +67,6 @@ The combined workload has 24.4M synthetic series.
 ## Run
 
 Stop other generators and install the adapted profile, including its `extraObjects`.
-When using a custom internal CA, update the profile's client Certificate issuer
-to match.
 
 Edit the absolute kubeconfig path below before running these commands.
 

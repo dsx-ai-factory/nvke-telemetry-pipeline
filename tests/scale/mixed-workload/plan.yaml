@@ -221,7 +221,6 @@ stages:
                   httpGet: {port: health, path: /}
                 volumeMounts:
                   - {name: metrics-config, mountPath: /etc/metrics, readOnly: true}
-                  - {name: observation-tls, mountPath: /etc/nktp/internal-tls/client, readOnly: true}
                 resources:
                   requests: {cpu: 25m, memory: 64Mi}
                   limits: {cpu: 500m, memory: 256Mi}
@@ -289,8 +288,6 @@ stages:
                 configMap: {name: nktp-mixed-workload-stdout-small}
               - name: metrics-config
                 configMap: {name: nktp-mixed-workload-otlp-metrics}
-              - name: observation-tls
-                secret: {secretName: nktp-mixed-workload-client-tls}
 
     - name: node-local-targets
       type: statefulset
