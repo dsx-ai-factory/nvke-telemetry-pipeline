@@ -59,7 +59,7 @@ volumeattachments: {group: "storage.k8s.io", scope: cluster}
     {{- if (index $configured "pods" | default dict).enabled -}}
       {{- fail "KSM deployment name pods conflicts with the enabled DaemonSet" -}}
     {{- end -}}
-    {{- $_ := set $configured "pods" (mustMergeOverwrite (omit (deepCopy $ksm.daemonset) "resource_types" "track_unscheduled_pods") (dict "daemonset" true "shards" 1 "resource_types" (list "pods") "track_unscheduled_pods" false)) -}}
+    {{- $_ := set $configured "pods" (mustMergeOverwrite (omit (deepCopy $ksm.daemonset) "resource_types" "track_unscheduled_pods" "customResourceState") (dict "daemonset" true "shards" 1 "resource_types" (list "pods") "track_unscheduled_pods" false)) -}}
   {{- end -}}
   {{- range $name, $config := $configured -}}
     {{- if $config.enabled -}}
@@ -70,7 +70,11 @@ volumeattachments: {group: "storage.k8s.io", scope: cluster}
         {{- fail (printf "KSM workload %s shards must be an integer between 1 and 10000" $name) -}}
       {{- end -}}
       {{- $types := $config.resource_types | default list -}}
-      {{- if not $types -}}{{- fail (printf "KSM workload %s resource_types must not be empty" $name) -}}{{- end -}}
+      {{- $crs := $config.customResourceState | default dict -}}
+      {{- if and $crs (not $crs.config) -}}
+        {{- fail (printf "KSM workload %s customResourceState.config must be set" $name) -}}
+      {{- end -}}
+      {{- if not (or $types $crs) -}}{{- fail (printf "KSM workload %s resource_types must not be empty" $name) -}}{{- end -}}
       {{- if and $config.track_unscheduled_pods (ne (toJson $types) (toJson (list "pods"))) -}}
         {{- fail (printf "KSM workload %s track_unscheduled_pods requires resource_types to be exactly [pods]" $name) -}}
       {{- end -}}
@@ -82,9 +86,22 @@ volumeattachments: {group: "storage.k8s.io", scope: cluster}
         {{- if trim $namespace -}}{{- $normalizedNamespaces = append $normalizedNamespaces (trim $namespace) -}}{{- end -}}
       {{- end -}}
       {{- $namespaces = uniq $normalizedNamespaces -}}
-      {{- $args := list (printf "--resources=%s" (join "," $types)) -}}
+      {{- $fullname := printf "nktp-ksm-%s" $name -}}
+      {{- /* KSM collects every default resource when --resources is empty, so a custom-resource-only group omits it. */ -}}
+      {{- $args := list -}}
+      {{- if $types -}}
+        {{- $args = append $args (printf "--resources=%s" (join "," $types)) -}}
+      {{- else -}}
+        {{- $args = append $args "--custom-resource-state-only" -}}
+      {{- end -}}
+      {{- if $crs -}}
+        {{- $args = append $args (printf "--custom-resource-state-config-file=%s/%s" (include "nktp.ksm.customResourceStateDir" .) (include "nktp.ksm.customResourceStateFile" .)) -}}
+      {{- end -}}
       {{- with $ksm.metricLabelsAllowlist -}}
         {{- $args = append $args (printf "--metric-labels-allowlist=%s" (join "," .)) -}}
+      {{- end -}}
+      {{- with $ksm.metricAnnotationsAllowlist -}}
+        {{- $args = append $args (printf "--metric-annotations-allowlist=%s" (join "," .)) -}}
       {{- end -}}
       {{- if $config.daemonset -}}{{- $args = append $args "--node=$(NODE_NAME)" -}}{{- end -}}
       {{- if $config.track_unscheduled_pods -}}{{- $args = append $args "--track-unscheduled-pods" -}}{{- end -}}
@@ -98,17 +115,40 @@ volumeattachments: {group: "storage.k8s.io", scope: cluster}
         {{- $scope := index $rules $resource.scope -}}
         {{- $_ := set $scope $resource.group (append (index $scope $resource.group | default list) $type) -}}
       {{- end -}}
+      {{- $customRules := list -}}
+      {{- if $crs -}}
+        {{- /* KSM discovers custom resource versions from their CustomResourceDefinitions. */ -}}
+        {{- $_ := set $rules.cluster "apiextensions.k8s.io" (list "customresourcedefinitions") -}}
+        {{- range $rule := $crs.rules | default list -}}
+          {{- if not (and (kindIs "slice" $rule.apiGroups) $rule.apiGroups (kindIs "slice" $rule.resources) $rule.resources) -}}
+            {{- fail (printf "KSM workload %s customResourceState.rules entries need non-empty apiGroups and resources lists" $name) -}}
+          {{- end -}}
+          {{- if and (hasKey $rule "verbs") (not (and (kindIs "slice" $rule.verbs) $rule.verbs)) -}}
+            {{- fail (printf "KSM workload %s customResourceState.rules verbs must be a non-empty list" $name) -}}
+          {{- end -}}
+          {{- $customRules = append $customRules (dict "apiGroups" $rule.apiGroups "resources" $rule.resources "verbs" ($rule.verbs | default (list "list" "watch"))) -}}
+        {{- end -}}
+      {{- end -}}
       {{- $kubernetes := mustMergeOverwrite (deepCopy ($ksm.kubernetes | default dict)) ($config.kubernetes | default dict) -}}
       {{- if and $.Values.priorityClass.name (not (hasKey $kubernetes "priorityClassName")) -}}
         {{- $_ := set $kubernetes "priorityClassName" $.Values.priorityClass.name -}}
       {{- end -}}
       {{- $fullname := printf "nktp-ksm-%s" $name -}}
       {{- $_ := set $groups $name (dict "name" $fullname "shards" (int $config.shards) "args" $args "namespaces" $namespaces "daemonset" $config.daemonset "rules" $rules "kubernetes" $kubernetes "serviceAccount" ($kubernetes.serviceAccount | default $fullname)) -}}
+      {{- $group := dict "name" $fullname "shards" (int $config.shards) "args" $args "namespaces" $namespaces "daemonset" $config.daemonset "rules" $rules "customRules" $customRules "kubernetes" $kubernetes "serviceAccount" ($kubernetes.serviceAccount | default $fullname) -}}
+      {{- if $crs -}}
+        {{- $_ := set $group "customResourceState" (dict "configMap" (printf "%s-custom-resource-state" $fullname) "config" $crs.config) -}}
+      {{- end -}}
+      {{- $_ := set $groups $name $group -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}
 {{- toYaml $groups -}}
 {{- end -}}
+
+{{/* Mount directory and file name of a group's custom-resource-state configuration. */}}
+{{- define "nktp.ksm.customResourceStateDir" -}}/etc/kube-state-metrics{{- end -}}
+{{- define "nktp.ksm.customResourceStateFile" -}}custom-resource-state.yaml{{- end -}}
 
 {{- define "nktp.ksm.labels" -}}
 app.kubernetes.io/name: {{ .group.name }}

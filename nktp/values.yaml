@@ -2819,6 +2819,8 @@ kube-state-metrics:
   namespaces: [] # All namespaces. Each workload can override this list.
   # Kubernetes labels exposed by KSM, using entries such as pods=[app.kubernetes.io/name].
   metricLabelsAllowlist: []
+  # Kubernetes annotations exposed by KSM, using entries such as secrets=[example.com/owner].
+  metricAnnotationsAllowlist: []
   # Shared Kubernetes defaults. Each workload can override these fields.
   # Inherits priorityClass.name unless priorityClassName is set here or per workload.
   # Set priorityClassName: "" to opt out.
@@ -2850,7 +2852,10 @@ kube-state-metrics:
       tolerations:
         - operator: Exists
   # Named Deployments. resource_types and namespaces also determine RBAC.
-  # Helm supplies shard identities from shards.
+  # Helm supplies shard identities from shards. A Deployment can also set
+  # customResourceState.config (KSM custom-resource-state YAML) and
+  # customResourceState.rules (list/watch by default) to collect custom resources.
+  # With customResourceState, resource_types may be empty to collect only custom resources.
   deployments:
     unscheduled-pods:
       enabled: true

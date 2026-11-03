@@ -337,3 +337,112 @@ tests:
         documentSelector:
           path: kind
           value: ClusterRole
+
+  - it: appends custom-resource rules and CRD discovery to the cluster-wide role
+    set:
+      kube-state-metrics.daemonset.enabled: false
+      kube-state-metrics.deployments.unscheduled-pods.enabled: false
+      kube-state-metrics.deployments.workloads.enabled: false
+      kube-state-metrics.deployments.networking.enabled: false
+      kube-state-metrics.deployments.storage.enabled: false
+      kube-state-metrics.deployments.configuration.enabled: false
+      kube-state-metrics.deployments.cluster.enabled: false
+      kube-state-metrics.deployments.custom-resources:
+        enabled: true
+        resource_types: [namespaces]
+        shards: 1
+        customResourceState:
+          config:
+            spec:
+              resources: []
+          rules:
+            - apiGroups: [argoproj.io]
+              resources: [applications]
+            - apiGroups: [example.com]
+              resources: [widgets, gadgets]
+              verbs: [get, list, watch]
+    asserts:
+      - hasDocuments:
+          count: 3
+      - equal:
+          path: rules
+          value:
+            - apiGroups: [""]
+              resources: [namespaces]
+              verbs: [list, watch]
+            - apiGroups: [apiextensions.k8s.io]
+              resources: [customresourcedefinitions]
+              verbs: [list, watch]
+            - apiGroups: [argoproj.io]
+              resources: [applications]
+              verbs: [list, watch]
+            - apiGroups: [example.com]
+              resources: [widgets, gadgets]
+              verbs: [get, list, watch]
+        documentSelector:
+          path: kind
+          value: ClusterRole
+      - equal:
+          path: subjects
+          value:
+            - kind: ServiceAccount
+              name: nktp-ksm-custom-resources
+              namespace: nktp
+        documentSelector:
+          path: kind
+          value: ClusterRoleBinding
+
+  - it: grants custom-resource access cluster-wide to a group with only custom resources
+    set:
+      kube-state-metrics.daemonset.enabled: false
+      kube-state-metrics.deployments.unscheduled-pods.enabled: false
+      kube-state-metrics.deployments.workloads.enabled: false
+      kube-state-metrics.deployments.networking.enabled: false
+      kube-state-metrics.deployments.storage.enabled: false
+      kube-state-metrics.deployments.configuration.enabled: false
+      kube-state-metrics.deployments.cluster.enabled: false
+      kube-state-metrics.namespaces: [team-a]
+      kube-state-metrics.deployments.custom-resources:
+        enabled: true
+        resource_types: []
+        shards: 1
+        customResourceState:
+          config:
+            spec:
+              resources: []
+          rules:
+            - apiGroups: [argoproj.io]
+              resources: [applications]
+    asserts:
+      - hasDocuments:
+          count: 3
+      - equal:
+          path: rules
+          value:
+            - apiGroups: [apiextensions.k8s.io]
+              resources: [customresourcedefinitions]
+              verbs: [list, watch]
+            - apiGroups: [argoproj.io]
+              resources: [applications]
+              verbs: [list, watch]
+        documentSelector:
+          path: kind
+          value: ClusterRole
+      - equal:
+          path: kind
+          value: ClusterRoleBinding
+        documentIndex: 2
+
+  - it: still rejects unknown core resource types next to custom-resource settings
+    set:
+      kube-state-metrics.deployments.workloads.resource_types: [applications]
+      kube-state-metrics.deployments.workloads.customResourceState:
+        config:
+          spec:
+            resources: []
+        rules:
+          - apiGroups: [argoproj.io]
+            resources: [applications]
+    asserts:
+      - failedTemplate:
+          errorMessage: Unsupported KSM resource type applications for RBAC generation
