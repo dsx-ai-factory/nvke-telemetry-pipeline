@@ -26,6 +26,13 @@ rules:
     resources: {{ $resources | toJson }}
     verbs: [list, watch]
   {{- end }}
+  {{- if eq $scope "cluster" }}
+  {{- range $rule := $group.customRules }}
+  - apiGroups: {{ $rule.apiGroups | toJson }}
+    resources: {{ $rule.resources | toJson }}
+    verbs: {{ $rule.verbs | toJson }}
+  {{- end }}
+  {{- end }}
 {{- $namespaces := list "" -}}
 {{- if and (eq $scope "namespaced") $group.namespaces -}}
 {{- $namespaces = $group.namespaces -}}

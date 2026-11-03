@@ -19,11 +19,72 @@ Set `kube-state-metrics.metricLabelsAllowlist` to expose selected Kubernetes lab
 for example `["pods=[app.kubernetes.io/name]"]`. Additional Kubernetes labels are
 disabled by default.
 
+Set `kube-state-metrics.metricAnnotationsAllowlist` to expose selected Kubernetes
+annotations in the `kube_<resource>_annotations` metrics, for example
+`["secrets=[example.com/cert-serial]", "nodes=[example.com/state-*]"]`. The format
+matches KSM's `--metric-annotations-allowlist`. Both allowlists apply to every
+workload. Annotations are disabled by default.
+
 Secret metrics are opt-in because collection requires list/watch access to complete
 Secret objects, including their contents. To enable them, set
 `kube-state-metrics.deployments.configuration.resource_types` to `[configmaps, secrets]`.
 Set that workload's `namespaces` list to limit access. An empty list grants access
 across the cluster.
+
+## Custom resources
+
+A central workload can also report custom resources with KSM's
+[custom-resource-state metrics](https://github.com/kubernetes/kube-state-metrics/blob/v2.20.0/docs/metrics/extend/customresourcestate-metrics.md).
+Set `customResourceState` on the workload:
+
+- `config` is the custom-resource-state configuration. The chart stores it in the
+  ConfigMap `nktp-ksm-<workload>-custom-resource-state`, mounts it read-only, and
+  passes it with `--custom-resource-state-config-file`. KSM reloads the file when
+  the ConfigMap changes.
+- `rules` lists the RBAC rules KSM needs to read the custom resources. Each rule
+  needs `apiGroups` and `resources`; `verbs` defaults to `[list, watch]`. The rules
+  are granted cluster-wide, whatever the workload's `namespaces` list. The chart
+  also grants list and watch on `customresourcedefinitions`, which KSM uses to
+  discover the resources.
+
+With `customResourceState`, `resource_types` may be an empty list. The workload
+then runs with `--custom-resource-state-only` and collects no core resources. The
+DaemonSet does not support `customResourceState`.
+
+This example adds a workload that reports each Argo CD `Application` as an info
+metric, `kube_customresource_argocd_application_info`, with the source revision
+as a label:
+
+```yaml
+kube-state-metrics:
+  deployments:
+    argocd:
+      enabled: true
+      resource_types: []
+      shards: 1
+      customResourceState:
+        config:
+          spec:
+            resources:
+              - groupVersionKind:
+                  group: argoproj.io
+                  version: v1alpha1
+                  kind: Application
+                metrics:
+                  - name: argocd_application_info
+                    help: Argo CD Application source revision.
+                    each:
+                      type: Info
+                      info:
+                        labelsFromPath:
+                          name: [metadata, name]
+                          target_revision: [spec, source, targetRevision]
+        rules:
+          - apiGroups: [argoproj.io]
+            resources: [applications]
+```
+
+## Kubernetes settings
 
 Shared `kubernetes` defaults can be overridden under each workload. `resources`,
 `env` and `securityContext` configure the KSM container, `podSecurityContext`

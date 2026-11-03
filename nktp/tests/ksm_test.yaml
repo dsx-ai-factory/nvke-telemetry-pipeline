@@ -404,3 +404,217 @@ tests:
               containerPort: 8080
             - name: telemetry
               containerPort: 8081
+
+  - it: exposes configured Kubernetes annotations in node-local and central workloads
+    set:
+      kube-state-metrics.metricAnnotationsAllowlist:
+        - secrets=[example.com/cert-serial]
+        - nodes=[example.com/state-*]
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --metric-annotations-allowlist=secrets=[example.com/cert-serial],nodes=[example.com/state-*]
+        documentSelector:
+          path: metadata.name
+          value: nktp-ksm-pods
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --metric-annotations-allowlist=secrets=[example.com/cert-serial],nodes=[example.com/state-*]
+        documentSelector:
+          path: metadata.name
+          value: nktp-ksm-cluster-0
+
+  - it: exposes no Kubernetes annotations by default
+    documentSelector:
+      path: metadata.name
+      value: nktp-ksm-cluster-0
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value:
+            - --resources=nodes,namespaces,storageclasses,resourcequotas,limitranges,leases,certificatesigningrequests,mutatingwebhookconfigurations,validatingadmissionpolicies,validatingadmissionpolicybindings,validatingwebhookconfigurations
+            - --auto-gomemlimit
+            - --auto-gomemlimit-ratio=0.8
+            - --shard=0
+            - --total-shards=1
+
+  - it: mounts a workload's custom-resource-state configuration from a ConfigMap
+    set:
+      kube-state-metrics.deployments.workloads.customResourceState:
+        config:
+          spec:
+            resources:
+              - groupVersionKind: {group: argoproj.io, version: v1alpha1, kind: Application}
+        rules:
+          - apiGroups: [argoproj.io]
+            resources: [applications]
+    asserts:
+      - hasDocuments:
+          count: 8
+      - equal:
+          path: data["custom-resource-state.yaml"]
+          value: |
+            spec:
+              resources:
+              - groupVersionKind:
+                  group: argoproj.io
+                  kind: Application
+                  version: v1alpha1
+        documentSelector:
+          path: metadata.name
+          value: nktp-ksm-workloads-custom-resource-state
+      - equal:
+          path: metadata.namespace
+          value: nktp
+        documentSelector:
+          path: metadata.name
+          value: nktp-ksm-workloads-custom-resource-state
+      - equal:
+          path: spec.template.spec.volumes
+          value:
+            - name: custom-resource-state
+              configMap:
+                name: nktp-ksm-workloads-custom-resource-state
+        documentSelector:
+          path: metadata.name
+          value: nktp-ksm-workloads-0
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts
+          value:
+            - name: custom-resource-state
+              mountPath: /etc/kube-state-metrics
+              readOnly: true
+        documentSelector:
+          path: metadata.name
+          value: nktp-ksm-workloads-0
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value:
+            - --resources=deployments,statefulsets,daemonsets,replicasets,replicationcontrollers,jobs,cronjobs,horizontalpodautoscalers,poddisruptionbudgets
+            - --custom-resource-state-config-file=/etc/kube-state-metrics/custom-resource-state.yaml
+            - --auto-gomemlimit
+            - --auto-gomemlimit-ratio=0.8
+            - --shard=0
+            - --total-shards=1
+        documentSelector:
+          path: metadata.name
+          value: nktp-ksm-workloads-0
+      - notExists:
+          path: spec.template.spec.volumes
+        documentSelector:
+          path: metadata.name
+          value: nktp-ksm-networking-0
+
+  - it: collects only custom resources without an empty resources argument
+    set:
+      kube-state-metrics.deployments.custom-resources:
+        enabled: true
+        resource_types: []
+        shards: 2
+        customResourceState:
+          config:
+            spec:
+              resources: []
+    documentSelector:
+      path: metadata.name
+      value: nktp-ksm-custom-resources-1
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value:
+            - --custom-resource-state-only
+            - --custom-resource-state-config-file=/etc/kube-state-metrics/custom-resource-state.yaml
+            - --auto-gomemlimit
+            - --auto-gomemlimit-ratio=0.8
+            - --shard=1
+            - --total-shards=2
+      - equal:
+          path: spec.template.spec.volumes[0].configMap.name
+          value: nktp-ksm-custom-resources-custom-resource-state
+
+  - it: keeps workload volumes alongside the custom-resource-state volume
+    set:
+      kube-state-metrics.deployments.workloads.kubernetes.volumes:
+        - name: extra
+          emptyDir: {}
+      kube-state-metrics.deployments.workloads.customResourceState:
+        config:
+          spec:
+            resources: []
+    documentSelector:
+      path: metadata.name
+      value: nktp-ksm-workloads-0
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes
+          value:
+            - name: extra
+              emptyDir: {}
+            - name: custom-resource-state
+              configMap:
+                name: nktp-ksm-workloads-custom-resource-state
+
+  - it: rejects a workload volume that uses the reserved custom-resource-state name
+    set:
+      kube-state-metrics.deployments.workloads.kubernetes.volumes:
+        - name: custom-resource-state
+          emptyDir: {}
+      kube-state-metrics.deployments.workloads.customResourceState:
+        config:
+          spec:
+            resources: []
+    asserts:
+      - failedTemplate:
+          errorMessage: KSM workload workloads kubernetes.volumes must not use the reserved name custom-resource-state
+
+  - it: fixes DaemonSet collection to core Pods regardless of custom-resource settings
+    set:
+      kube-state-metrics.daemonset.customResourceState:
+        config:
+          spec:
+            resources: []
+    asserts:
+      - hasDocuments:
+          count: 7
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value: ['--resources=pods', '--node=$(NODE_NAME)', '--auto-gomemlimit', '--auto-gomemlimit-ratio=0.8']
+        documentSelector:
+          path: metadata.name
+          value: nktp-ksm-pods
+
+  - it: requires custom-resource-state configuration when custom-resource settings are present
+    set:
+      kube-state-metrics.deployments.workloads.customResourceState:
+        rules:
+          - apiGroups: [argoproj.io]
+            resources: [applications]
+    asserts:
+      - failedTemplate:
+          errorMessage: KSM workload workloads customResourceState.config must be set
+
+  - it: rejects custom-resource rules without apiGroups or resources
+    set:
+      kube-state-metrics.deployments.workloads.customResourceState:
+        config:
+          spec:
+            resources: []
+        rules:
+          - resources: [applications]
+    asserts:
+      - failedTemplate:
+          errorMessage: KSM workload workloads customResourceState.rules entries need non-empty apiGroups and resources lists
+
+  - it: rejects empty custom-resource rule verbs
+    set:
+      kube-state-metrics.deployments.workloads.customResourceState:
+        config:
+          spec:
+            resources: []
+        rules:
+          - apiGroups: [argoproj.io]
+            resources: [applications]
+            verbs: []
+    asserts:
+      - failedTemplate:
+          errorMessage: KSM workload workloads customResourceState.rules verbs must be a non-empty list

@@ -3,6 +3,29 @@
 {{- range $name, $group := (include "nktp.ksm.groups" . | fromYaml) -}}
 {{- $k := $group.kubernetes -}}
 {{- $daemon := $group.daemonset -}}
+{{- $crs := $group.customResourceState -}}
+{{- $volumes := $k.volumes | default list -}}
+{{- if $crs -}}
+{{- range $volumes -}}
+{{- if eq .name "custom-resource-state" -}}
+{{- fail (printf "KSM workload %s kubernetes.volumes must not use the reserved name custom-resource-state" $name) -}}
+{{- end -}}
+{{- end -}}
+{{- $volumes = append $volumes (dict "name" "custom-resource-state" "configMap" (dict "name" $crs.configMap)) -}}
+{{- end }}
+{{- with $crs }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .configMap }}
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    {{- include "nktp.ksm.labels" (dict "root" $root "group" $group) | nindent 4 }}
+data:
+  {{ include "nktp.ksm.customResourceStateFile" $root }}: |
+    {{- toYaml .config | nindent 4 }}
+{{- end }}
 {{- range $shard := until (int $group.shards) }}
 ---
 apiVersion: apps/v1
@@ -30,8 +53,12 @@ spec:
         nktp.nvidia.io/ksm-shard: {{ $shard | quote }}
     spec:
       {{- /* Container settings are separated from the remaining PodSpec fields. */}}
-      {{- omit $k "resources" "env" "securityContext" "podSecurityContext" "serviceAccount" "containers" "serviceAccountName" | toYaml | nindent 6 }}
+      {{- omit $k "resources" "env" "securityContext" "podSecurityContext" "serviceAccount" "containers" "serviceAccountName" "volumes" | toYaml | nindent 6 }}
       serviceAccountName: {{ $group.serviceAccount }}
+      {{- with $volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with $k.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -64,6 +91,12 @@ spec:
           {{- with $k.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if $crs }}
+          volumeMounts:
+            - name: custom-resource-state
+              mountPath: {{ include "nktp.ksm.customResourceStateDir" $root }}
+              readOnly: true
           {{- end }}
           ports:
             - name: http-metrics
