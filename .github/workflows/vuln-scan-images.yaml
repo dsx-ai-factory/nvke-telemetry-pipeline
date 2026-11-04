@@ -1,13 +1,26 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-name: Weekly Image Vulnerability Scan
+name: Image Vulnerability Scan
 
 # Report fixable high and critical findings for every image in the default
 # rendered NKTP chart. Findings do not fail the job; scan errors do. Overrides
 # supplied by chart users are outside this matrix. Each image saves a JSON
 # report as an artifact.
 on:
+  # Chart inputs can change which images render, including via values and
+  # templates. Keep the scheduled run for new issues in unchanged images.
+  pull_request:
+    branches:
+      - main
+    paths:
+      - nktp/Chart.yaml
+      - nktp/Chart.lock
+      - nktp/values.yaml
+      - nktp/values.schema.json
+      - nktp/templates/**
+      - .github/actions/setup-chart/**
+      - .github/workflows/vuln-scan-images.yaml
   schedule:
     - cron: '0 6 * * 4'
   workflow_dispatch: {}
@@ -16,7 +29,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
