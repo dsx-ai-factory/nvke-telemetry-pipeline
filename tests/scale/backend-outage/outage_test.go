@@ -86,8 +86,8 @@ func configFromFlags(t *testing.T) runConfig {
 	if *outageGatewayStorage != "" && *outageMode == "queue-overhead" {
 		t.Fatal("persistent storage requires outage mode; queue-overhead mode estimates in-memory queue heap")
 	}
-	if *outageScrapeSeries <= 0 || *outageScrapeInterval <= 0 || *outageBaseline < *outageScrapeInterval || *outageRecovery <= 0 || *outageVerificationScrapeTimeout <= 0 || *outageHeapInterval < 0 {
-		t.Fatal("series/interval/recovery must be positive; baseline must cover at least one scrape interval")
+	if *outageScrapeSeries <= 0 || *outageScrapeInterval <= 0 || *outageBaseline < *outageScrapeInterval || *outageVerificationScrapeTimeout <= 0 || *outageHeapInterval < 0 {
+		t.Fatal("series, interval, and verification timeout must be positive; baseline must cover at least one scrape interval; heap interval must be nonnegative")
 	}
 	if *outageMode == "outage" && *outageRecoveryInput && *outageRecovery < *outageScrapeInterval {
 		t.Fatal("recovery with continued input must cover at least one scrape interval")
