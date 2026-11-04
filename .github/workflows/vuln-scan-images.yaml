@@ -1,0 +1,95 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: Weekly Image Vulnerability Scan
+
+# Report findings for every image in the default rendered NKTP chart.
+on:
+  schedule:
+    - cron: '0 6 * * 4'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  discover-images:
+    name: Discover chart images
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      images: ${{ steps.images.outputs.images }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-chart
+
+      - name: Render and collect image references
+        id: images
+        shell: bash
+        run: |
+          set -euo pipefail
+          helm template nktp nktp > "${RUNNER_TEMP}/nktp-rendered.yaml"
+          images="$(yq -N -r '.. | .image? | select(tag == "!!str")' "${RUNNER_TEMP}/nktp-rendered.yaml" | sort -u)"
+          if [[ -z "${images}" ]]; then
+            echo '::error::The rendered chart contains no image references'
+            exit 1
+          fi
+          printf '%s\n' "${images}"
+          echo "images=$(printf '%s\n' "${images}" | jq -R . | jq -sc .)" >> "${GITHUB_OUTPUT}"
+
+  images:
+    name: Image ${{ matrix.image }}
+    needs: discover-images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.discover-images.outputs.images) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Scan image
+        id: scan
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          image: registry:${{ matrix.image }}
+          output-format: json
+          severity-cutoff: high
+          only-fixed: true
+          fail-build: false
+          cache-db: true
+
+      - name: Summarize and save scan report
+        shell: bash
+        env:
+          IMAGE: ${{ matrix.image }}
+          REPORT: ${{ steps.scan.outputs.json }}
+        run: |
+          set -euo pipefail
+          cp "${REPORT}" image-scan.json
+          test -s image-scan.json
+          critical="$(jq '[.matches[] | select(.vulnerability.severity == "Critical")] | length' image-scan.json)"
+          high="$(jq '[.matches[] | select(.vulnerability.severity == "High")] | length' image-scan.json)"
+          echo "${IMAGE}: ${critical} critical, ${high} high fixable findings"
+          {
+            echo "### ${IMAGE}"
+            echo "Fixable findings: ${critical} critical, ${high} high."
+            echo "Download the image-scan-${{ strategy.job-index }} artifact for details."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload scan report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: image-scan-${{ strategy.job-index }}
+          path: image-scan.json
+          retention-days: 30

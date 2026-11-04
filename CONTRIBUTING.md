@@ -128,6 +128,41 @@ No specialized hardware or credentials are needed for any of the above. Chart
 publishing to NVCR runs only from `main` and release tags and is described in
 [RELEASING.md](RELEASING.md); pull requests validate without publishing.
 
+### Security scanning
+
+The Security Scan workflow checks source dependencies on pull requests and
+daily. It reports vulnerabilities with a known fix using a medium severity
+cutoff; findings do not fail the pull request, but a failed scan or missing
+report does. Reports are available as workflow artifacts and are uploaded to
+GitHub Code Scanning when that service is available; uploads from fork pull
+requests are skipped. The source job also summarizes findings at or above the
+medium cutoff. The Weekly Image Vulnerability Scan checks every image in the
+default rendered NKTP chart and summarizes fixable high and critical
+findings. Each image job records counts in its summary and saves a JSON report
+as an artifact. Image scan errors still fail the job. Custom images supplied
+through values overrides are outside this scan.
+
+To scan locally, install Grype and [yq v4](https://github.com/mikefarah/yq),
+then run `task security:scan` from the repository root. Unlike the reporting
+workflows, the local command fails on fixed critical findings. It downloads
+chart dependencies and reads images from their public registries, so it needs
+network access but no cluster credentials.
+
+If a finding concerns a dependency introduced by your change, update to a
+suitable fixed version and rerun the relevant tests and scan. For an existing
+finding or a fix that needs a bundled chart upgrade, contact a maintainer to
+coordinate the update. Follow [SECURITY.md](SECURITY.md) for potentially
+undisclosed vulnerabilities; do not post sensitive details in a public issue
+or pull request.
+
+Dependabot proposes weekly updates for the Go modules, GitHub Actions, NKTP
+Helm dependencies, and image tags it recognizes in chart values. Dependency
+Review checks new Go and Actions dependencies on pull requests when the
+repository is public. Helm and image findings do not trigger Dependabot
+security update pull requests; review the image scan report and coordinate
+those updates with maintainers. The Third-Party Notices check tracks bundled
+charts.
+
 ### Submodule tooling
 
 When a project submodule needs environment bootstrap or tool installation beyond

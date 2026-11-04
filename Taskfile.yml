@@ -97,6 +97,29 @@ tasks:
       - task: chart:deps
       - .github/scripts/check-third-party-notices.sh
 
+  security:scan:
+    desc: Scan source dependencies and default NKTP images for fixed critical vulnerabilities
+    cmds:
+      - task: chart:deps
+      - |
+        set -eu
+        rendered="$(mktemp)"
+        images="$(mktemp)"
+        trap 'rm -f "$rendered" "$images"' EXIT
+        helm template nktp nktp > "$rendered"
+        yq -N -r '.. | .image? | select(tag == "!!str")' "$rendered" | sort -u > "$images"
+        test -s "$images"
+        scan_status=0
+        if ! grype dir:. --only-fixed --fail-on critical; then
+          scan_status=1
+        fi
+        while IFS= read -r image; do
+          if ! grype "registry:${image}" --only-fixed --fail-on critical; then
+            scan_status=1
+          fi
+        done < "$images"
+        exit "$scan_status"
+
   chart:deps:
     internal: true
     cmds:

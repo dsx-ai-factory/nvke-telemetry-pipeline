@@ -1,0 +1,87 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: Security Scan
+
+# Report source dependency findings on pull requests and daily.
+on:
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: '30 7 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source:
+    name: Source dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Scan repository
+        id: scan
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          path: .
+          output-format: sarif
+          severity-cutoff: medium
+          only-fixed: true
+          fail-build: false
+          cache-db: true
+
+      - name: Save scan report
+        shell: bash
+        env:
+          REPORT: ${{ steps.scan.outputs.sarif }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${REPORT}" || ! -s "${REPORT}" ]]; then
+            echo '::error::The source scan did not produce a SARIF report'
+            exit 1
+          fi
+          cp "${REPORT}" source-scan.sarif
+
+      - name: Summarize source findings
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo '### Source dependency scan'
+            jq -r '
+              [.runs[]?.results[]?] as $results |
+              "Fixable findings: \($results | length) total. Results at or above the medium cutoff: \([$results[] | select(.level == "warning" or .level == "error")] | length).\n" +
+              ([$results[] | select(.level == "warning" or .level == "error") | .ruleId] | unique | .[:20] |
+                if length == 0 then "No findings at or above the cutoff."
+                else map("- `" + . + "`") | join("\n") end)
+            ' source-scan.sarif
+            echo 'Full results are in the source-scan artifact.'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload scan report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: source-scan
+          path: source-scan.sarif
+
+      - name: Upload findings to code scanning
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        continue-on-error: true # Reports remain available as workflow artifacts if code scanning is unavailable.
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          sarif_file: source-scan.sarif
+          category: anchore-source
