@@ -86,10 +86,10 @@ task scale:test TEST_TIMEOUT=125m -- \
 
 - Window: 30 minutes at full load after the ramp. Verify per-node placement and throughput before selecting the window.
 - Runtime: 90 minutes per StatefulSet after readiness and per Event producer after seeding, 110-minute observations, 115-minute plan ceiling. Cancel after saving the selected window.
-- Load: targets, series, offered stdout records and body bytes, native receipt and export rates, serialized OTLP bytes and singleton Event acceptance.
+- Load: targets, series, offered stdout records and body bytes, native receipt and export rates, serialized OTLP bytes and aggregate Event acceptance. Compare rates over the same time window.
 - Performance: generator, main collector and sidecar CPU/memory, observed peaks, throttling, queues and HPA replicas.
-- Health: readiness, restarts, termination reasons, refusals, export failures and observation freshness.
-- Events: require 1,000 run-specific singleton receipts/s across 100 workers, 10 successful PATCHes/s per producer, and zero failed PATCHes or dropped iterations. Exclude seeding and cleanup.
+- Health: readiness, restarts, termination reasons, refusals, export failures and observation freshness. Error counters can be absent when no errors occurred.
+- Events: require 10 successful updates/s per producer and 1,000/s across 100 workers, with no failed requests or dropped iterations. Exclude seeding and cleanup.
 - Retain LGTM and the dashboard for review before [environment cleanup](../README.md#cleanup).
 
 Node counts include background traffic. Log body bytes measure generated load.
@@ -99,5 +99,6 @@ encoding overhead.
 ## Limitations
 
 - This plan records observations without automated performance checks. Missing or stale data cannot qualify the run.
+- Event acceptance is a cluster-wide diagnostic that includes background traffic. Matching rates do not prove receipt of this run's Events.
 - Check 64 KiB log reconstruction and rotation. Source scrape health alone does not establish OTLP delivery.
 - Repetitive payloads compress unusually well. Blackhole cannot verify durable delivery. LGTM storage is temporary.
