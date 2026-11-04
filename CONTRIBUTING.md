@@ -138,7 +138,7 @@ affected dependency or image, then rerun the scan and relevant tests to verify
 the fix. Coordinate fixes for existing findings or bundled chart updates with
 a maintainer.
 
-To scan locally, install Grype and [yq v4](https://github.com/mikefarah/yq),
+To scan locally, install Helm, Grype, and [yq v4](https://github.com/mikefarah/yq),
 then run `task security:scan` from the repository root. The task needs network
 access to fetch chart dependencies and scan images. Follow [SECURITY.md](SECURITY.md)
 for potentially undisclosed vulnerabilities; do not post sensitive details in
