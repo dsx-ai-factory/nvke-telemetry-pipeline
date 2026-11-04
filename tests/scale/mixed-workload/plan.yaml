@@ -262,7 +262,6 @@ stages:
                   - --telemetry-attributes=scale_bucket="small"
                   - --telemetry-attributes=payload="$(PAYLOAD)"
                   - --otlp-attributes=service.instance.id="$(POD_UID)"
-                  - --telemetry-attributes=scale_payload_bytes="1024"
                 env:
                   - name: ITEM_RATE
                     valueFrom: {configMapKeyRef: {name: nktp-mixed-workload-payloads, key: spans-small-rate}}
@@ -529,7 +528,6 @@ stages:
                   - --telemetry-attributes=scale_bucket="large"
                   - --telemetry-attributes=payload="$(PAYLOAD)"
                   - --otlp-attributes=service.instance.id="$(POD_UID)"
-                  - --telemetry-attributes=scale_payload_bytes="65536"
                 env:
                   - name: ITEM_RATE
                     valueFrom: {configMapKeyRef: {name: nktp-mixed-workload-payloads, key: spans-large-rate}}
@@ -953,32 +951,6 @@ stages:
                 vector_component_sent_events_total{component_id="stdout_load",test_run_id="{{ .Args.runId }}"}
                 and (time() - timestamp(vector_component_sent_events_total{component_id="stdout_load",test_run_id="{{ .Args.runId }}"}) < 90)
               )
-          - name: received_stdout_records
-            units: records/s
-            query: >-
-              sum by (scale_node,scale_bucket,scale_payload_bytes) (
-                rate(nktp_scale_log_records_total[5m])
-                and on (source_pod) label_replace(kube_pod_labels{namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"},"source_pod","$1","pod","(.+)")
-              )
-          - name: received_stdout_bytes
-            units: bytes/s
-            query: >-
-              sum by (scale_node,scale_bucket,scale_payload_bytes) (
-                rate(nktp_scale_logs_payload_bytes_total[5m])
-                and on (source_pod) label_replace(kube_pod_labels{namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"},"source_pod","$1","pod","(.+)")
-              )
-          - name: received_spans
-            units: spans/s
-            query: >-
-              sum by (scale_node,scale_bucket) (rate(nktp_scale_spans_total{test_run_id="{{ .Args.runId }}"}[5m]))
-          - name: received_span_bytes
-            units: bytes/s
-            query: >-
-              sum by (scale_node,scale_bucket) (rate(nktp_scale_spans_payload_bytes_total{test_run_id="{{ .Args.runId }}"}[5m]))
-          - name: payload_count_errors
-            units: points/s
-            query: >-
-              rate(otelcol_deltatocumulative_datapoints_total{job="nktp-daemonset",error!=""}[5m])
           - name: otlp_source_series
             units: series
             query: >-

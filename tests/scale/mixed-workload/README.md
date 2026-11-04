@@ -86,11 +86,15 @@ task scale:test TEST_TIMEOUT=125m -- \
 
 - Window: 30 minutes at full load after the ramp. Verify per-node placement and throughput before selecting the window.
 - Runtime: 90 minutes per StatefulSet after readiness and per Event producer after seeding, 110-minute observations, 115-minute plan ceiling. Cancel after saving the selected window.
-- Load: targets, series, stdout records, received logs/spans, payload and serialized OTLP bytes and singleton Event acceptance.
+- Load: targets, series, offered stdout records and body bytes, native receipt and export rates, serialized OTLP bytes and singleton Event acceptance.
 - Performance: generator, main collector and sidecar CPU/memory, observed peaks, throttling, queues and HPA replicas.
 - Health: readiness, restarts, termination reasons, refusals, export failures and observation freshness.
 - Events: require 1,000 run-specific singleton receipts/s across 100 workers, 10 successful PATCHes/s per producer, and zero failed PATCHes or dropped iterations. Exclude seeding and cleanup.
 - Retain LGTM and the dashboard for review before [environment cleanup](../README.md#cleanup).
+
+Node counts include background traffic. Log body bytes measure generated load.
+Span payload bytes are configured load, while serialized OTLP bytes include
+encoding overhead.
 
 ## Limitations
 

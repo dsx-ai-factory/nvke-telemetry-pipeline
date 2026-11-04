@@ -11,100 +11,16 @@ watchdog:
       nodeSelector: *systemSelector
       tolerations: *systemTolerations
 
-# Node-local payload accounting. Synthetic load continues through the gateways.
+# Node collectors use native pipelines and detailed self-telemetry.
 daemonset:
   kubernetes:
     targetAllocator: *allocatorPlacement
   otelcol:
     config:
-      connectors:
-        count/scale_payload:
-          logs:
-            nktp_scale_log_records:
-              conditions:
-                - attributes["source_pod"] != nil and attributes["scale_payload_bytes"] != nil
-              attributes: [{key: source_pod}, {key: scale_bucket}, {key: scale_payload_bytes}]
-            nktp_scale_logs_payload_bytes:
-              conditions:
-                - attributes["source_pod"] != nil and attributes["scale_payload_bytes"] != nil
-              attributes: [{key: source_pod}, {key: scale_bucket}, {key: scale_payload_bytes}]
-          spans:
-            nktp_scale_spans:
-              conditions:
-                - attributes["test_run_id"] != nil and attributes["scale_payload_bytes"] != nil
-              attributes: [{key: scale_bucket}, {key: scale_payload_bytes}, {key: test_run_id}]
-            nktp_scale_spans_payload_bytes:
-              conditions:
-                - attributes["test_run_id"] != nil and attributes["scale_payload_bytes"] != nil
-              attributes: [{key: scale_bucket}, {key: scale_payload_bytes}, {key: test_run_id}]
-          spanevents:
-            nktp_scale_ignored:
-              conditions:
-                - 'false'
-      processors:
-        batch/scale_payload:
-          timeout: 1s
-          send_batch_size: 8192
-          send_batch_max_size: 8192
-        transform/scale_payload:
-          error_mode: propagate
-          metric_statements:
-            - context: datapoint
-              statements:
-                - set(time_unix_nano, UnixNano(Now()))
-                - set(start_time_unix_nano, time_unix_nano)
-                - set(attributes["scale_node"], "${env:NODE_NAME}")
-                - set(value_int, value_int * Int(attributes["scale_payload_bytes"])) where IsMatch(metric.name,
-                  "_payload_bytes$")
-        deltatocumulative/scale_payload:
-          max_stale: 5m
-          max_streams: 4096
-        interval/scale_payload:
-          interval: 30s
-        transform/scale_stdout:
-          error_mode: propagate
-          log_statements:
-            - context: log
-              conditions:
-                - resource.attributes["k8s.namespace.name"] == "nktp" and IsMatch(resource.attributes["k8s.pod.name"],
-                  "^scale-") and IsMatch(resource.attributes["k8s.container.name"], "^vector-stdout-(small|large)$")
-                  and attributes["log.iostream"] == "stdout"
-              statements:
-                - set(attributes["source_pod"], resource.attributes["k8s.pod.name"])
-                - set(attributes["scale_payload_bytes"], String(Len(body)))
-                - set(attributes["scale_bucket"], "small") where resource.attributes["k8s.container.name"] == "vector-stdout-small"
-                - set(attributes["scale_bucket"], "large") where resource.attributes["k8s.container.name"] == "vector-stdout-large"
       service:
         telemetry: &loadTelemetry
           metrics:
             level: detailed
-        pipelines:
-          logs:
-            exporters: [otlp/logs, count/scale_payload]
-            processors: [memory_limiter, resource/node, transform/scale_stdout, redaction/basic_v1]
-          traces:
-            exporters: [otlp/traces, count/scale_payload]
-          metrics/scale_payload:
-            receivers: [count/scale_payload]
-            processors: [batch/scale_payload, transform/scale_payload, deltatocumulative/scale_payload, interval/scale_payload]
-            exporters: [otlp/scale_payload]
-      exporters:
-        otlp/scale_payload:
-          endpoint: nktp-watchdog-collector:4317
-          tls: &watchdogClientTLS
-            ca_file: /etc/nktp/internal-tls/client/ca.crt
-            cert_file: /etc/nktp/internal-tls/client/tls.crt
-            key_file: /etc/nktp/internal-tls/client/tls.key
-            reload_interval: 1h
-          sending_queue:
-            sizer: bytes
-            queue_size: 8388608
-            num_consumers: 1
-            batch:
-              sizer: bytes
-              min_size: 65536
-              max_size: 131072
-              flush_timeout: 1s
 
 # Gateways discard load through blackhole while observations continue to LGTM.
 gateway_metrics:
@@ -189,7 +105,11 @@ cluster_events:
       exporters:
         otlp/scale_events:
           endpoint: nktp-watchdog-collector:4317
-          tls: *watchdogClientTLS
+          tls:
+            ca_file: /etc/nktp/internal-tls/client/ca.crt
+            cert_file: /etc/nktp/internal-tls/client/tls.crt
+            key_file: /etc/nktp/internal-tls/client/tls.key
+            reload_interval: 1h
           sending_queue:
             sizer: bytes
             queue_size: 8388608
