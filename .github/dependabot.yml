@@ -1,4 +1,7 @@
 version: 2
+# Weekly version updates for Go modules, GitHub Actions, and the NKTP chart's
+# Helm dependencies and image references. Vulnerability alerts and security
+# update pull requests are controlled separately in repository settings.
 updates:
   - package-ecosystem: github-actions
     directories:

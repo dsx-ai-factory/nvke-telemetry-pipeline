@@ -3,7 +3,10 @@
 
 name: Weekly Image Vulnerability Scan
 
-# Report findings for every image in the default rendered NKTP chart.
+# Report fixable high and critical findings for every image in the default
+# rendered NKTP chart. Findings do not fail the job; scan errors do. Overrides
+# supplied by chart users are outside this matrix. Each image saves a JSON
+# report as an artifact.
 on:
   schedule:
     - cron: '0 6 * * 4'

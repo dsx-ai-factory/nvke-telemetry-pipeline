@@ -3,7 +3,9 @@
 
 name: Security Scan
 
-# Report source dependency findings on pull requests and daily.
+# Report fixable source dependency findings on pull requests and daily. Findings
+# do not fail the job; scan errors and a missing SARIF report do. The SARIF is
+# saved as an artifact and uploaded to Code Scanning when permissions allow it.
 on:
   pull_request:
     branches:
