@@ -141,6 +141,7 @@ func validatePrometheusSpec(spec yaml.Node) error {
 // is canceled and omitted. Completed observations are retained on every exit.
 // Queries record findings without performance verdicts. Checks act on sustained
 // vector membership. Empty check results reset pending series.
+// Backend warnings fail checks and remain in the report.
 // Failed checks, request errors and caller cancellation retain partial reports.
 // With a completion target, Run succeeds only after reaching it before duration.
 // The entire polling round must finish within duration to confirm completion.
@@ -195,8 +196,9 @@ func (p *Prometheus) Run(ctx context.Context) (report Report, err error) {
 			if errors.Is(err, context.DeadlineExceeded) && runCtx.Err() != nil && ctx.Err() == nil {
 				return report, nil
 			}
-			if check := checks[name]; err == nil && check != nil {
-				query.Check.Series, err = check.evaluate(observation.Value, at)
+			check := checks[name]
+			if err == nil && check != nil {
+				query.Check.Series, err = check.evaluate(observation)
 				if len(query.Check.Series) > 0 {
 					query.Check.FiredAt = &at
 				}

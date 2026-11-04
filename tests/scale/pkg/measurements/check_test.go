@@ -67,7 +67,7 @@ func TestCheckHoldAndReset(t *testing.T) {
 		{after: 3 * time.Minute, value: model.Vector{first}},
 		{after: 4 * time.Minute, value: model.Vector{first}, fired: []model.Metric{first.Metric}},
 	} {
-		fired, err := state.evaluate(test.value, at.Add(test.after))
+		fired, err := state.evaluate(QueryObservation{Value: test.value, EvaluatedAt: at.Add(test.after)})
 		require.NoError(t, err)
 		assert.Equal(t, test.fired, fired, "evaluation at %s", test.after)
 	}
@@ -78,10 +78,10 @@ func TestCheckImmediate(t *testing.T) {
 	state := checkState{}
 	at := time.Now()
 	labels := model.Metric{"instance": "gateway"}
-	fired, err := state.evaluate(model.Vector{&model.Sample{Metric: labels, Value: 0}}, at)
+	fired, err := state.evaluate(QueryObservation{Value: model.Vector{&model.Sample{Metric: labels, Value: 0}}, EvaluatedAt: at})
 	require.NoError(t, err)
 	assert.Equal(t, []model.Metric{labels}, fired)
-	_, err = state.evaluate(&model.Scalar{Value: 1}, at)
+	_, err = state.evaluate(QueryObservation{Value: &model.Scalar{Value: 1}, EvaluatedAt: at})
 	assert.ErrorContains(t, err, "instant vector")
 }
 
@@ -101,7 +101,7 @@ func TestCompletionCheckData(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			state := checkState{complete: true}
-			fired, err := state.evaluate(test.vector, time.Now())
+			fired, err := state.evaluate(QueryObservation{Value: test.vector, EvaluatedAt: time.Now()})
 			if test.wantError {
 				assert.Error(t, err)
 				return
@@ -110,4 +110,15 @@ func TestCompletionCheckData(t *testing.T) {
 			assert.Len(t, fired, len(test.vector))
 		})
 	}
+}
+
+// TestCheckRejectsWarnings prevents partial results from completing a stage.
+func TestCheckRejectsWarnings(t *testing.T) {
+	state := checkState{complete: true}
+	fired, err := state.evaluate(QueryObservation{
+		Value:    model.Vector{&model.Sample{Value: 1}},
+		Warnings: []string{"partial response"},
+	})
+	require.ErrorContains(t, err, "check response contains warnings: [partial response]")
+	assert.Empty(t, fired)
 }

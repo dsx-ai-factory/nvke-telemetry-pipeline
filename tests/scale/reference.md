@@ -184,6 +184,7 @@ resolution and the outer Go test timeout.
 | `check.for` | Hold for the same labels across consecutive evaluations. Default immediate. Must be shorter than `duration` |
 | `check.action: fail` | Default action. Any matching series that satisfies the hold fails the plan |
 | `check.action: complete` | At most one per measurement. Must match one finite float series with stable labels. Stops generators and advances after cleanup |
+| Backend warnings | Fail the plan for check expressions. Ordinary queries retain warnings without failing |
 | Empty check result | Resets pending holds. Does not fire. Use `absent(...)` when missing telemetry should fail |
 | Freshness | PromQL lookback can include earlier stages. Scope to the intended run/load and check sample timestamps for completion |
 

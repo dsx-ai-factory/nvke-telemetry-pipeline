@@ -30,12 +30,16 @@ type checkState struct {
 	pending map[string]time.Time
 }
 
-// evaluate returns firing series and resets timers for series no longer present.
-// Vector membership signals a violation, regardless of the sample's value.
-func (s *checkState) evaluate(value model.Value, at time.Time) ([]model.Metric, error) {
-	vector, ok := value.(model.Vector)
+// evaluate rejects backend warnings, returns firing series and resets timers
+// for series no longer present. Vector membership signals a violation,
+// regardless of the sample's value.
+func (s *checkState) evaluate(observation QueryObservation) ([]model.Metric, error) {
+	if len(observation.Warnings) > 0 {
+		return nil, fmt.Errorf("check response contains warnings: %v", observation.Warnings)
+	}
+	vector, ok := observation.Value.(model.Vector)
 	if !ok {
-		return nil, fmt.Errorf("check expression must return an instant vector, got %T", value)
+		return nil, fmt.Errorf("check expression must return an instant vector, got %T", observation.Value)
 	}
 	if s.complete {
 		if len(vector) > 1 {
@@ -48,6 +52,7 @@ func (s *checkState) evaluate(value model.Value, at time.Time) ([]model.Metric, 
 			}
 		}
 	}
+	at := observation.EvaluatedAt
 	current := make(map[string]time.Time, len(vector))
 	var fired []model.Metric
 	for _, sample := range vector {
