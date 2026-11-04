@@ -85,10 +85,23 @@ tasks:
   test:
     desc: "Run the NKTP chart unit tests (pass flags: task test -- -u)"
     cmds:
+      - task: blueprints:check
       - task: chart:deps
       - helm unittest {{.CLI_ARGS}} nktp
       # CLI_ARGS go to the main run only, so a -o report is not overwritten by this run.
       - helm unittest --skip-schema-validation -f 'tests/skip-schema-validation/*_test.yaml' nktp
+
+  blueprints:
+    desc: Package blueprints/ as the default blueprints in nktp/values.yaml
+    dir: tests
+    cmds:
+      - go test ./blueprints -count=1 -update
+
+  blueprints:check:
+    desc: Check that blueprints/ is valid and packaged in nktp/values.yaml
+    dir: tests
+    cmds:
+      - go test ./blueprints -count=1
 
   license:check:
     desc: Run the SPDX header and third-party notices checks that CI runs on every pull request

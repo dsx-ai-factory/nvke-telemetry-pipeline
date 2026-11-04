@@ -11,4 +11,4 @@ spec:
   {{- /* Kubernetes workload values override defaults. The resolved Collector image overrides any workload image. */}}
   {{- mustMergeOverwrite (dict "mode" "deployment" "managementState" "managed" "upgradeStrategy" "automatic" "replicas" 1) (omit (include "nktp.withSidecar" (dict "name" "cluster_events" "values" .Values.cluster_events "root" $) | fromYaml) "config") $collector | toYaml | nindent 2 }}
   config:
-    {{- .Values.cluster_events.otelcol.config | toYaml | nindent 4 }}
+    {{- include "nktp.collectorConfig" (dict "config" .Values.cluster_events.otelcol.config "root" $) | nindent 4 }}

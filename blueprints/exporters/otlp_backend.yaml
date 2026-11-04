@@ -1,0 +1,31 @@
+blueprints:
+  exporters:
+    otlp_backend:
+      version: 1.0.0
+      description: |
+        Sends a copy of a pipeline's telemetry to an OTLP gRPC backend.
+        Parameters:
+          endpoint (required): the backend's host:port.
+          signal (required): logs, metrics, or traces, matching the pipeline that uses it.
+          headers (optional): request headers, such as {authorization: "Bearer ${env:TOKEN}"}.
+          tls, retry_on_failure, sending_queue (optional): passed to the exporter unchanged.
+      template: |
+        exporters:
+          otlp:
+            endpoint: {{ required "otlp_backend: endpoint is required" .values.endpoint | quote }}
+            {{- with .values.headers }}
+            headers: {{ toJson . }}
+            {{- end }}
+            {{- with .values.tls }}
+            tls: {{ toJson . }}
+            {{- end }}
+            {{- with .values.retry_on_failure }}
+            retry_on_failure: {{ toJson . }}
+            {{- end }}
+            {{- with .values.sending_queue }}
+            sending_queue: {{ toJson . }}
+            {{- end }}
+        pipelines:
+          {{ required "otlp_backend: signal is required" .values.signal }}:
+            receivers: [{{ .forward }}]
+            exporters: [otlp]

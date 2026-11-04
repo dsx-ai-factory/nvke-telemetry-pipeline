@@ -26,6 +26,41 @@ The tag must be a string: YAML reads an unquoted 1.0 as a number.
 {{- end -}}
 
 {{/*
+Return a Collector configuration as native Collector YAML, expanded by NVCB.
+
+NVCB receives the configuration together with the definitions in the top-level
+blueprints value. A definition in the configuration's own blueprints section
+takes precedence. NVCB validates the definitions.
+
+Arguments: config (the Collector configuration), root (chart root).
+*/}}
+{{- define "nktp.collectorConfig" -}}
+{{- $config := deepCopy (.config | default dict) -}}
+{{- $shared := .root.Values.blueprints -}}
+{{- if and $shared (kindIs "map" $config) -}}
+  {{- $own := $config.blueprints | default dict -}}
+  {{- if not (kindIs "map" $shared) -}}
+    {{- $_ := set $config "blueprints" $shared -}}
+  {{- else if kindIs "map" $own -}}
+    {{- range $kind, $definitions := $shared -}}
+      {{- $ownKind := get $own $kind -}}
+      {{- if not (hasKey $own $kind) -}}
+        {{- $_ := set $own $kind $definitions -}}
+      {{- else if and (kindIs "map" $ownKind) (kindIs "map" $definitions) -}}
+        {{- range $type, $definition := $definitions -}}
+          {{- if not (hasKey $ownKind $type) -}}
+            {{- $_ := set $ownKind $type $definition -}}
+          {{- end -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+    {{- $_ := set $config "blueprints" $own -}}
+  {{- end -}}
+{{- end -}}
+{{- include "nvcb.run" $config -}}
+{{- end -}}
+
+{{/*
 Return a workload's Kubernetes values with its sidecar Collector appended to
 initContainers. restartPolicy Always makes it a native sidecar: it starts before
 the main Collector and stops after it.
@@ -34,7 +69,8 @@ Operator injection cannot add this sidecar. The Operator skips injection when a
 Pod has a container named otc-container, which is the name it gives every
 Collector's main container. See docs/architecture/self_telemetry.md.
 
-The sidecar configuration is passed unchanged, as JSON, to --config=yaml:.
+The sidecar configuration is expanded by nktp.collectorConfig and passed as
+JSON to --config=yaml:.
 Environment variables are added to the sidecar's env when the list omits them,
 as daemonset.yaml does for the node Collector. Every sidecar configuration uses
 POD_NAME, so it is always added. Workloads inherit priorityClass.name unless
@@ -51,7 +87,7 @@ mainEnv (optional, env entries to add to the main Collector when missing).
 {{- fail (printf "%s.sidecar.otelcol.config must be a native Collector YAML map" .name) -}}
 {{- end -}}
 {{- $image := include "nktp.image" (dict "imageRegistry" .root.Values.global.imageRegistry "image" ($otelcol.image | default .root.Values.otelcol_image)) -}}
-{{- $container := mustMergeOverwrite (deepCopy ($sidecar.kubernetes | default dict)) (dict "name" "otc-sidecar" "image" $image "restartPolicy" "Always" "args" (list (printf "--config=yaml:%s" (toJson $otelcol.config)))) -}}
+{{- $container := mustMergeOverwrite (deepCopy ($sidecar.kubernetes | default dict)) (dict "name" "otc-sidecar" "image" $image "restartPolicy" "Always" "args" (list (printf "--config=yaml:%s" (include "nktp.collectorConfig" (dict "config" $otelcol.config "root" .root) | fromYaml | toJson)))) -}}
 {{- $podName := dict "name" "POD_NAME" "valueFrom" (dict "fieldRef" (dict "fieldPath" "metadata.name")) -}}
 {{- $sidecarEnv := concat (.sidecarEnv | default list) (list $podName) -}}
 {{- $_ := set $container "env" (include "nktp.addEnv" (dict "env" $container.env "add" $sidecarEnv) | fromYaml).env -}}

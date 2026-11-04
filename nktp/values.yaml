@@ -73,10 +73,49 @@ targetallocator_image:
   repository: open-telemetry/opentelemetry-operator/target-allocator
   tag: 0.161.0
 
+# Blueprint definitions available to every NKTP Collector configuration. A
+# definition in a configuration's own blueprints section takes precedence over
+# one here with the same kind and type.
+# The default blueprints between the markers are packaged automatically from
+# blueprints/ by `task blueprints`, so do not edit them here.
+# BEGIN DEFAULT BLUEPRINTS
+blueprints:
+  exporters:
+    otlp_backend:
+      version: 1.0.0
+      description: |
+        Sends a copy of a pipeline's telemetry to an OTLP gRPC backend.
+        Parameters:
+          endpoint (required): the backend's host:port.
+          signal (required): logs, metrics, or traces, matching the pipeline that uses it.
+          headers (optional): request headers, such as {authorization: "Bearer ${env:TOKEN}"}.
+          tls, retry_on_failure, sending_queue (optional): passed to the exporter unchanged.
+      template: |
+        exporters:
+          otlp:
+            endpoint: {{ required "otlp_backend: endpoint is required" .values.endpoint | quote }}
+            {{- with .values.headers }}
+            headers: {{ toJson . }}
+            {{- end }}
+            {{- with .values.tls }}
+            tls: {{ toJson . }}
+            {{- end }}
+            {{- with .values.retry_on_failure }}
+            retry_on_failure: {{ toJson . }}
+            {{- end }}
+            {{- with .values.sending_queue }}
+            sending_queue: {{ toJson . }}
+            {{- end }}
+        pipelines:
+          {{ required "otlp_backend: signal is required" .values.signal }}:
+            receivers: [{{ .forward }}]
+            exporters: [otlp]
+# END DEFAULT BLUEPRINTS
+
 # OTel workloads. Each workload uses the same structure:
 #   kubernetes:     Standard Kubernetes settings (resources, affinity, selectors, labels, ...).
 #   otelcol.image:  Set a custom image for this workload only, as a {registry, repository, tag} map.
-#   otelcol.config: Native OTel collector configuration as a YAML map.
+#   otelcol.config: OTel collector configuration as a YAML map.
 
 # Receives internal telemetry from all NKTP collectors.
 # Sends received telemetry and its own telemetry to the default backend.

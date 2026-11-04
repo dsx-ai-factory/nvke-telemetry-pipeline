@@ -143,12 +143,15 @@ Each Collector component has the same values structure:
 
 | Key | Contents |
 | --- | --- |
-| `<component>.otelcol.config` | The complete, native Collector configuration. |
+| `<component>.otelcol.config` | The complete Collector configuration. |
 | `<component>.otelcol.image` | An image override for this component only. |
 | `<component>.kubernetes` | `OpenTelemetryCollector` settings such as replicas, resources, env, volumes, autoscaler, and Target Allocator. |
 
-The chart renders each Collector configuration exactly as written. No other
-value changes it, so to change a pipeline, change its configuration.
+The chart renders each Collector configuration exactly as written, unless it
+contains NVCB blueprints. If it contains blueprints, these are expanded into
+native OTel configuration. To change a pipeline, change its configuration.
+See the [NVCB documentation](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/nvcb/README.md)
+for more details.
 
 Each gateway defaults to an approximately 0.48 GiB persistent sending queue
 measured in serialized bytes. Watchdog has three persistent queues of
