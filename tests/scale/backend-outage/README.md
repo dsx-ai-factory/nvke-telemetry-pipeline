@@ -252,8 +252,10 @@ Read `.gateway_volume` in `report.json`:
 - `peak_allocated_bytes` shows peak queue volume usage; `peak_growth_bytes`
   shows growth above the initial allocation. `samples` tracks usage over time.
   Apparent file size can differ from allocated volume space.
-- `phases` shows average and peak sampled read/write bytes per second and
-  IOPS per device. Compare these with queue occupancy and recovery time to
+- `phases` retains average and peak sampled read/write bytes per second and
+  IOPS for every device. Stdout shows only `selected_device`: the lowest observed
+  layer backing the queue's mounted filesystem. Multi-device volumes use the
+  common logical layer. Compare these with queue occupancy and recovery time to
   assess storage demand. Recovery drains the backlog while new input arrives;
   `recovery_draining` isolates the final drain after input pauses. Add
   `-outage-recovery-input=false` when measuring recovery writes without new input.

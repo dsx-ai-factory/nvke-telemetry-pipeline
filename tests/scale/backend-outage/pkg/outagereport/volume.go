@@ -37,6 +37,9 @@ type VolumeIO struct {
 // VolumeReport contains queue-directory growth and attributable gateway I/O.
 // Device totals are deliberately not combined across stacked block devices.
 type VolumeReport struct {
+	SelectedDevice        string                         `json:"selected_device,omitempty"`
+	CollapsedDevices      map[string]string              `json:"collapsed_devices,omitempty"`
+	TopologyError         string                         `json:"topology_error,omitempty"`
 	Pod                   string                         `json:"pod"`
 	Node                  string                         `json:"node"`
 	PVC                   string                         `json:"pvc"`

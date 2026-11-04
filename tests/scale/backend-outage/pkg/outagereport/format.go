@@ -177,10 +177,39 @@ func Summary(path string, r Report) string {
 		for phase := range d.Phases {
 			phases = append(phases, phase)
 		}
-		slices.Sort(phases)
+		// Samples already record phase transitions in chronological order.
+		order := map[string]int{}
+		for _, sample := range d.Samples {
+			if _, ok := order[sample.Phase]; !ok {
+				order[sample.Phase] = len(order)
+			}
+		}
+		slices.SortFunc(phases, func(a, b string) int {
+			ai, aok := order[a]
+			bi, bok := order[b]
+			if aok && bok {
+				return ai - bi
+			}
+			if aok {
+				return -1
+			}
+			if bok {
+				return 1
+			}
+			return strings.Compare(a, b)
+		})
+		if d.TopologyError != "" {
+			fmt.Fprintf(&out, "\n  %s", d.TopologyError)
+		}
 		for _, phase := range phases {
 			devices := make([]string, 0, len(d.Phases[phase]))
 			for device := range d.Phases[phase] {
+				if d.SelectedDevice != "" && device != d.SelectedDevice {
+					continue
+				}
+				if d.SelectedDevice == "" && d.TopologyError != "" {
+					continue
+				}
 				devices = append(devices, device)
 			}
 			slices.Sort(devices)
