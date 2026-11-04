@@ -1,6 +1,6 @@
 {{- $workload := .Values.cluster_events.kubernetes | default dict }}
 {{- $account := $workload.serviceAccount | default "nktp-cluster-events-collector" }}
-{{- $config := include "nktp.collectorConfig" (dict "config" .Values.cluster_events.otelcol.config "root" $) | fromYaml }}
+{{- $config := include "nktp.collectorConfig" (dict "config" .Values.cluster_events.otelcol.config "blueprints" .Values.blueprints) | fromYaml }}
 {{- $leaseName := $config.extensions.k8s_leader_elector.lease_name }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

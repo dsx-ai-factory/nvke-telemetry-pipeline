@@ -1,8 +1,8 @@
 # Use blueprints
 
 Every NKTP Collector configuration can use [NVCB](../../nvcb/README.md)
-blueprints. NKTP expands them into native Collector
-configuration when you install or upgrade the chart.
+blueprints. NKTP expands them into native Collector configuration when Helm
+renders the chart.
 
 ## Use a blueprint
 
@@ -31,7 +31,7 @@ exporters, `otlp` here.
 ## Add your own blueprints
 
 Pass your blueprint files to NKTP as values files, before your main values file.
-The [NVCB README](../../nvcb/README.md#bring-your-own-blueprints) lists the ways
+The [NVCB README](../../nvcb/README.md#bring-your-own-blueprints-with-helm) lists the ways
 to do that for each deployment tool.
 
 Every Collector can use every blueprint under `blueprints`, NKTP's and yours. A
@@ -50,8 +50,8 @@ helm template nktp ./nktp --namespace nktp \
   --show-only templates/gateway-logs.yaml
 ```
 
-Each blueprint a pipeline uses becomes native components named after it. These
-names also appear in the Collector's own metrics and logs:
+Each blueprint referenced in a pipeline becomes native components named after
+it. These names also appear in the Collector's own metrics and logs:
 
 ```text
 connectors:  forward/exp/otlp_backend

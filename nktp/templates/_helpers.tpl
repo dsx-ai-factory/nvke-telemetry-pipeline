@@ -32,11 +32,12 @@ NVCB receives the configuration together with the definitions in the top-level
 blueprints value. A definition in the configuration's own blueprints section
 takes precedence. NVCB validates the definitions.
 
-Arguments: config (the Collector configuration), root (chart root).
+Arguments: config (the Collector configuration), blueprints (the top-level
+blueprints value).
 */}}
 {{- define "nktp.collectorConfig" -}}
 {{- $config := deepCopy (.config | default dict) -}}
-{{- $shared := .root.Values.blueprints -}}
+{{- $shared := .blueprints -}}
 {{- if and $shared (kindIs "map" $config) -}}
   {{- $own := $config.blueprints | default dict -}}
   {{- if not (kindIs "map" $shared) -}}
@@ -87,7 +88,7 @@ mainEnv (optional, env entries to add to the main Collector when missing).
 {{- fail (printf "%s.sidecar.otelcol.config must be a native Collector YAML map" .name) -}}
 {{- end -}}
 {{- $image := include "nktp.image" (dict "imageRegistry" .root.Values.global.imageRegistry "image" ($otelcol.image | default .root.Values.otelcol_image)) -}}
-{{- $container := mustMergeOverwrite (deepCopy ($sidecar.kubernetes | default dict)) (dict "name" "otc-sidecar" "image" $image "restartPolicy" "Always" "args" (list (printf "--config=yaml:%s" (include "nktp.collectorConfig" (dict "config" $otelcol.config "root" .root) | fromYaml | toJson)))) -}}
+{{- $container := mustMergeOverwrite (deepCopy ($sidecar.kubernetes | default dict)) (dict "name" "otc-sidecar" "image" $image "restartPolicy" "Always" "args" (list (printf "--config=yaml:%s" (include "nktp.collectorConfig" (dict "config" $otelcol.config "blueprints" .root.Values.blueprints) | fromYaml | toJson)))) -}}
 {{- $podName := dict "name" "POD_NAME" "valueFrom" (dict "fieldRef" (dict "fieldPath" "metadata.name")) -}}
 {{- $sidecarEnv := concat (.sidecarEnv | default list) (list $podName) -}}
 {{- $_ := set $container "env" (include "nktp.addEnv" (dict "env" $container.env "add" $sidecarEnv) | fromYaml).env -}}

@@ -76,13 +76,13 @@ targetallocator_image:
 # Blueprint definitions available to every NKTP Collector configuration. A
 # definition in a configuration's own blueprints section takes precedence over
 # one here with the same kind and type.
-# The default blueprints between the markers are packaged automatically from
-# blueprints/ by `task blueprints`, so do not edit them here.
+# DO NOT EDIT the default blueprints between the markers. They are packaged
+# automatically from blueprints/ by `task blueprints`.
 # BEGIN DEFAULT BLUEPRINTS
 blueprints:
   exporters:
     otlp_backend:
-      version: 1.0.0
+      version: 0.1.0
       description: |
         Sends a copy of a pipeline's telemetry to an OTLP gRPC backend.
         Parameters:

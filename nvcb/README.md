@@ -1,6 +1,6 @@
 # NVCB (NVIDIA Collector Blueprints)
 
-## Bring your own blueprints
+## Bring your own blueprints with Helm
 
 A blueprint file is a YAML file with this schema:
 
@@ -14,7 +14,7 @@ blueprints:
         <Collector configuration>
 ```
 
-Currently, NVCB is a helm-only implementation. To deploy with Helm,
+Currently, NVCB is a Helm-only implementation. To deploy with Helm,
 pass blueprint files to the chart as values files.
 How you do that depends on how you deploy Helm charts:
 

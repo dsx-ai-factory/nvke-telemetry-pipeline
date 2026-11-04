@@ -13,7 +13,7 @@ NKTP renders every Collector configuration through NVCB.
   the output of `nktp.collectorConfig`.
 - NKTP's own blueprints live in `blueprints/`. `task blueprints` packages them
   into a marked section of `nktp/values.yaml`, so the chart renders with its
-  defaults alone. `task test` fails if that section is out of date, or if a
-  blueprint file breaks the layout, field, or template function rules.
+  defaults alone. `task blueprints:check` fails if that section is out of date,
+  or if a blueprint file breaks the layout, field, or template function rules.
 - Moving a default component into a blueprint changes the values path that
   users override for it, so it breaks those overrides.

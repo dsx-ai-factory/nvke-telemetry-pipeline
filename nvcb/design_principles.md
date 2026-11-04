@@ -8,8 +8,9 @@ library chart in `chart/`.
 NVCB is a configuration format and the way it expands into native Collector
 configuration. Helm is one way to run it.
 
-**Why:** most Collectors run alone, outside Kubernetes, and blueprints should
-work for them too.
+**Why:** blueprints should not depend on how a Collector is deployed. Keeping the
+interface separate from Helm lets the same blueprints work for any Collector,
+in Kubernetes or not, through other implementations.
 
 ## Expand before the Collector starts
 
@@ -23,9 +24,10 @@ Target Allocator work as usual.
 ## One configuration in, native configuration out
 
 The input is one Collector configuration, including its blueprint definitions.
-The output replaces each blueprint a pipeline uses with native components, and
-removes all blueprint definitions and declarations. A configuration with no
-blueprint definitions or declarations comes out unchanged.
+The output replaces each blueprint referenced in a pipeline with native
+components, and removes all blueprint definitions and declarations. A
+configuration with no blueprint definitions or declarations comes out
+unchanged.
 
 **Why:** native configurations keep working, and the output can be reviewed and
 run like any other Collector configuration.

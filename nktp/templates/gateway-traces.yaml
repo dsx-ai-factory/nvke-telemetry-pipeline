@@ -11,4 +11,4 @@ spec:
   {{- /* Kubernetes workload values override defaults. The resolved Collector image overrides any workload image. */}}
   {{- mustMergeOverwrite (dict "mode" "deployment" "managementState" "managed" "upgradeStrategy" "automatic" "replicas" 1) (omit (include "nktp.withSidecar" (dict "name" "gateway_traces" "values" .Values.gateway_traces "root" $ "mainEnv" (include "nktp.clusterNameEnv" $ | fromYaml).env) | fromYaml) "config") $collector | toYaml | nindent 2 }}
   config:
-    {{- include "nktp.collectorConfig" (dict "config" .Values.gateway_traces.otelcol.config "root" $) | nindent 4 }}
+    {{- include "nktp.collectorConfig" (dict "config" .Values.gateway_traces.otelcol.config "blueprints" .Values.blueprints) | nindent 4 }}

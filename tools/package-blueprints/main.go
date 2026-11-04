@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-// Package blueprints checks the blueprints NKTP publishes and packages them as
-// the default blueprints in the chart's values.
-package blueprints
+// Command package-blueprints validates the blueprint files in blueprints/ and
+// packages them as the default blueprints in nktp/values.yaml. With -check, it
+// changes nothing and fails if nktp/values.yaml is out of date. The default
+// paths are relative to the tools directory, where the blueprints tasks run.
+package main
 
 import (
 	"bytes"
@@ -11,26 +13,21 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
+	"log"
 	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
-	"testing"
 	"text/template"
 
-	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v3"
 )
 
-var update = flag.Bool("update", false, "repackage the default blueprints in nktp/values.yaml")
-
 const (
-	blueprintsDir = "../../blueprints"
-	valuesFile    = "../../nktp/values.yaml"
-	beginMarker   = "# BEGIN DEFAULT BLUEPRINTS"
-	endMarker     = "# END DEFAULT BLUEPRINTS"
+	beginMarker = "# BEGIN DEFAULT BLUEPRINTS"
+	endMarker   = "# END DEFAULT BLUEPRINTS"
 )
 
 // allowedFunctions are the functions a blueprint template may call besides Go's
@@ -48,68 +45,52 @@ func stub(...any) any { return nil }
 // semver matches a semantic version, such as 1.2.0 or 2.0.0-rc.1.
 var semver = regexp.MustCompile(`^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$`)
 
-// TestValuesSection checks every blueprint file under blueprints/ and that the
-// default blueprints in nktp/values.yaml are exactly their definitions. Run it
-// with -update to repackage them.
-func TestValuesSection(t *testing.T) {
-	section := defaultBlueprints(t)
-	data, err := os.ReadFile(valuesFile)
-	require.NoError(t, err)
-	values, err := replaceSection(string(data), section)
-	require.NoError(t, err)
-	if *update {
-		require.NoError(t, os.WriteFile(valuesFile, []byte(values), 0o644))
+func main() {
+	dir := flag.String("blueprints", "../blueprints", "directory of blueprint files")
+	file := flag.String("values", "../nktp/values.yaml", "values file to update")
+	checkOnly := flag.Bool("check", false, "fail if the values file is out of date instead of updating it")
+	flag.Parse()
+	log.SetFlags(0)
+
+	data, err := os.ReadFile(*file)
+	if err != nil {
+		log.Fatal(err)
+	}
+	values, err := packageValues(*dir, string(data))
+	if err != nil {
+		log.Fatal(err)
+	}
+	if *checkOnly {
+		if values != string(data) {
+			log.Fatal("nktp/values.yaml does not match blueprints/. Run `task blueprints` and commit the result.")
+		}
 		return
 	}
-	require.Equal(t, values, string(data),
-		"nktp/values.yaml does not match blueprints/. Run `task blueprints` and commit the result.")
-}
-
-// TestCheck covers the rules check applies to each definition, including the
-// template function allowlist.
-func TestCheck(t *testing.T) {
-	tests := map[string]struct {
-		definition string
-		err        string
-	}{
-		"allowed functions and actions": {definition: `
-version: 1.2.0-rc.1
-description: d
-template: '{{ with .values.a }}{{ toJson . }}{{ end }}{{ .values.b | default "x" | quote }}{{ required "c" .values.c }}{{ if not .values.d }}{{ fail "d" }}{{ end }}{{ printf "%s" .forward }}'
-`},
-		"cluster lookup":        {definition: "version: 1.0.0\ndescription: d\ntemplate: '{{ lookup \"v1\" \"Secret\" \"ns\" \"name\" }}'", err: `function "lookup" not defined`},
-		"chart template":        {definition: "version: 1.0.0\ndescription: d\ntemplate: '{{ include \"nktp.image\" . }}'", err: `function "include" not defined`},
-		"non-reproducible time": {definition: "version: 1.0.0\ndescription: d\ntemplate: '{{ now }}'", err: `function "now" not defined`},
-		"missing version":       {definition: "description: d\ntemplate: t", err: "version is required"},
-		"missing description":   {definition: "version: 1.0.0\ntemplate: t", err: "description is required"},
-		"version not semantic":  {definition: "version: 1.0\ndescription: d\ntemplate: t", err: `version "1.0" is not a semantic version`},
-		"unsupported field":     {definition: "version: 1.0.0\ndescription: d\ntemplate: t\nparameters: {}", err: `unsupported field "parameters"`},
-		"template not a string": {definition: "version: 1.0.0\ndescription: d\ntemplate: {a: b}", err: "template must be a string"},
-	}
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			var document yaml.Node
-			require.NoError(t, yaml.Unmarshal([]byte(test.definition), &document))
-			err := check(document.Content[0])
-			if test.err == "" {
-				require.NoError(t, err)
-				return
-			}
-			require.ErrorContains(t, err, test.err)
-		})
+	if err := os.WriteFile(*file, []byte(values), 0o644); err != nil {
+		log.Fatal(err)
 	}
 }
 
-// defaultBlueprints returns the default blueprints section: one blueprints map
-// that holds every definition under blueprints/, sorted by kind and type.
-func defaultBlueprints(t *testing.T) string {
-	t.Helper()
+// packageValues validates every blueprint file under dir and returns values,
+// the contents of the chart's values file, with the default blueprints section
+// replaced by their definitions.
+func packageValues(dir, values string) (string, error) {
+	section, err := defaultSection(dir)
+	if err != nil {
+		return "", err
+	}
+	return replaceSection(values, section)
+}
+
+// defaultSection returns the default blueprints section: one blueprints map
+// that holds every definition under dir, sorted by kind and type.
+func defaultSection(dir string) (string, error) {
 	definitions := map[string]map[string]*yaml.Node{}
-	err := filepath.WalkDir(blueprintsDir, func(path string, entry fs.DirEntry, err error) error {
+	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil || entry.IsDir() || filepath.Ext(path) != ".yaml" {
 			return err
 		}
-		kind, name, definition, err := load(path)
+		kind, name, definition, err := load(dir, path)
 		if err != nil {
 			return fmt.Errorf("%s: %w", path, err)
 		}
@@ -119,7 +100,9 @@ func defaultBlueprints(t *testing.T) string {
 		definitions[kind][name] = definition
 		return nil
 	})
-	require.NoError(t, err)
+	if err != nil {
+		return "", err
+	}
 
 	kinds := &yaml.Node{Kind: yaml.MappingNode}
 	for _, kind := range slices.Sorted(maps.Keys(definitions)) {
@@ -132,15 +115,19 @@ func defaultBlueprints(t *testing.T) string {
 	var out bytes.Buffer
 	encoder := yaml.NewEncoder(&out)
 	encoder.SetIndent(2)
-	require.NoError(t, encoder.Encode(&yaml.Node{Kind: yaml.MappingNode, Content: []*yaml.Node{scalar("blueprints"), kinds}}))
-	require.NoError(t, encoder.Close())
-	return out.String()
+	if err := encoder.Encode(&yaml.Node{Kind: yaml.MappingNode, Content: []*yaml.Node{scalar("blueprints"), kinds}}); err != nil {
+		return "", err
+	}
+	if err := encoder.Close(); err != nil {
+		return "", err
+	}
+	return out.String(), nil
 }
 
-// load reads a blueprint file, which must be blueprints/<kind>/<type>.yaml and
+// load reads a blueprint file, which must be <kind>/<type>.yaml under dir and
 // define only blueprints.<kind>.<type>, and returns that definition.
-func load(path string) (kind, name string, definition *yaml.Node, err error) {
-	relative, err := filepath.Rel(blueprintsDir, path)
+func load(dir, path string) (kind, name string, definition *yaml.Node, err error) {
+	relative, err := filepath.Rel(dir, path)
 	if err != nil {
 		return "", "", nil, err
 	}
@@ -210,7 +197,7 @@ func replaceSection(values, section string) (string, error) {
 	begin := strings.Index(values, beginMarker+"\n")
 	end := strings.Index(values, endMarker+"\n")
 	if begin < 0 || end < begin || strings.Count(values, beginMarker) != 1 || strings.Count(values, endMarker) != 1 {
-		return "", fmt.Errorf("%s must contain one %q line followed by one %q line", valuesFile, beginMarker, endMarker)
+		return "", fmt.Errorf("the values file must contain one %q line followed by one %q line", beginMarker, endMarker)
 	}
 	start := begin + len(beginMarker) + 1
 	return values[:start] + section + values[end:], nil
