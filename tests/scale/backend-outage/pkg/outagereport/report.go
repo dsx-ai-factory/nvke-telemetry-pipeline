@@ -31,6 +31,7 @@ type Report struct {
 	QueueOverheadSettleTimeout string                      `json:"queue_overhead_settle_timeout"`
 	GatewayMemoryLimiter       Metrics                     `json:"gateway_memory_limiter"`
 	ResourceSummary            map[string]Resources        `json:"resource_summary"`
+	Samples                    []map[string]any            `json:"samples"`
 	PhaseMetrics               map[string]map[string]Phase `json:"phase_metrics"`
 	ScraperClientImpact        Metrics                     `json:"scraper_client_impact"`
 	GatewayImpact              Metrics                     `json:"gateway_impact"`

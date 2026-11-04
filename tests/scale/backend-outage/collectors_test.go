@@ -28,9 +28,11 @@ import (
 // collectorOptions controls memory and sending-queue overrides for
 // derived Collectors.
 type collectorOptions struct {
-	MemoryLimit  string
-	QueueBytes   int64
-	QueuePercent float64
+	MemoryLimit   string
+	MemoryRequest string
+	GoMemLimit    string
+	QueueBytes    int64
+	QueuePercent  float64
 }
 
 type scraperOptions struct {
@@ -208,7 +210,17 @@ func deriveCollector(source *otelv1.OpenTelemetryCollector, options collectorOpt
 	if err := memoryLimit(&spec.Resources, options.MemoryLimit); err != nil {
 		return nil, err
 	}
-	if err := scaleRuntime(spec, sourceMemory, options.MemoryLimit != ""); err != nil {
+	if options.MemoryRequest != "" {
+		request, err := resource.ParseQuantity(options.MemoryRequest)
+		if err != nil || request.Sign() <= 0 || request.Cmp(*spec.Resources.Limits.Memory()) > 0 {
+			return nil, fmt.Errorf("memory request must be positive and no greater than the memory limit")
+		}
+		if spec.Resources.Requests == nil {
+			spec.Resources.Requests = corev1.ResourceList{}
+		}
+		spec.Resources.Requests[corev1.ResourceMemory] = request
+	}
+	if err := scaleRuntime(spec, sourceMemory, options.MemoryLimit != "", options.GoMemLimit); err != nil {
 		return nil, err
 	}
 	config := &spec.Config
@@ -344,15 +356,27 @@ func isolateQueueStorage(spec *otelv1.OpenTelemetryCollectorSpec) error {
 	return nil
 }
 
-// scaleRuntime preserves the source GOMEMLIMIT-to-memory ratio when
-// resizing and rejects environment references unavailable in the test
-// namespace.
-func scaleRuntime(spec *otelv1.OpenTelemetryCollectorSpec, sourceMemory int64, resize bool) error {
+// scaleRuntime applies an explicit GOMEMLIMIT or preserves its source ratio
+// when resizing. Environment references must resolve in the test namespace.
+func scaleRuntime(spec *otelv1.OpenTelemetryCollectorSpec, sourceMemory int64, resize bool, override string) error {
 	if len(spec.EnvFrom) > 0 {
 		return fmt.Errorf("envFrom cannot be resolved in isolated namespace")
 	}
+	if override != "" && override != "off" {
+		limit, err := resource.ParseQuantity(strings.TrimSuffix(override, "B"))
+		if err != nil || limit.Sign() <= 0 {
+			return fmt.Errorf("GOMEMLIMIT override must be a positive byte quantity or off")
+		}
+		override = strconv.FormatInt(limit.Value(), 10)
+	}
+	found := false
 	for i := range spec.Env {
 		entry := &spec.Env[i]
+		if entry.Name == "GOMEMLIMIT" && override != "" {
+			entry.Value, entry.ValueFrom = override, nil
+			found = true
+			continue
+		}
 		if entry.ValueFrom != nil && (entry.ValueFrom.SecretKeyRef != nil || entry.ValueFrom.ConfigMapKeyRef != nil) {
 			return fmt.Errorf("external environment references cannot be isolated")
 		}
@@ -363,6 +387,9 @@ func scaleRuntime(spec *otelv1.OpenTelemetryCollectorSpec, sourceMemory int64, r
 			}
 			entry.Value = strconv.FormatInt(int64(float64(limit.Value())*float64(spec.Resources.Limits.Memory().Value())/float64(sourceMemory)), 10)
 		}
+	}
+	if override != "" && !found {
+		spec.Env = append(spec.Env, corev1.EnvVar{Name: "GOMEMLIMIT", Value: override})
 	}
 	if resize && spec.Config.Processors != nil {
 		for name := range spec.Config.Processors.Object {
@@ -633,7 +660,7 @@ func TestGatewayDerivation(t *testing.T) {
 	source := testManifest(t, `otlp: {protocols: {grpc: {tls: {cert_file: /production/tls.crt}, max_recv_msg_size_mib: 8}}}`)
 	original := source.DeepCopy()
 	for _, test := range []struct {
-		name, memory                         string
+		name, memory, request, runtime       string
 		bytes                                int64
 		percent                              float64
 		spike                                int
@@ -641,13 +668,14 @@ func TestGatewayDerivation(t *testing.T) {
 		wantQueue                            int64
 		wantSpike                            int
 	}{
-		{"inherited", "", 0, 0, -1, "8Gi", "2Gi", "6GiB", 16 << 20, 25},
-		{"scaled ratio", "1Gi", 0, 0, -1, "1Gi", "1Gi", "805306368", 2 << 20, 25},
-		{"combined overrides", "1Gi", 0, 25, 16, "1Gi", "1Gi", "805306368", 256 << 20, 16},
-		{"absolute queue", "", 64 << 20, 0, -1, "8Gi", "2Gi", "6GiB", 64 << 20, 25},
+		{"inherited", "", "", "", 0, 0, -1, "8Gi", "2Gi", "6GiB", 16 << 20, 25},
+		{"scaled ratio", "1Gi", "", "", 0, 0, -1, "1Gi", "1Gi", "805306368", 2 << 20, 25},
+		{"combined overrides", "1Gi", "", "", 0, 25, 16, "1Gi", "1Gi", "805306368", 256 << 20, 16},
+		{"absolute queue", "", "", "", 64 << 20, 0, -1, "8Gi", "2Gi", "6GiB", 64 << 20, 25},
+		{"watchdog memory", "1Gi", "256Mi", "192MiB", 257698038, 0, -1, "1Gi", "256Mi", "201326592", 257698038, 25},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			actual, err := deriveGateway(source, collectorOptions{MemoryLimit: test.memory, QueueBytes: test.bytes, QueuePercent: test.percent})
+			actual, err := deriveGateway(source, collectorOptions{MemoryLimit: test.memory, MemoryRequest: test.request, GoMemLimit: test.runtime, QueueBytes: test.bytes, QueuePercent: test.percent})
 			require.NoError(t, err)
 			settings, err := configureGatewaySpike(actual, test.spike)
 			require.NoError(t, err)

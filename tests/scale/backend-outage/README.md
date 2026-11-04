@@ -109,6 +109,8 @@ same-version `contrib` image to expose test counters; override with
 | Flag | Purpose | Default |
 | --- | --- | --- |
 | `-outage-gateway-memory-limit` | Gateway container limit | `1Gi` |
+| `-outage-gateway-memory-request` | Gateway memory request; positive and no greater than its limit | Inherit source, capped at the limit |
+| `-outage-gateway-gomemlimit` | Gateway Go runtime memory target, e.g. `192MiB`, or `off` | Preserve source ratio when resizing |
 | `-outage-gateway-queue-percent` | Queue capacity as a percentage of the memory limit | Unset; uses queue bytes |
 | `-outage-gateway-queue-bytes` | Absolute queue capacity | `536870912` (512 MiB) |
 | `-outage-gateway-spike-percent` | Memory-limiter spike allowance as a percentage of container memory | Inherit installed gateway |
@@ -117,6 +119,10 @@ same-version `contrib` image to expose test counters; override with
 | `-outage-scraper-queue-bytes` | Absolute scraper queue capacity | Inherit installed large-target Collector |
 | `-outage-scraper-disable-batch` | Disable scraper batch processors; retain exporter queue batching | `false` |
 | `-outage-backend-memory-limit` | Verification backend limit | `1Gi` |
+
+The memory-request override changes scheduling resources. An explicit
+`-outage-gateway-gomemlimit` takes precedence over automatic runtime scaling;
+the container memory limit and memory-limiter settings still apply.
 
 For each Collector, choose either queue bytes or a positive queue percentage.
 A gateway percentage replaces the default byte capacity; do not also pass a
@@ -153,19 +159,17 @@ recovery. The artifact path is shortened.
 ```text
 results: /tmp/outage-example/report.json
 recovery input: true; active 60.00s; final drain 11.10s
-scraper (.resource_summary.scraper, .phase_metrics.*.scraper, .scraper_client_impact):
-  peak heap 322.9 MiB; RSS 571.9 MiB; queue 32.8 MiB (38.5%)
-  baseline: CPU 5.27s; RPCs 38, failed 0; mean 307.4ms, p95 ~485.2ms
-  outage: CPU 5.04s; RPCs 38, failed 0; mean 301.1ms, p95 ~483.6ms
-  recovery: CPU 7.54s; RPCs 57, failed 0; mean 377.2ms, p95 ~695.2ms
+scraper (.samples, .phase_metrics.*.scraper, .scraper_client_impact):
+  baseline: CPU 5.27s; peak heap 320.2 MiB; RSS 566.2 MiB; queue 0.6 MiB (0.7%); RPCs 38, failed 0; mean 307.4ms, p95 ~485.2ms
+  outage: CPU 5.04s; peak heap 322.9 MiB; RSS 566.5 MiB; queue 0.0 MiB (0.0%); RPCs 38, failed 0; mean 301.1ms, p95 ~483.6ms
+  recovery: CPU 7.54s; peak heap 311.9 MiB; RSS 571.9 MiB; queue 32.8 MiB (38.5%); RPCs 57, failed 0; mean 377.2ms, p95 ~695.2ms
   refused 0 points
   backlog at backend restore: 0.0 MiB (.at_backend_restore_scraper_queue_bytes)
-gateway (.resource_summary.gateway, .phase_metrics.*.gateway, .gateway_impact):
-  peak heap 386.9 MiB; RSS 518.2 MiB; queue 98.4 MiB (76.9%)
+gateway (.samples, .phase_metrics.*.gateway, .gateway_impact):
   limiter: hard 80.0%; spike 25.0%; soft 55.0% (.gateway_memory_limiter)
-  baseline: CPU 6.12s; RPCs 38, failed 0; mean 291.0ms, p95 ~484.2ms
-  outage: CPU 5.95s; RPCs 38, failed 0; mean 278.4ms, p95 ~478.4ms
-  recovery: CPU 32.89s; RPCs 57, failed 0; mean 350.2ms, p95 ~685.2ms
+  baseline: CPU 6.12s; peak heap 228.3 MiB; RSS 330.9 MiB; queue 0.6 MiB (0.4%); RPCs 38, failed 0; mean 291.0ms, p95 ~484.2ms
+  outage: CPU 5.95s; peak heap 331.4 MiB; RSS 451.6 MiB; queue 65.6 MiB (51.3%); RPCs 38, failed 0; mean 278.4ms, p95 ~478.4ms
+  recovery: CPU 32.89s; peak heap 386.9 MiB; RSS 518.2 MiB; queue 98.4 MiB (76.9%); RPCs 57, failed 0; mean 350.2ms, p95 ~685.2ms
   refused 0 points; memory-limiter refused N/A; enqueue failed 0
 delivery (.result): 5 scrapes; 500000 produced, 500000 received; estimated missing 0, duplicates 0; recovery 71.10s (.recovery_seconds)
 delivery verification (.verification_complete): complete
@@ -188,8 +192,10 @@ avoided backpressure: the scraper also buffers and retries. When tuning, compare
   (`.result`).
 - **Client impact:** failed RPCs and latency versus baseline, plus gateway
   refusals (`.scraper_client_impact`, `.phase_metrics`, `.gateway_impact`).
-- **Memory:** scraper, gateway, and combined peak heap/RSS, alongside queue
-  occupancy (`.resource_summary`).
+- **Memory:** per-phase sampled peak heap/RSS and queue occupancy (`.samples`),
+  plus overall and combined peaks (`.resource_summary`). Baseline and outage
+  include their measurement steps; recovery includes backend restoration and
+  final draining.
 - **Recovery:** time to deliver the backlog and drain both queues
   (`.recovery_seconds`).
 
@@ -324,19 +330,17 @@ a 128 MiB gateway queue, and a 30-second baseline. The artifact path is shortene
 
 ```text
 results: /tmp/queue-overhead-example/report.json
-scraper (.resource_summary.scraper, .phase_metrics.*.scraper, .scraper_client_impact):
-  peak heap 327.2 MiB; RSS 547.7 MiB; queue 0.6 MiB (0.7%)
-  baseline: CPU 3.37s; RPCs 19, failed 0; mean 316.8ms, p95 ~486.0ms
-  outage: CPU 5.57s; RPCs 38, failed 0; mean 299.4ms, p95 ~484.2ms
-  recovery: CPU 0.67s; RPCs 0, failed 0
+scraper (.samples, .phase_metrics.*.scraper, .scraper_client_impact):
+  baseline: CPU 3.37s; peak heap 238.9 MiB; RSS 519.5 MiB; queue 0.6 MiB (0.7%); RPCs 19, failed 0; mean 316.8ms, p95 ~486.0ms
+  outage: CPU 5.57s; peak heap 327.2 MiB; RSS 547.7 MiB; queue 0.0 MiB (0.0%); RPCs 38, failed 0; mean 299.4ms, p95 ~484.2ms
+  recovery: CPU 0.67s; peak heap 291.0 MiB; RSS 535.4 MiB; queue 0.0 MiB (0.0%); RPCs 0, failed 0
   refused 0 points
   backlog at backend restore: 0.0 MiB (.at_backend_restore_scraper_queue_bytes)
-gateway (.resource_summary.gateway, .phase_metrics.*.gateway, .gateway_impact):
-  peak heap 328.9 MiB; RSS 456.1 MiB; queue 65.6 MiB (51.3%)
+gateway (.samples, .phase_metrics.*.gateway, .gateway_impact):
   limiter: hard 80.0%; spike 25.0%; soft 55.0% (.gateway_memory_limiter)
-  baseline: CPU 3.19s; RPCs 19, failed 0; mean 298.3ms, p95 ~484.2ms
-  outage: CPU 6.04s; RPCs 38, failed 0; mean 280.3ms, p95 ~481.7ms
-  recovery: CPU 0.63s; RPCs 0, failed 0
+  baseline: CPU 3.19s; peak heap 220.1 MiB; RSS 320.0 MiB; queue 0.0 MiB (0.0%); RPCs 19, failed 0; mean 298.3ms, p95 ~484.2ms
+  outage: CPU 6.04s; peak heap 315.9 MiB; RSS 455.1 MiB; queue 65.6 MiB (51.3%); RPCs 38, failed 0; mean 280.3ms, p95 ~481.7ms
+  recovery: CPU 0.63s; peak heap 328.9 MiB; RSS 456.1 MiB; queue 65.6 MiB (51.3%); RPCs 0, failed 0
   refused 0 points; memory-limiter refused N/A; enqueue failed 0
 delivery (.result): 2 scrapes; 200000 produced, 200000 received; estimated missing 0, duplicates 0; recovery 59.76s (.recovery_seconds)
 delivery verification (.verification_complete): complete

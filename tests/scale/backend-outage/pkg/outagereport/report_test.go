@@ -22,10 +22,17 @@ func TestSummaryMeasurements(t *testing.T) {
 		"mode":"outage",
 		"verification_complete":true,
 		"result":{"scrapes":2,"attempted_points":200000,"received_points":200000,"missing_points_estimate":0,"duplicate_points_estimate":0},
-		"resource_summary":{"scraper":{"peak_heap_bytes":1048576}}
+		"resource_summary":{"scraper":{"peak_heap_bytes":3145728}},
+		"samples":[
+			{"phase":"baseline","scraper.otelcol_process_runtime_heap_alloc_bytes":1048576},
+			{"phase":"baseline_draining","scraper.otelcol_process_runtime_heap_alloc_bytes":2097152},
+			{"phase":"outage","scraper.otelcol_process_runtime_heap_alloc_bytes":3145728,"scraper.otelcol_exporter_queue_size":1048576,"scraper.otelcol_exporter_queue_capacity":2097152}
+		]
 	}`)
 	s := Summary("report.json", r)
 	assert.Contains(t, s, "RSS N/A")
+	assert.Contains(t, s, "baseline: CPU N/A; peak heap 2.0 MiB")
+	assert.Contains(t, s, "outage: CPU N/A; peak heap 3.0 MiB; RSS N/A; queue 1.0 MiB (50.0%)")
 	assert.Contains(t, s, "200000 produced, 200000 received")
 	partial := Summary("partial.json", decode(t, `{"verification_complete":false,"verification_error":"delivery timed out"}`))
 	assert.Contains(t, partial, "incomplete")

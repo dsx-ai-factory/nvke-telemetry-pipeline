@@ -41,6 +41,8 @@ var outageGatewaySource = flag.String("outage-gateway-source", "nktp-gateway-met
 var outageGatewaySourceNamespace = flag.String("outage-gateway-source-namespace", "nktp", "source gateway namespace")
 var outageGatewayQueueBytes = flag.Int64("outage-gateway-queue-bytes", 512<<20, "gateway byte-sized sending queue (0 inherits source ratio unless queue-percent is positive)")
 var outageGatewayMemoryLimit = flag.String("outage-gateway-memory-limit", "1Gi", "gateway memory limit (empty inherits source)")
+var outageGatewayMemoryRequest = flag.String("outage-gateway-memory-request", "", "gateway memory request (empty inherits source, capped at the memory limit)")
+var outageGatewayGoMemLimit = flag.String("outage-gateway-gomemlimit", "", "gateway GOMEMLIMIT, e.g. 192MiB or off (empty preserves automatic scaling)")
 var outageGatewayQueuePercent = flag.Float64("outage-gateway-queue-percent", 0, "gateway queue percentage of memory limit (replaces default bytes; exclusive with explicit positive queue-bytes)")
 var outageGatewaySpikePercent = flag.Int("outage-gateway-spike-percent", -1, "gateway memory-limiter spike percentage of container memory (-1 inherits source; positive and below hard limit)")
 var outageGatewayStorage = flag.String("outage-gateway-storage", "", "gateway persistent queue PVC size, e.g. 1Gi (empty uses in-memory queue)")
@@ -106,7 +108,10 @@ func configFromFlags(t *testing.T) runConfig {
 		ScrapeTemplate: *outageScrapeTemplate, BackendManifest: *outageManifest,
 		GatewaySource: *outageGatewaySource, GatewayNamespace: *outageGatewaySourceNamespace,
 		ScraperSource: *outageScraperSource, ScraperNamespace: *outageScraperSourceNamespace,
-		Gateway:        collectorOptions{MemoryLimit: *outageGatewayMemoryLimit, QueueBytes: queueBytes, QueuePercent: *outageGatewayQueuePercent},
+		Gateway: collectorOptions{
+			MemoryLimit: *outageGatewayMemoryLimit, MemoryRequest: *outageGatewayMemoryRequest,
+			GoMemLimit: *outageGatewayGoMemLimit, QueueBytes: queueBytes, QueuePercent: *outageGatewayQueuePercent,
+		},
 		GatewaySpike:   *outageGatewaySpikePercent,
 		GatewayStorage: *outageGatewayStorage, GatewayStorageClass: *outageGatewayStorageClass,
 		Scraper: scraperOptions{

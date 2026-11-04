@@ -107,6 +107,51 @@ func overheadStatus(q *QueueOverhead) string {
 	return "inconclusive"
 }
 
+// phaseResources computes sampled peaks, including each phase's transition
+// and draining steps. Overall resource summaries remain available separately.
+func (r Report) phaseResources(phase, target string) Resources {
+	var peaks Resources
+	prefix := ""
+	if target == "scraper" {
+		prefix = "scraper."
+	}
+	for _, sample := range r.Samples {
+		name, _ := sample["phase"].(string)
+		switch name {
+		case "taking_backend_down":
+			name = "outage"
+		case "restoring_backend":
+			name = "recovery"
+		default:
+			name, _, _ = strings.Cut(name, "_")
+		}
+		if name != phase {
+			continue
+		}
+		for _, field := range []struct {
+			metric string
+			peak   **float64
+		}{
+			{"otelcol_process_runtime_heap_alloc_bytes", &peaks.Heap},
+			{"otelcol_process_memory_rss", &peaks.RSS},
+			{"otelcol_exporter_queue_size", &peaks.QueueBytes},
+		} {
+			if value, ok := sample[prefix+field.metric].(float64); ok && (*field.peak == nil || value > **field.peak) {
+				*field.peak = &value
+			}
+		}
+		used, hasUsed := sample[prefix+"otelcol_exporter_queue_size"].(float64)
+		capacity, hasCapacity := sample[prefix+"otelcol_exporter_queue_capacity"].(float64)
+		if hasUsed && hasCapacity && capacity > 0 {
+			percent := 100 * used / capacity
+			if peaks.QueuePercent == nil || percent > *peaks.QueuePercent {
+				peaks.QueuePercent = &percent
+			}
+		}
+	}
+	return peaks
+}
+
 // Summary formats the live test output and can also present a saved report.
 // Unavailable measurements remain distinct from measured zero values.
 func Summary(path string, r Report) string {
@@ -119,18 +164,18 @@ func Summary(path string, r Report) string {
 		name, impactKey string
 		impact          Metrics
 	}{{"scraper", "scraper_client_impact", r.ScraperClientImpact}, {"gateway", "gateway_impact", r.GatewayImpact}} {
-		peaks := r.ResourceSummary[target.name]
-		fmt.Fprintf(&out, "%s (.resource_summary.%s, .phase_metrics.*.%s, .%s):\n", target.name, target.name, target.name, target.impactKey)
-		fmt.Fprintf(&out, "  peak heap %s; RSS %s; queue %s (%s)\n", number(peaks.Heap, mib), number(peaks.RSS, mib), number(peaks.QueueBytes, mib), number(peaks.QueuePercent, pct))
+		fmt.Fprintf(&out, "%s (.samples, .phase_metrics.*.%s, .%s):\n", target.name, target.name, target.impactKey)
 		if target.name == "gateway" && r.GatewayMemoryLimiter != nil {
 			fmt.Fprintf(&out, "  limiter: hard %s; spike %s; soft %s (.gateway_memory_limiter)\n", number(r.GatewayMemoryLimiter.get("hard_limit_percentage"), pct), number(r.GatewayMemoryLimiter.get("spike_limit_percentage"), pct), number(r.GatewayMemoryLimiter.get("soft_limit_percentage"), pct))
 		}
 		for _, phase := range []string{"baseline", "outage", "recovery"} {
 			m, ok := r.PhaseMetrics[phase][target.name]
-			if !ok {
+			peaks := r.phaseResources(phase, target.name)
+			if !ok && peaks.Heap == nil && peaks.RSS == nil && peaks.QueueBytes == nil {
 				continue
 			}
-			fmt.Fprintf(&out, "  %s: CPU %s; RPCs %s, failed %s", phase, number(m.CPUSeconds, sec), number(m.RPCCalls, count), number(m.FailedRPCs, count))
+			fmt.Fprintf(&out, "  %s: CPU %s; peak heap %s; RSS %s; queue %s (%s); RPCs %s, failed %s",
+				phase, number(m.CPUSeconds, sec), number(peaks.Heap, mib), number(peaks.RSS, mib), number(peaks.QueueBytes, mib), number(peaks.QueuePercent, pct), number(m.RPCCalls, count), number(m.FailedRPCs, count))
 			if m.Latency.Mean != nil || m.Latency.P95 != nil || m.Latency.P95LowerBound != nil {
 				fmt.Fprintf(&out, "; mean %s, p95 %s", number(m.Latency.Mean, ms), p95(m.Latency))
 			}

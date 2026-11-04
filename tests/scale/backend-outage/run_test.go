@@ -153,6 +153,12 @@ func (r *run) describeCollectors(gateway, scraper, backend *otelv1.OpenTelemetry
 		r.report["recovery_input"] = r.config.RecoveryInput
 	}
 	r.report["gateway_memory_limiter"] = limiter
+	r.report["gateway_memory_request_bytes"] = gateway.Spec.Resources.Requests.Memory().Value()
+	for _, entry := range gateway.Spec.Env {
+		if entry.Name == "GOMEMLIMIT" {
+			r.report["gateway_gomemlimit"] = entry.Value
+		}
+	}
 	for _, item := range []struct {
 		collector                       *otelv1.OpenTelemetryCollector
 		memoryKey, queueKey, percentKey string
