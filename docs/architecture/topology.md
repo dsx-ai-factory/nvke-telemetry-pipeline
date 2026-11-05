@@ -62,9 +62,9 @@ scraping Collector requires one.
 
 | Target Allocator | Strategy | Discovers | Assigns to |
 | --- | --- | --- | --- |
-| Node (`daemonset`) | `per-node` | ServiceMonitors, PodMonitors, Probes, and ScrapeConfigs without the large-target or nodeless-target label | The node collector on the target's node |
+| Node (`daemonset`) | `per-node` | ServiceMonitors, PodMonitors, Probes, and ScrapeConfigs not labeled `nktp.nvidia.io/large-target: "true"` or `nktp.nvidia.io/nodeless-target: "true"` | The node collector on the target's node |
 | Large-target (`large_target_metrics`) | `consistent-hashing` | The same resource kinds with `nktp.nvidia.io/large-target: "true"` | One replica of the large-target pool |
-| Nodeless (`nodeless_metrics`) | `consistent-hashing` | The same resource kinds with `nktp.nvidia.io/nodeless-target: "true"` and without the large-target label | One replica of the nodeless pool |
+| Nodeless (`nodeless_metrics`) | `consistent-hashing` | The same resource kinds with `nktp.nvidia.io/nodeless-target: "true"` and not labeled `nktp.nvidia.io/large-target: "true"` | One replica of the nodeless pool |
 | Watchdog (`watchdog`) | `consistent-hashing` | The watchdog's own scrape jobs; Prometheus CR discovery is off | One watchdog replica |
 
 The bundled exporters are split between the node and large-target allocators:
