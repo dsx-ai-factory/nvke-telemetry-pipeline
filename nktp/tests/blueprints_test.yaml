@@ -45,7 +45,7 @@ tests:
     asserts:
       # The literal matches the default exporter, so this fails if the default changes.
       - equal:
-          path: spec.config.exporters.otlp
+          path: spec.config.exporters.otlp_grpc
           value: &exporter
             endpoint: lgtm:4317
             tls: *tls
@@ -98,7 +98,7 @@ tests:
             receivers: [{{ .forward }}]
             exporters: [debug]
       gateway_logs.otelcol.config.exporters.blueprint/shared: {}
-      gateway_logs.otelcol.config.service.pipelines.logs.exporters: [otlp, blueprint/shared]
+      gateway_logs.otelcol.config.service.pipelines.logs.exporters: [otlp_grpc, blueprint/shared]
     asserts:
       - equal:
           path: spec.config.exporters["debug/(exp/shared)"].verbosity
