@@ -53,6 +53,30 @@ tests:
             requests: {cpu: 10m, memory: 32Mi}
             limits: {cpu: 200m, memory: 128Mi}
 
+  - it: keeps one replica available during disruptions by default
+    set:
+      blackbox-exporter.enabled: true
+    template: charts/blackbox-exporter/templates/poddisruptionbudget.yaml
+    asserts:
+      - equal:
+          path: spec.maxUnavailable
+          value: 1
+
+  - it: renders overridden replicas and disruption budget
+    set:
+      blackbox-exporter.enabled: true
+      blackbox-exporter.replicas: 4
+      blackbox-exporter.podDisruptionBudget.maxUnavailable: 2
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 4
+        template: charts/blackbox-exporter/templates/deployment.yaml
+      - equal:
+          path: spec.maxUnavailable
+          value: 2
+        template: charts/blackbox-exporter/templates/poddisruptionbudget.yaml
+
   - it: declares its own metrics for the node collector without the nodeless-target label
     set:
       blackbox-exporter.enabled: true
