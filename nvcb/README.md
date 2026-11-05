@@ -2,6 +2,10 @@
 
 NVIDIA Collector Blueprints is a library chart that allows you to define OpenTelemetry collector config fragments ("blueprints") and reference them alongside normal OpenTelemetry receiver/exporter components. The library takes a config that includes blueprint definitions and expands it into a fully native OpenTelemetry config. The blueprints layer is entirely optional; native config without blueprints passes through unchanged.
 
+## Prerequisites
+
+If you are using a custom collector build, ensure that the `forwardconnector` component is added to your OCB config.
+
 ## Usage
 
 Add the `nvcb` library chart as a dependency to your `Chart.yaml`:
