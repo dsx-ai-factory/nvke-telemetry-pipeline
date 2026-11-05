@@ -1,21 +1,29 @@
 # Nodeless metrics
 
-The nodeless metrics pool (`nodeless_metrics`) selects ServiceMonitor,
-PodMonitor, Probe, and ScrapeConfig resources with the metadata label
-`nktp.nvidia.io/nodeless-target: "true"`.
-Apply this label to monitoring resources whose targets have no Kubernetes node,
-such as Probes for external URLs, Ingresses or Services, and ScrapeConfigs with
-static targets.
+The nodeless metrics pool (`nodeless_metrics`) scrapes targets that have no
+Kubernetes node, such as Probes for external URLs, Ingresses or Services, and
+ScrapeConfigs with static targets. Monitoring resources need no label to opt in.
 
 The node collector's Target Allocator assigns each target to the Collector on
-the target's node. A target without a node stays unassigned and is never
-scraped. This pool's Target Allocator uses `consistent-hashing` instead, so every
-target it selects is scraped by one replica, wherever it runs.
+the target's node. A target without a node would stay unassigned and never be
+scraped. This pool's Target Allocator selects the same ServiceMonitor,
+PodMonitor, Probe, and ScrapeConfig resources as the node collector's, and uses
+`consistent-hashing`, so each of its targets is scraped by one replica, wherever
+it runs. Monitors labeled `nktp.nvidia.io/large-target: "true"` go to the
+[large-target pool](large_target_metrics.md) instead.
 
-The node collector's Target Allocator excludes monitors with this label, so a
-target is not scraped twice. A monitor labeled both
-`nktp.nvidia.io/nodeless-target: "true"` and `nktp.nvidia.io/large-target: "true"`
-is scraped by the [large-target pool](large_target_metrics.md) only.
+Each allocator has a default scrape class that splits targets by node. A target
+has a node when `__meta_kubernetes_pod_node_name`, `__meta_kubernetes_node_name`
+or `__meta_kubernetes_endpoint_node_name` is set, or when its EndpointSlice
+address targets a `Node` by name. This is how the Target Allocator's
+`per-node` strategy places targets. The node collector's class keeps only
+targets with a node, and this pool's class drops them, so no target is scraped
+by both. The allocators apply these relabelings before allocating targets.
+
+A monitor that sets `scrapeClassName` skips both default classes. Its targets
+with a node are then scraped by both pools, and its targets without one by
+this pool only. To use your own scrape class, add the matching `keep` or `drop`
+relabeling from `nktp/values.yaml` to it.
 
 Collectors refresh their assigned targets every 10 seconds. Configure this with
 `nodeless_metrics.kubernetes.targetAllocator.collectorTargetReloadInterval`.
@@ -67,7 +75,7 @@ Its own metrics are declared with a ServiceMonitor, which the node collector
 scrapes because the exporter's Pods have a node. Configure probe modules under
 `blackbox-exporter.config.modules` using the upstream chart's values.
 
-Declare each set of endpoints with a Probe labeled for this pool. Edit the
+Declare each set of endpoints with a Probe; this pool scrapes it. Edit the
 namespace, the targets and the module before applying:
 
 ```yaml
@@ -76,8 +84,6 @@ kind: Probe
 metadata:
   name: example-endpoints
   namespace: nktp
-  labels:
-    nktp.nvidia.io/nodeless-target: "true"
 spec:
   prober:
     url: nktp-blackbox-exporter.nktp.svc:9115

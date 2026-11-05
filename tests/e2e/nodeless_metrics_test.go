@@ -24,9 +24,9 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/features"
 )
 
-// TestNodelessMetrics proves that a Probe labeled for the nodeless pool is
-// scraped through the blackbox exporter, by that pool only. The node
-// collector's per-node allocation leaves such targets unassigned.
+// TestNodelessMetrics proves that an unlabeled Probe is scraped through the
+// blackbox exporter by the nodeless pool only. Its target has no node, so the
+// node collector's scrape class drops it and the nodeless pool's keeps it.
 func TestNodelessMetrics(t *testing.T) {
 	const manifests = "manifests/nodeless-metrics"
 	namespace := testenv.EnvConf().Namespace()
@@ -50,7 +50,7 @@ func TestNodelessMetrics(t *testing.T) {
 			started = time.Now()
 			return funcs.ApplyResources(FieldManager, manifests, "*.yaml", decoder.MutateNamespace(namespace))(ctx, t, c)
 		}).
-		Assess("A labeled Probe is scraped by the nodeless pool only", func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
+		Assess("An unlabeled Probe is scraped by the nodeless pool only", func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
 			waitCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 			defer cancel()
 			client, err := coreclient.NewForConfig(c.Client().RESTConfig())

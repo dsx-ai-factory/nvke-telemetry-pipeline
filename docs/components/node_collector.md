@@ -278,11 +278,9 @@ requests and limits for discovered objects and targets.
 Setting `daemonset.kubernetes.targetAllocator.enabled` to `false` will cause Helm
 rendering to fail.
 
-Monitoring CRs labeled `nktp.nvidia.io/large-target: "true"` or
-`nktp.nvidia.io/nodeless-target: "true"` are excluded.
-Unlabeled monitors remain eligible. Targets without a matching collector node
-remain unassigned; label their monitors for the
-[nodeless metrics pool](nodeless_metrics.md).
+Monitoring CRs labeled `nktp.nvidia.io/large-target: "true"` are excluded.
+A default scrape class keeps only targets that have a node; the
+[nodeless metrics pool](nodeless_metrics.md) scrapes the rest.
 
 The Target Allocator defaults `prometheusCR.denyFSAccessThroughSMs` to `false`
 for compatibility with existing ServiceMonitors and PodMonitors that reference

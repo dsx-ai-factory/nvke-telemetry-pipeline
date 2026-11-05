@@ -4,7 +4,7 @@ release:
 templates:
   - templates/nodeless-metrics.yaml
 tests:
-  - it: scrapes nodeless-target monitors with consistent hashing
+  - it: scrapes targets without a node with consistent hashing
     asserts:
       - hasDocuments:
           count: 1
@@ -68,23 +68,40 @@ tests:
             service.name: nktp-nodeless-metrics
             service.instance.id: ${env:POD_NAME}
 
-  - it: selects nodeless-target monitors and leaves large-target monitors to their pool
+  - it: selects the node collector's monitors and drops every target with a node
     asserts:
       - equal:
           path: spec.targetAllocator.prometheusCR.serviceMonitorSelector
-          value: &selector
+          value:
             matchExpressions:
-              - {key: nktp.nvidia.io/nodeless-target, operator: In, values: ["true"]}
               - {key: nktp.nvidia.io/large-target, operator: NotIn, values: ["true"]}
+              - {key: app, operator: NotIn, values: [kube-prometheus-stack-kubelet, prometheus-operator-kubelet]}
       - equal:
           path: spec.targetAllocator.prometheusCR.podMonitorSelector
-          value: *selector
+          value: &selector
+            matchExpressions:
+              - {key: nktp.nvidia.io/large-target, operator: NotIn, values: ["true"]}
       - equal:
           path: spec.targetAllocator.prometheusCR.probeSelector
           value: *selector
       - equal:
           path: spec.targetAllocator.prometheusCR.scrapeConfigSelector
           value: *selector
+      - equal:
+          path: spec.targetAllocator.prometheusCR.scrapeClasses
+          value:
+            - name: nktp-nodeless-targets
+              default: true
+              relabelings:
+                - sourceLabels:
+                    - __meta_kubernetes_pod_node_name
+                    - __meta_kubernetes_node_name
+                    - __meta_kubernetes_endpoint_node_name
+                    - __meta_kubernetes_endpointslice_address_target_kind
+                    - __meta_kubernetes_endpointslice_address_target_name
+                  separator: ";"
+                  regex: "[^;]+;.*|[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]*;Node;[^;]+"
+                  action: drop
 
   - it: pushes allocator metrics to watchdog and sets its own resource budget
     asserts:
@@ -108,8 +125,8 @@ tests:
       - equal:
           path: spec.targetAllocator.resources
           value:
-            requests: {cpu: 100m, memory: 256Mi}
-            limits: {cpu: 500m, memory: 512Mi}
+            requests: {cpu: 250m, memory: 1Gi}
+            limits: {cpu: "1", memory: 2Gi}
       - equal:
           path: spec.targetAllocator.podSecurityContext
           value:

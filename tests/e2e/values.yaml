@@ -141,7 +141,7 @@ large_target_metrics:
         memory: 256Mi
 
 # Large target metrics covers distribution across a pool. One scraper is
-# enough to show that a labeled Probe reaches this pool and no other.
+# enough to show that an unlabeled Probe reaches this pool and no other.
 nodeless_metrics:
   kubernetes:
     replicas: 1

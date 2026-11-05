@@ -1593,14 +1593,11 @@ daemonset:
         denyFSAccessThroughSMs: false # Preserve compatibility with monitors that reference files in the Collector container.
         # Explicit namespaces for chart-managed RBAC and Secret watching.
         # secretNamespaces: [metrics-monitors]
-        # Exclude monitoring CRs labeled nktp.nvidia.io/large-target: "true" or nktp.nvidia.io/nodeless-target: "true",
-        # and common kubelet ServiceMonitors
+        # Exclude monitoring CRs labeled nktp.nvidia.io/large-target: "true" and common kubelet ServiceMonitors.
+        # nodeless_metrics uses the same selectors.
         serviceMonitorSelector:
           matchExpressions:
             - key: nktp.nvidia.io/large-target
-              operator: NotIn
-              values: ["true"]
-            - key: nktp.nvidia.io/nodeless-target
               operator: NotIn
               values: ["true"]
             - key: app
@@ -1611,15 +1608,9 @@ daemonset:
             - key: nktp.nvidia.io/large-target
               operator: NotIn
               values: ["true"]
-            - key: nktp.nvidia.io/nodeless-target
-              operator: NotIn
-              values: ["true"]
         probeSelector:
           matchExpressions:
             - key: nktp.nvidia.io/large-target
-              operator: NotIn
-              values: ["true"]
-            - key: nktp.nvidia.io/nodeless-target
               operator: NotIn
               values: ["true"]
         scrapeConfigSelector:
@@ -1627,9 +1618,23 @@ daemonset:
             - key: nktp.nvidia.io/large-target
               operator: NotIn
               values: ["true"]
-            - key: nktp.nvidia.io/nodeless-target
-              operator: NotIn
-              values: ["true"]
+        # Keeps only targets with a node, so no target is scraped by both this pool and nodeless_metrics, which
+        # drops the same set. The regex mirrors Item.GetNodeName in the pinned Target Allocator: a node label is
+        # set, or the EndpointSlice address targets a Node by name. A monitor that names another scrape class
+        # skips this one.
+        scrapeClasses:
+          - name: nktp-node-targets
+            default: true
+            relabelings:
+              - sourceLabels:
+                  - __meta_kubernetes_pod_node_name
+                  - __meta_kubernetes_node_name
+                  - __meta_kubernetes_endpoint_node_name
+                  - __meta_kubernetes_endpointslice_address_target_kind
+                  - __meta_kubernetes_endpointslice_address_target_name
+                separator: ";"
+                regex: "[^;]+;.*|[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]*;Node;[^;]+"
+                action: keep
     resources:
       requests:
         cpu: 500m
@@ -2607,9 +2612,9 @@ large_target_metrics:
               processors: [memory_limiter, tail_sampling]
               exporters: [otlp]
 
-# Scrapes monitoring CRs labeled nktp.nvidia.io/nodeless-target: "true", such as
-# Probes and static ScrapeConfigs, whose targets have no node for a daemonset
-# Collector to own.
+# Scrapes the targets that have no node for a daemonset Collector to own, such
+# as Probes and static ScrapeConfigs. It selects the same monitoring CRs as the
+# node collector, and a default scrape class drops the targets that have a node.
 nodeless_metrics:
   kubernetes:
     mode: statefulset # The Target Allocator uses stable Collector identities.
@@ -2641,13 +2646,14 @@ nodeless_metrics:
                     tls:
                       insecure: true
                     temporalityPreference: cumulative
+      # Discovers the same monitors as the daemonset's allocator but holds few allocations.
       resources:
         requests:
-          cpu: 100m
-          memory: 256Mi
+          cpu: 250m
+          memory: 1Gi
         limits:
-          cpu: 500m
-          memory: 512Mi
+          cpu: "1"
+          memory: 2Gi
       podSecurityContext:
         runAsNonRoot: true
         seccompProfile:
@@ -2663,39 +2669,46 @@ nodeless_metrics:
       prometheusCR:
         enabled: true
         denyFSAccessThroughSMs: false # Preserve compatibility with monitors that reference files in the Collector container.
-        # Monitoring CRs labeled for both pools stay with the large-target pool.
+        # The node collector's selectors: everything not labeled nktp.nvidia.io/large-target: "true".
         serviceMonitorSelector:
           matchExpressions:
-            - key: nktp.nvidia.io/nodeless-target
-              operator: In
-              values: ["true"]
             - key: nktp.nvidia.io/large-target
               operator: NotIn
               values: ["true"]
+            - key: app
+              operator: NotIn
+              values: [kube-prometheus-stack-kubelet, prometheus-operator-kubelet]
         podMonitorSelector:
           matchExpressions:
-            - key: nktp.nvidia.io/nodeless-target
-              operator: In
-              values: ["true"]
             - key: nktp.nvidia.io/large-target
               operator: NotIn
               values: ["true"]
         probeSelector:
           matchExpressions:
-            - key: nktp.nvidia.io/nodeless-target
-              operator: In
-              values: ["true"]
             - key: nktp.nvidia.io/large-target
               operator: NotIn
               values: ["true"]
         scrapeConfigSelector:
           matchExpressions:
-            - key: nktp.nvidia.io/nodeless-target
-              operator: In
-              values: ["true"]
             - key: nktp.nvidia.io/large-target
               operator: NotIn
               values: ["true"]
+        # Drops every target with a node, which the daemonset's per-node allocation owns; the rest have no node
+        # and would otherwise go unscraped. The regex is the daemonset class's, inverted, and mirrors
+        # Item.GetNodeName in the pinned Target Allocator. A monitor that names another scrape class skips this one.
+        scrapeClasses:
+          - name: nktp-nodeless-targets
+            default: true
+            relabelings:
+              - sourceLabels:
+                  - __meta_kubernetes_pod_node_name
+                  - __meta_kubernetes_node_name
+                  - __meta_kubernetes_endpoint_node_name
+                  - __meta_kubernetes_endpointslice_address_target_kind
+                  - __meta_kubernetes_endpointslice_address_target_name
+                separator: ";"
+                regex: "[^;]+;.*|[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]*;Node;[^;]+"
+                action: drop
     resources:
       requests:
         cpu: 100m
@@ -3446,8 +3459,8 @@ metrics-server:
   enabled: false
 
 # Probes HTTP, TCP, DNS, gRPC and ICMP endpoints for Probe resources. Disabled by
-# default. Label each Probe nktp.nvidia.io/nodeless-target: "true" so the
-# nodeless_metrics pool scrapes it; see docs/components/nodeless_metrics.md.
+# default. Probe targets have no node, so the nodeless_metrics pool scrapes
+# them; see docs/components/nodeless_metrics.md.
 blackbox-exporter:
   enabled: false
   fullnameOverride: nktp-blackbox-exporter

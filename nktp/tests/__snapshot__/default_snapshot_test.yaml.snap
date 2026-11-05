@@ -1139,37 +1139,34 @@ matches the snapshot with default values:
                 operator: NotIn
                 values:
                   - "true"
-              - key: nktp.nvidia.io/nodeless-target
-                operator: NotIn
-                values:
-                  - "true"
           probeSelector:
             matchExpressions:
               - key: nktp.nvidia.io/large-target
                 operator: NotIn
                 values:
                   - "true"
-              - key: nktp.nvidia.io/nodeless-target
-                operator: NotIn
-                values:
-                  - "true"
+          scrapeClasses:
+            - default: true
+              name: nktp-node-targets
+              relabelings:
+                - action: keep
+                  regex: '[^;]+;.*|[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]*;Node;[^;]+'
+                  separator: ;
+                  sourceLabels:
+                    - __meta_kubernetes_pod_node_name
+                    - __meta_kubernetes_node_name
+                    - __meta_kubernetes_endpoint_node_name
+                    - __meta_kubernetes_endpointslice_address_target_kind
+                    - __meta_kubernetes_endpointslice_address_target_name
           scrapeConfigSelector:
             matchExpressions:
               - key: nktp.nvidia.io/large-target
                 operator: NotIn
                 values:
                   - "true"
-              - key: nktp.nvidia.io/nodeless-target
-                operator: NotIn
-                values:
-                  - "true"
           serviceMonitorSelector:
             matchExpressions:
               - key: nktp.nvidia.io/large-target
-                operator: NotIn
-                values:
-                  - "true"
-              - key: nktp.nvidia.io/nodeless-target
                 operator: NotIn
                 values:
                   - "true"
@@ -3800,52 +3797,54 @@ matches the snapshot with default values:
           enabled: true
           podMonitorSelector:
             matchExpressions:
-              - key: nktp.nvidia.io/nodeless-target
-                operator: In
-                values:
-                  - "true"
               - key: nktp.nvidia.io/large-target
                 operator: NotIn
                 values:
                   - "true"
           probeSelector:
             matchExpressions:
-              - key: nktp.nvidia.io/nodeless-target
-                operator: In
-                values:
-                  - "true"
               - key: nktp.nvidia.io/large-target
                 operator: NotIn
                 values:
                   - "true"
+          scrapeClasses:
+            - default: true
+              name: nktp-nodeless-targets
+              relabelings:
+                - action: drop
+                  regex: '[^;]+;.*|[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]*;Node;[^;]+'
+                  separator: ;
+                  sourceLabels:
+                    - __meta_kubernetes_pod_node_name
+                    - __meta_kubernetes_node_name
+                    - __meta_kubernetes_endpoint_node_name
+                    - __meta_kubernetes_endpointslice_address_target_kind
+                    - __meta_kubernetes_endpointslice_address_target_name
           scrapeConfigSelector:
             matchExpressions:
-              - key: nktp.nvidia.io/nodeless-target
-                operator: In
-                values:
-                  - "true"
               - key: nktp.nvidia.io/large-target
                 operator: NotIn
                 values:
                   - "true"
           serviceMonitorSelector:
             matchExpressions:
-              - key: nktp.nvidia.io/nodeless-target
-                operator: In
-                values:
-                  - "true"
               - key: nktp.nvidia.io/large-target
                 operator: NotIn
                 values:
                   - "true"
+              - key: app
+                operator: NotIn
+                values:
+                  - kube-prometheus-stack-kubelet
+                  - prometheus-operator-kubelet
         replicas: 1
         resources:
           limits:
-            cpu: 500m
-            memory: 512Mi
+            cpu: "1"
+            memory: 2Gi
           requests:
-            cpu: 100m
-            memory: 256Mi
+            cpu: 250m
+            memory: 1Gi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

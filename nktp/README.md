@@ -50,8 +50,8 @@ Provide the following before installing NKTP.
   mounts host paths for pod logs, journald and `/proc`. node-exporter uses the
   host network and PID namespaces, host paths, and host port 9100. The
   `baseline` and `restricted` Pod Security levels reject these Pods.
-- **Capacity.** The defaults are sized for large clusters: about 5.1 CPU and
-  14.2 GiB of memory in requests for the cluster-wide components, plus about
+- **Capacity.** The defaults are sized for large clusters: about 5.2 CPU and
+  14.9 GiB of memory in requests for the cluster-wide components, plus about
   0.6 CPU and 1.2 GiB on every node for the per-node DaemonSets.
 
 ## Install
@@ -93,7 +93,7 @@ a retained claim removes its stored telemetry.
 | Node collector | `daemonset` | DaemonSet | Receives OTLP from workloads on its node, and collects pod logs, the journal, host and audit logs, kubelet and cAdvisor metrics, and scrape targets on its node. |
 | Logs, metrics, and traces gateways | `gateway_logs`, `gateway_metrics`, `gateway_traces` | One StatefulSet each | Export each signal to the backend. |
 | Large-target metrics pool | `large_target_metrics` | StatefulSet | Scrapes monitors labeled `nktp.nvidia.io/large-target: "true"`, including the Kubernetes control plane. |
-| Nodeless metrics pool | `nodeless_metrics` | StatefulSet | Scrapes monitors labeled `nktp.nvidia.io/nodeless-target: "true"`, such as Probes, whose targets have no node. |
+| Nodeless metrics pool | `nodeless_metrics` | StatefulSet | Scrapes targets that have no node, such as Probes and static ScrapeConfigs. |
 | Cluster event reader | `cluster_events` | StatefulSet | Reads Kubernetes Events, with one elected replica active at a time. |
 | Watchdog | `watchdog` | StatefulSet | Receives the pipeline's own telemetry and exports it to the backend. |
 | kube-state-metrics | `kube-state-metrics` | DaemonSet and Deployments | Exposes Kubernetes object state as metrics. |
@@ -138,9 +138,8 @@ receiver's `otelcol.config`.
   `nktp.nvidia.io/large-target: "true"` to scrape it from the large-target pool,
   which reserves more memory per scrape, instead of the node collector.
 - **Probes and targets without a node:** the node collector only scrapes
-  targets on its own node, so a Probe or a static ScrapeConfig is never scraped
-  by it. Label the monitor `nktp.nvidia.io/nodeless-target: "true"` to scrape it
-  from the nodeless pool. Set `blackbox-exporter.enabled: true` to install a
+  targets on its own node, so the nodeless pool scrapes Probes and static
+  ScrapeConfigs, with no label needed. Set `blackbox-exporter.enabled: true` to install a
   blackbox exporter for Probes to use, at `nktp-blackbox-exporter.<namespace>:9115`.
 - **Logs:** Pod stdout and stderr are collected from every node without
   configuration.

@@ -14,8 +14,7 @@ Default budgets are per Pod. Configure collector resources under
 | Cluster event reader | 250m / 256 MiB | 1 / 512 MiB |
 | Watchdog | 100m / 256 MiB | 4 / 1 GiB |
 | Node Target Allocator | 250m / 2 GiB | 2 / 4 GiB |
-| Large-target and watchdog Target Allocators | 250m / 1 GiB | 1 / 2 GiB |
-| Nodeless Target Allocator | 100m / 256 MiB | 500m / 512 MiB |
+| Large-target, nodeless and watchdog Target Allocators | 250m / 1 GiB | 1 / 2 GiB |
 | Self-telemetry sidecar, watchdog and gateways | 20m / 64 MiB | 200m / 256 MiB |
 | Self-telemetry sidecar, other Collectors | 10m / 32 MiB | 100m / 128 MiB |
 

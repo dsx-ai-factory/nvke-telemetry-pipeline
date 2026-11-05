@@ -44,7 +44,7 @@ flowchart LR
 | --- | --- | --- | --- | --- |
 | [Node collector](../components/node_collector.md) | `daemonset` | DaemonSet on every node, including tainted nodes | OTLP from workloads on its node, pod logs, journal, host authentication and audit logs, Kubernetes API audit log, kubelet and cAdvisor metrics, and scrape targets on its node | The gateway for each signal |
 | [Large-target metrics pool](../components/large_target_metrics.md) | `large_target_metrics` | StatefulSet, 2 to 32 replicas | Monitors labeled `nktp.nvidia.io/large-target: "true"` | Metrics gateway |
-| [Nodeless metrics pool](../components/nodeless_metrics.md) | `nodeless_metrics` | StatefulSet, 2 replicas | Monitors labeled `nktp.nvidia.io/nodeless-target: "true"`, such as Probes | Metrics gateway |
+| [Nodeless metrics pool](../components/nodeless_metrics.md) | `nodeless_metrics` | StatefulSet, 2 replicas | Scrape targets without a node, such as Probes and static ScrapeConfigs | Metrics gateway |
 | [Cluster event reader](../components/cluster_events.md) | `cluster_events` | StatefulSet, 2 replicas, one elected reader | Kubernetes Events | Logs gateway |
 | [Logs, metrics, and traces gateways](../components/gateways.md) | `gateway_logs`, `gateway_metrics`, `gateway_traces` | One StatefulSet each, 2 to 128 replicas | OTLP over gRPC with mTLS | Backend |
 | [Watchdog](../components/watchdog.md) | `watchdog` | StatefulSet, 2 to 16 replicas | Self-telemetry from NKTP components | Backend |
@@ -62,9 +62,9 @@ scraping Collector requires one.
 
 | Target Allocator | Strategy | Discovers | Assigns to |
 | --- | --- | --- | --- |
-| Node (`daemonset`) | `per-node` | ServiceMonitors, PodMonitors, Probes, and ScrapeConfigs not labeled `nktp.nvidia.io/large-target: "true"` or `nktp.nvidia.io/nodeless-target: "true"` | The node collector on the target's node |
+| Node (`daemonset`) | `per-node` | Targets with a node, from ServiceMonitors, PodMonitors, Probes, and ScrapeConfigs not labeled `nktp.nvidia.io/large-target: "true"` | The node collector on the target's node |
 | Large-target (`large_target_metrics`) | `consistent-hashing` | The same resource kinds with `nktp.nvidia.io/large-target: "true"` | One replica of the large-target pool |
-| Nodeless (`nodeless_metrics`) | `consistent-hashing` | The same resource kinds with `nktp.nvidia.io/nodeless-target: "true"` and not labeled `nktp.nvidia.io/large-target: "true"` | One replica of the nodeless pool |
+| Nodeless (`nodeless_metrics`) | `consistent-hashing` | Targets without a node, from the node allocator's resources | One replica of the nodeless pool |
 | Watchdog (`watchdog`) | `consistent-hashing` | The watchdog's own scrape jobs; Prometheus CR discovery is off | One watchdog replica |
 
 The bundled exporters are split between the node and large-target allocators:

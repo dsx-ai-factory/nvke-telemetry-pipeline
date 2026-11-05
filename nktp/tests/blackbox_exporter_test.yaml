@@ -77,7 +77,7 @@ tests:
           value: 2
         template: charts/blackbox-exporter/templates/poddisruptionbudget.yaml
 
-  - it: declares its own metrics for the node collector without the nodeless-target label
+  - it: declares its own metrics for the node collector without the large-target label
     set:
       blackbox-exporter.enabled: true
     template: charts/blackbox-exporter/templates/selfservicemonitor.yaml
@@ -87,7 +87,7 @@ tests:
           kind: ServiceMonitor
           name: nktp-blackbox-exporter
       - notExists:
-          path: metadata.labels["nktp.nvidia.io/nodeless-target"]
+          path: metadata.labels["nktp.nvidia.io/large-target"]
 
   - it: mirrors the image through global.imageRegistry
     set:
