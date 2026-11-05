@@ -15,7 +15,7 @@ watchdog:
       extensions:
         file_storage/queue: null
       exporters:
-        otlp:
+        otlp_grpc:
           sending_queue:
             storage: null
             queue_size: 85899346 # Per signal; about 246MiB total across the three queues.
@@ -35,7 +35,7 @@ gateway_logs:
       extensions:
         file_storage/queue: null
       exporters:
-        otlp:
+        otlp_grpc:
           sending_queue:
             storage: null
       service:
@@ -54,7 +54,7 @@ gateway_metrics:
       extensions:
         file_storage/queue: null
       exporters:
-        otlp:
+        otlp_grpc:
           sending_queue:
             storage: null
       service:
@@ -73,7 +73,7 @@ gateway_traces:
       extensions:
         file_storage/queue: null
       exporters:
-        otlp:
+        otlp_grpc:
           sending_queue:
             storage: null
       service:

@@ -32,7 +32,7 @@ gateway_metrics:
       service:
         telemetry: *loadTelemetry
       exporters:
-        otlp:
+        otlp_grpc:
           endpoint: nktp-mixed-workload-blackhole-collector:4317
 
 gateway_logs:
@@ -44,7 +44,7 @@ gateway_logs:
       service:
         telemetry: *loadTelemetry
       exporters:
-        otlp:
+        otlp_grpc:
           endpoint: nktp-mixed-workload-blackhole-collector:4317
 
 gateway_traces:
@@ -56,7 +56,7 @@ gateway_traces:
       service:
         telemetry: *loadTelemetry
       exporters:
-        otlp:
+        otlp_grpc:
           endpoint: nktp-mixed-workload-blackhole-collector:4317
 
 large_target_metrics:
@@ -100,10 +100,10 @@ cluster_events:
               statements:
                 - set(time_unix_nano, UnixNano(Now()))
                 - set(start_time_unix_nano, time_unix_nano)
-        deltatocumulative/scale_events: {max_stale: 5m, max_streams: 1024}
+        delta_to_cumulative/scale_events: {max_stale: 5m, max_streams: 1024}
         interval/scale_events: {interval: 15s}
       exporters:
-        otlp/scale_events:
+        otlp_grpc/scale_events:
           endpoint: nktp-watchdog-collector:4317
           tls:
             ca_file: /etc/nktp/internal-tls/client/ca.crt
@@ -118,11 +118,11 @@ cluster_events:
         pipelines:
           logs:
             processors: [memory_limiter, transform/event_service, transform/scale_events, redaction/basic_v1]
-            exporters: [otlp, count/scale_events]
+            exporters: [otlp_grpc, count/scale_events]
           metrics/scale_events:
             receivers: [count/scale_events]
-            processors: [batch/scale_events, transform/scale_events_time, deltatocumulative/scale_events, interval/scale_events]
-            exporters: [otlp/scale_events]
+            processors: [batch/scale_events, transform/scale_events_time, delta_to_cumulative/scale_events, interval/scale_events]
+            exporters: [otlp_grpc/scale_events]
         telemetry: *loadTelemetry
 
 kube-state-metrics:
@@ -256,7 +256,7 @@ opentelemetry-kube-stack:
               spike_limit_percentage: 25
           exporters:
             nop: {}
-            otlp/observations:
+            otlp_grpc/observations:
               endpoint: lgtm:4317
               tls:
                 insecure: true
@@ -311,7 +311,7 @@ opentelemetry-kube-stack:
                 exporters: [nop]
               metrics/observations:
                 receivers: [routing/observations]
-                exporters: [otlp/observations]
+                exporters: [otlp_grpc/observations]
               logs:
                 receivers: [otlp]
                 processors: [memory_limiter]
@@ -621,7 +621,7 @@ opentelemetry-kube-stack:
                   value: ${env:POD_UID}
                   action: upsert
           exporters:
-            otlp:
+            otlp_grpc:
               endpoint: nktp-mixed-workload-local.nktp.svc:4317
               tls:
                 insecure: true
@@ -629,7 +629,7 @@ opentelemetry-kube-stack:
                 max_elapsed_time: 30s
               sending_queue:
                 enabled: false
-            otlp/observations:
+            otlp_grpc/observations:
               endpoint: lgtm:4317
               tls:
                 insecure: true
@@ -654,8 +654,8 @@ opentelemetry-kube-stack:
               metrics/load:
                 receivers: [prometheus]
                 processors: [filter/load, resource/source]
-                exporters: [otlp]
+                exporters: [otlp_grpc]
               metrics/observations:
                 receivers: [prometheus]
                 processors: [filter/observations, transform/observations, resource/source]
-                exporters: [otlp/observations]
+                exporters: [otlp_grpc/observations]

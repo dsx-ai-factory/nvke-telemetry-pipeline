@@ -117,7 +117,7 @@ watchdog:
     otelcol:
       config:
         exporters:
-          otlp:
+          otlp_grpc:
             endpoint: <backend>:4317
             tls:
               insecure: false

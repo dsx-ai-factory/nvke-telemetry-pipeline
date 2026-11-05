@@ -62,11 +62,11 @@ tests:
           value: []
         documentIndex: 0
       - equal:
-          path: "spec.config.exporters.otlp.endpoint"
+          path: "spec.config.exporters.otlp_grpc.endpoint"
           value: "nktp-gateway-metrics-collector:4317"
         documentIndex: 0
       - equal:
-          path: spec.config.exporters.otlp.tls
+          path: spec.config.exporters.otlp_grpc.tls
           value:
             ca_file: /etc/nktp/internal-tls/client/ca.crt
             cert_file: /etc/nktp/internal-tls/client/tls.crt
@@ -76,10 +76,10 @@ tests:
           path: spec.config.processors.batch
           value: {timeout: 0s, send_batch_size: 8192, send_batch_max_size: 8192}
       - equal:
-          path: spec.config.exporters.otlp.sending_queue.queue_size
+          path: spec.config.exporters.otlp_grpc.sending_queue.queue_size
           value: 134217728
       - equal:
-          path: spec.config.exporters.otlp.sending_queue.num_consumers
+          path: spec.config.exporters.otlp_grpc.sending_queue.num_consumers
           value: 32
       - contains:
           path: spec.env
@@ -147,7 +147,7 @@ tests:
       large_target_metrics.kubernetes.config: {"ignored": true}
       large_target_metrics.kubernetes.nodeSelector: {"telemetry": "large"}
       large_target_metrics.kubernetes.resources.requests.cpu: "750m"
-      large_target_metrics.otelcol.config.exporters.otlp.endpoint: "${env:METRICS_ENDPOINT}"
+      large_target_metrics.otelcol.config.exporters.otlp_grpc.endpoint: "${env:METRICS_ENDPOINT}"
       large_target_metrics.otelcol.config.receivers.prometheus.config.scrape_configs: [{"job_name": "custom", "static_configs": [{"targets": ["${env:SCRAPE_TARGET}"]}], "relabel_configs": [{"source_labels": ["__address__"], "target_label": "instance", "replacement": "$1"}]}]
     asserts:
       - equal:
@@ -170,7 +170,7 @@ tests:
           path: "spec.config.ignored"
         documentIndex: 0
       - equal:
-          path: "spec.config.exporters.otlp.endpoint"
+          path: "spec.config.exporters.otlp_grpc.endpoint"
           value: "${env:METRICS_ENDPOINT}"
         documentIndex: 0
       - equal:
@@ -220,7 +220,7 @@ tests:
           value: [{"batch": {"exporter": {"otlp": {"protocol": "grpc", "endpoint": "http://own-traces:4317"}}}}]
         documentIndex: 0
       - equal:
-          path: "spec.config.exporters.otlp.endpoint"
+          path: "spec.config.exporters.otlp_grpc.endpoint"
           value: "nktp-gateway-metrics-collector:4317"
         documentIndex: 0
 
@@ -234,9 +234,9 @@ tests:
             metrics:
               receivers: [prometheus]
               processors: [memory_limiter, redaction/basic_v1, batch]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
       - notExists:
-          path: spec.config.exporters["otlp/watchdog"]
+          path: spec.config.exporters["otlp_grpc/watchdog"]
       - equal:
           path: spec.targetAllocator.observability.metrics.enableMetrics
           value: false

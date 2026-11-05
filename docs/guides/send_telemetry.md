@@ -176,7 +176,7 @@ spec:
         limit_percentage: 80
         spike_limit_percentage: 25
     exporters:
-      otlp:
+      otlp_grpc:
         endpoint: nktp-daemonset-collector.nktp:4317
         tls:
           insecure: true
@@ -190,15 +190,15 @@ spec:
         logs:
           receivers: [otlp]
           processors: [memory_limiter]
-          exporters: [otlp]
+          exporters: [otlp_grpc]
         metrics:
           receivers: [otlp]
           processors: [memory_limiter]
-          exporters: [otlp]
+          exporters: [otlp_grpc]
         traces:
           receivers: [otlp]
           processors: [memory_limiter]
-          exporters: [otlp]
+          exporters: [otlp_grpc]
 ```
 
 - The receivers listen on `127.0.0.1`, so only containers in the same Pod can
@@ -244,7 +244,7 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, probabilistic_sampler]
-      exporters: [otlp]
+      exporters: [otlp_grpc]
 ```
 
 This keeps 10% of traces. The sampler decides from the trace ID, so every

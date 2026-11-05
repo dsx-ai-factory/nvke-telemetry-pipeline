@@ -3,7 +3,7 @@
 The node Collector does not collect per-process metrics by default. Node
 exporter provides host metrics, and the kubelet cAdvisor scrape provides
 per-container resource use. This guide enables the `process` scraper of the
-`hostmetrics` receiver on the node Collector, for CPU, memory, and disk I/O of
+`host_metrics` receiver on the node Collector, for CPU, memory, and disk I/O of
 each process on each node.
 
 Some environments need extra privileges for the scraper to read host processes
@@ -21,7 +21,7 @@ daemonset:
   otelcol:
     config:
       receivers:
-        hostmetrics:
+        host_metrics:
           root_path: /hostfs
           collection_interval: 1m
           scrapers:
@@ -32,9 +32,9 @@ daemonset:
       service:
         pipelines:
           metrics/process:
-            receivers: [hostmetrics]
+            receivers: [host_metrics]
             processors: [memory_limiter, resource/node, redaction/basic_v1]
-            exporters: [otlp/metrics]
+            exporters: [otlp_grpc/metrics]
 ```
 
 A separate pipeline avoids copying the default `metrics` pipeline's `receivers`
@@ -101,7 +101,7 @@ To reduce volume:
     otelcol:
       config:
         receivers:
-          hostmetrics:
+          host_metrics:
             scrapers:
               process:
                 include:
@@ -237,7 +237,7 @@ daemonset:
   otelcol:
     config:
       receivers:
-        hostmetrics:
+        host_metrics:
           scrapers:
             process:
               mute_process_exe_error: true
@@ -253,7 +253,7 @@ daemonset:
   otelcol:
     config:
       receivers:
-        hostmetrics:
+        host_metrics:
           scrapers:
             process:
               mute_process_user_error: true

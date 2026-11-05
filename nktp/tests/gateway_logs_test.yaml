@@ -63,7 +63,7 @@ tests:
       - equal:
           path: spec.config.service.pipelines
           value:
-            logs: {receivers: [otlp], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp]}
+            logs: {receivers: [otlp], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
       - equal:
           path: spec.config.processors.memory_limiter
           value:
@@ -73,7 +73,7 @@ tests:
       - exists:
           path: spec.config.processors["redaction/basic_v1"]
       - equal:
-          path: spec.config.exporters.otlp.endpoint
+          path: spec.config.exporters.otlp_grpc.endpoint
           value: lgtm:4317
       - equal:
           path: spec.config.service.telemetry
@@ -199,23 +199,23 @@ tests:
 
   - it: changes forwarding fields without changing own telemetry or native expressions
     set:
-      gateway_logs.otelcol.config.exporters.otlp.endpoint: ${env:DESTINATION}
-      gateway_logs.otelcol.config.exporters.otlp.tls.insecure: false
-      gateway_logs.otelcol.config.exporters.otlp.headers:
+      gateway_logs.otelcol.config.exporters.otlp_grpc.endpoint: ${env:DESTINATION}
+      gateway_logs.otelcol.config.exporters.otlp_grpc.tls.insecure: false
+      gateway_logs.otelcol.config.exporters.otlp_grpc.headers:
         x-literal: "{{ preserved }} $$TOKEN"
-      gateway_logs.otelcol.config.exporters.otlp.sending_queue.queue_size: 4194304
+      gateway_logs.otelcol.config.exporters.otlp_grpc.sending_queue.queue_size: 4194304
     asserts:
       - equal:
-          path: spec.config.exporters.otlp.endpoint
+          path: spec.config.exporters.otlp_grpc.endpoint
           value: ${env:DESTINATION}
       - equal:
-          path: spec.config.exporters.otlp.tls.insecure
+          path: spec.config.exporters.otlp_grpc.tls.insecure
           value: false
       - equal:
-          path: spec.config.exporters.otlp.headers
+          path: spec.config.exporters.otlp_grpc.headers
           value: {x-literal: "{{ preserved }} $$TOKEN"}
       - equal:
-          path: spec.config.exporters.otlp.sending_queue
+          path: spec.config.exporters.otlp_grpc.sending_queue
           value:
             storage: file_storage/queue
             block_on_overflow: true
@@ -253,7 +253,7 @@ tests:
           path: spec.config.service.telemetry.traces.processors[0].batch.exporter.otlp.endpoint
           value: http://127.0.0.1:4319
       - equal:
-          path: spec.config.exporters.otlp.endpoint
+          path: spec.config.exporters.otlp_grpc.endpoint
           value: lgtm:4317
 
   - it: replaces own log exporters independently
@@ -276,7 +276,7 @@ tests:
           path: spec.config.service.telemetry.traces.processors[0].batch.exporter.otlp.endpoint
           value: http://127.0.0.1:4319
       - equal:
-          path: spec.config.exporters.otlp.endpoint
+          path: spec.config.exporters.otlp_grpc.endpoint
           value: lgtm:4317
 
   - it: replaces own trace exporters independently
@@ -299,7 +299,7 @@ tests:
           path: spec.config.service.telemetry.logs.processors[0].batch.exporter.otlp.endpoint
           value: http://127.0.0.1:4319
       - equal:
-          path: spec.config.exporters.otlp.endpoint
+          path: spec.config.exporters.otlp_grpc.endpoint
           value: lgtm:4317
 
   - it: changes the gRPC listener while preserving mTLS and connection rotation
@@ -347,8 +347,8 @@ tests:
           path: spec.config.service.extensions
           value: [health_check, file_storage/queue]
       - equal:
-          path: spec.config.exporters.otlp.sending_queue.storage
+          path: spec.config.exporters.otlp_grpc.sending_queue.storage
           value: file_storage/queue
       - equal:
-          path: spec.config.exporters.otlp.sending_queue.queue_size
+          path: spec.config.exporters.otlp_grpc.sending_queue.queue_size
           value: 515396076

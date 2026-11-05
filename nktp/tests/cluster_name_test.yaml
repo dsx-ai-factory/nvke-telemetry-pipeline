@@ -55,7 +55,7 @@ tests:
         template: templates/watchdog.yaml
       - matchRegex:
           path: spec.initContainers[0].args[0]
-          pattern: '"traces":\{"exporters":\["otlp"\],"processors":\["memory_limiter","tail_sampling","redaction/basic_v1","transform/cluster"\]'
+          pattern: '"traces":\{"exporters":\["otlp_grpc"\],"processors":\["memory_limiter","tail_sampling","redaction/basic_v1","transform/cluster"\]'
         template: templates/watchdog.yaml
 
   - it: keeps the cluster name a string by reading it inside an OTTL string literal

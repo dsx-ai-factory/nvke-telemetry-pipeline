@@ -152,7 +152,7 @@ tests:
     asserts:
       - matchRegex:
           path: spec.initContainers[0].args[0]
-          pattern: '"otlp":\{"endpoint":"lgtm:4317"'
+          pattern: '"otlp_grpc":\{"endpoint":"lgtm:4317"'
       - notMatchRegex:
           path: spec.initContainers[0].args[0]
           pattern: '/etc/nktp/internal-tls/'
@@ -174,7 +174,7 @@ tests:
               readOnly: true
       - matchRegex:
           path: spec.initContainers[0].args[0]
-          pattern: &watchdogMTLSExporter '"exporters":\{"otlp":\{"endpoint":"nktp-watchdog-collector:4317",[^\n]*"tls":\{"ca_file":"/etc/nktp/internal-tls/client/ca\.crt","cert_file":"/etc/nktp/internal-tls/client/tls\.crt","key_file":"/etc/nktp/internal-tls/client/tls\.key","reload_interval":"1h"\}\}\}'
+          pattern: &watchdogMTLSExporter '"exporters":\{"otlp_grpc":\{"endpoint":"nktp-watchdog-collector:4317",[^\n]*"tls":\{"ca_file":"/etc/nktp/internal-tls/client/ca\.crt","cert_file":"/etc/nktp/internal-tls/client/tls\.crt","key_file":"/etc/nktp/internal-tls/client/tls\.key","reload_interval":"1h"\}\}\}'
       - matchRegex:
           path: spec.initContainers[0].args[0]
           pattern: '"receivers":\{"otlp":\{"protocols":\{"http":\{"endpoint":"127\.0\.0\.1:4319","keepalive":\{"idle_timeout":"5m"\}\}\}\}\}'
@@ -229,24 +229,24 @@ tests:
           pattern: *watchdogMTLSExporter
       - matchRegex:
           path: spec.initContainers[0].args[0]
-          pattern: '"logs":\{"exporters":\["otlp"\]'
+          pattern: '"logs":\{"exporters":\["otlp_grpc"\]'
       - matchRegex:
           path: spec.initContainers[0].args[0]
-          pattern: '"metrics":\{"exporters":\["otlp"\]'
+          pattern: '"metrics":\{"exporters":\["otlp_grpc"\]'
       - matchRegex:
           path: spec.initContainers[0].args[0]
-          pattern: '"traces":\{"exporters":\["otlp"\]'
+          pattern: '"traces":\{"exporters":\["otlp_grpc"\]'
 
   - it: passes sidecar configuration values and native expressions unchanged
     template: templates/gateway-logs.yaml
     set:
-      gateway_logs.sidecar.otelcol.config.exporters.otlp.endpoint: ${env:DESTINATION}
-      gateway_logs.sidecar.otelcol.config.exporters.otlp.headers:
+      gateway_logs.sidecar.otelcol.config.exporters.otlp_grpc.endpoint: ${env:DESTINATION}
+      gateway_logs.sidecar.otelcol.config.exporters.otlp_grpc.headers:
         x-literal: "{{ preserved }} $$TOKEN"
     asserts:
       - matchRegex:
           path: spec.initContainers[0].args[0]
-          pattern: '"otlp":\{"endpoint":"\$\{env:DESTINATION\}","headers":\{"x-literal":"\{\{ preserved \}\} \$\$TOKEN"\}'
+          pattern: '"otlp_grpc":\{"endpoint":"\$\{env:DESTINATION\}","headers":\{"x-literal":"\{\{ preserved \}\} \$\$TOKEN"\}'
       - lengthEqual:
           path: spec.initContainers[0].args
           count: 1

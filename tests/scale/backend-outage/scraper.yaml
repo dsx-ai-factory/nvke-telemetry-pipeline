@@ -40,7 +40,7 @@ spec:
               # Preserve its sequence label, but give the receipt a fresh time
               # so cumulative conversion does not discard later batches.
               - set(time_unix_nano, UnixNano(Now()))
-      deltatocumulative/scrapes:
+      delta_to_cumulative/scrapes:
         max_stale: 30m
     connectors:
       count/scrapes:
@@ -58,5 +58,5 @@ spec:
       pipelines:
         metrics/scrapes:
           receivers: [count/scrapes]
-          processors: [transform/scrape_receipts, deltatocumulative/scrapes]
+          processors: [transform/scrape_receipts, delta_to_cumulative/scrapes]
           exporters: [prometheus]

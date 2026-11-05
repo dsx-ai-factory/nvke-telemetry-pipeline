@@ -132,7 +132,7 @@ func component(group *otelv1.AnyConfig, name string) (map[string]any, error) {
 }
 
 func sendingQueue(collector *otelv1.OpenTelemetryCollector) (map[string]any, error) {
-	exporter, err := component(&collector.Spec.Config.Exporters, "otlp")
+	exporter, err := component(&collector.Spec.Config.Exporters, "otlp_grpc")
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +225,7 @@ func deriveCollector(source *otelv1.OpenTelemetryCollector, options collectorOpt
 	}
 	config := &spec.Config
 	if len(config.Exporters.Object) != 1 || len(config.Receivers.Object) != 1 || config.Service.Pipelines == nil {
-		return nil, fmt.Errorf("%s source requires only otlp export, %s input, and service pipelines", name, receiverName)
+		return nil, fmt.Errorf("%s source requires only otlp_grpc export, %s input, and service pipelines", name, receiverName)
 	}
 	if err := configureQueue(derived, options, sourceMemory); err != nil {
 		return nil, err
@@ -442,7 +442,7 @@ func configureQueue(collector *otelv1.OpenTelemetryCollector, options collectorO
 // isolateTransport redirects OTLP export within the test namespace and
 // removes inbound TLS, rejecting source authentication settings.
 func isolateTransport(config *otelv1.Config, receiverName, endpoint string) error {
-	exporter, err := component(&config.Exporters, "otlp")
+	exporter, err := component(&config.Exporters, "otlp_grpc")
 	if err != nil {
 		return err
 	}
@@ -569,7 +569,7 @@ func instrumentScraper(config, instrumentation *otelv1.Config, disableBatch bool
 		}
 	}
 	pipeline.Processors = append(append([]string{"filter/scrape"}, processors...), "transform/identify")
-	pipeline.Exporters = []string{"otlp", "count/scrapes"}
+	pipeline.Exporters = []string{"otlp_grpc", "count/scrapes"}
 	config.Service.Pipelines["metrics/scrapes"] = instrumentation.Service.Pipelines["metrics/scrapes"].DeepCopy()
 	return nil
 }
@@ -595,14 +595,14 @@ func testManifest(t *testing.T, receiver string) *otelv1.OpenTelemetryCollector 
       memory_limiter: {limit_percentage: 80, spike_limit_percentage: 25}
       batch: {send_batch_size: 100}
     exporters:
-      otlp:
+      otlp_grpc:
         endpoint: production:4317
         sending_queue: {storage: file_storage/queue, sizer: bytes, queue_size: 16777216, block_on_overflow: true, num_consumers: 32, batch: {flush_timeout: 1s}}
         retry_on_failure: {enabled: true}
     service:
       extensions: [file_storage/queue]
       pipelines:
-        metrics: {receivers: [%s], processors: [memory_limiter, batch], exporters: [otlp]}
+        metrics: {receivers: [%s], processors: [memory_limiter, batch], exporters: [otlp_grpc]}
 `, receiver, strings.SplitN(receiver, ":", 2)[0])
 	var out otelv1.OpenTelemetryCollector
 	require.NoError(t, yaml.Unmarshal([]byte(data), &out))
@@ -636,7 +636,7 @@ spec:
       memory_limiter: {limit_percentage: 80, spike_limit_percentage: %d}
       batch: {send_batch_size: 100}
     exporters:
-      otlp:
+      otlp_grpc:
         endpoint: %s
         tls: {insecure: true}
         sending_queue: {sizer: bytes, queue_size: %d, block_on_overflow: true, num_consumers: 32, batch: {flush_timeout: 1s}}
@@ -651,7 +651,7 @@ spec:
           readers: [{pull: {exporter: {prometheus: {host: 0.0.0.0, port: 8888}}}}]
         traces: {level: none}
       pipelines:
-        metrics: {receivers: [%s], processors: [memory_limiter, batch], exporters: [otlp]}
+        metrics: {receivers: [%s], processors: [memory_limiter, batch], exporters: [otlp_grpc]}
 `, name, want.image, want.memory, want.request, want.runtime, receiver, want.spike, destination, want.queue, strings.SplitN(receiver, ":", 2)[0])), &expected))
 	return &expected
 }
@@ -727,8 +727,8 @@ func TestScraperDerivation(t *testing.T) {
 				delete(config.Processors.Object, "batch")
 				processors = []string{"filter/scrape", "memory_limiter", "transform/identify"}
 			}
-			config.Service.Pipelines["metrics"] = &otelv1.Pipeline{Receivers: []string{"prometheus"}, Processors: processors, Exporters: []string{"otlp", "count/scrapes"}}
-			config.Service.Pipelines["metrics/scrapes"] = &otelv1.Pipeline{Receivers: []string{"count/scrapes"}, Processors: []string{"transform/scrape_receipts", "deltatocumulative/scrapes"}, Exporters: []string{"prometheus"}}
+			config.Service.Pipelines["metrics"] = &otelv1.Pipeline{Receivers: []string{"prometheus"}, Processors: processors, Exporters: []string{"otlp_grpc", "count/scrapes"}}
+			config.Service.Pipelines["metrics/scrapes"] = &otelv1.Pipeline{Receivers: []string{"count/scrapes"}, Processors: []string{"transform/scrape_receipts", "delta_to_cumulative/scrapes"}, Exporters: []string{"prometheus"}}
 			assert.Equal(t, expected, actual)
 		})
 	}

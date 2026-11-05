@@ -3445,7 +3445,7 @@
           },
           "targets": [
             {
-              "expr": "sum by (receiver) (rate(otelcol_receiver_accepted_log_records_total{job=\"nktp-daemonset\",receiver=~\"filelog/(targetallocator|operator)\"}[$__rate_interval]))",
+              "expr": "sum by (receiver) (rate(otelcol_receiver_accepted_log_records_total{job=\"nktp-daemonset\",receiver=~\"file_log/(targetallocator|operator)\"}[$__rate_interval]))",
               "legendFormat": "{{receiver}}",
               "refId": "A",
               "range": true,

@@ -34,9 +34,9 @@ Reconnects can select the same gateway, so redistribution can take multiple
 rotations. Increase `max_connection_age_grace` if in-flight exports need longer
 to finish. Explicitly configured HTTP receivers do not use these gRPC age settings.
 
-Exporter overrides use `daemonset.otelcol.config.exporters.otlp/logs`,
-`otlp/metrics` and `otlp/traces`, and `large_target_metrics.otelcol.config.exporters.otlp`
-and `cluster_events.otelcol.config.exporters.otlp`.
+Exporter overrides use `daemonset.otelcol.config.exporters.otlp_grpc/logs`,
+`otlp_grpc/metrics` and `otlp_grpc/traces`, and `large_target_metrics.otelcol.config.exporters.otlp_grpc`
+and `cluster_events.otelcol.config.exporters.otlp_grpc`.
 
 Use `<gateway>.otelcol.config` for Collector configuration and
 `<gateway>.kubernetes` for Kubernetes workload configuration. Autoscaling
@@ -50,7 +50,7 @@ service account from the table in that section instead.
 Each gateway stores approximately 0.48 GiB of serialized telemetry in a
 persistent sending queue on a per-replica `1Gi` volume. Provide an SSD-backed
 StorageClass. Active requests, processing, and database caching consume memory.
-Set `exporters.otlp.sending_queue.queue_size` for the required outage
+Set `exporters.otlp_grpc.sending_queue.queue_size` for the required outage
 tolerance and increase the claim capacity to fit. See
 [Configure exporter queue storage](../guides/configure_exporter_queue_storage.md)
 for sizing, volume retention, upgrade behavior, and the in-memory alternative.

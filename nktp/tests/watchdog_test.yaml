@@ -149,7 +149,7 @@ tests:
             - name: GOGC
               value: "50"
       - equal:
-          path: spec.config.exporters.otlp
+          path: spec.config.exporters.otlp_grpc
           value:
             endpoint: lgtm:4317
             tls:
@@ -233,9 +233,9 @@ tests:
       - equal:
           path: spec.config.service.pipelines
           value:
-            metrics: {receivers: [otlp/insecure, otlp/secure, prometheus], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp]}
-            logs: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp]}
-            traces: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp]}
+            metrics: {receivers: [otlp/insecure, otlp/secure, prometheus], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
+            logs: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
+            traces: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
       - matchRegex:
           path: spec.initContainers[0].args[0]
           pattern: '"receivers":\{"otlp":\{"protocols":\{"http":\{"endpoint":"127\.0\.0\.1:4319","keepalive":\{"idle_timeout":"5m"\}\}\}\}\}'
@@ -333,7 +333,7 @@ tests:
           value:
             receivers: [otlp/insecure, otlp/secure, prometheus]
             processors: [memory_limiter, redaction/basic_v1, transform/cluster]
-            exporters: [otlp]
+            exporters: [otlp_grpc]
 
   - it: fills in the empty default registry with global.imageRegistry
     template: templates/watchdog.yaml
@@ -486,7 +486,7 @@ tests:
           path: spec.config.receivers["otlp/secure"].protocols
           value: *watchdogProtocols
       - equal:
-          path: spec.config.exporters.otlp.endpoint
+          path: spec.config.exporters.otlp_grpc.endpoint
           value: lgtm:4317
       - equal:
           path: spec.config.processors.memory_limiter
@@ -500,9 +500,9 @@ tests:
       - equal:
           path: spec.config.service.pipelines
           value:
-            metrics: {receivers: [otlp/insecure, otlp/secure, prometheus], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp]}
-            logs: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp]}
-            traces: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp]}
+            metrics: {receivers: [otlp/insecure, otlp/secure, prometheus], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
+            logs: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
+            traces: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
       - equal:
           path: spec.config.service.telemetry.metrics.readers
           value:
@@ -566,14 +566,14 @@ tests:
                         protocol: http/protobuf
                         endpoint: http://127.0.0.1:4319
       - equal:
-          path: spec.config.exporters.otlp.endpoint
+          path: spec.config.exporters.otlp_grpc.endpoint
           value: lgtm:4317
       - equal:
           path: spec.config.service.pipelines
           value:
-            metrics: {receivers: [otlp/insecure, otlp/secure, prometheus], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp]}
-            logs: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp]}
-            traces: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp]}
+            metrics: {receivers: [otlp/insecure, otlp/secure, prometheus], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
+            logs: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
+            traces: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
 
   - it: redirects its own logs to gRPC without changing other telemetry
     template: templates/watchdog.yaml
@@ -615,14 +615,14 @@ tests:
                         protocol: http/protobuf
                         endpoint: http://127.0.0.1:4319
       - equal:
-          path: spec.config.exporters.otlp.endpoint
+          path: spec.config.exporters.otlp_grpc.endpoint
           value: lgtm:4317
       - equal:
           path: spec.config.service.pipelines
           value:
-            metrics: {receivers: [otlp/insecure, otlp/secure, prometheus], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp]}
-            logs: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp]}
-            traces: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp]}
+            metrics: {receivers: [otlp/insecure, otlp/secure, prometheus], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
+            logs: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
+            traces: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
 
   - it: redirects its own traces to gRPC without changing other telemetry
     template: templates/watchdog.yaml
@@ -663,26 +663,26 @@ tests:
                         protocol: grpc
                         endpoint: http://traces.example:4317
       - equal:
-          path: spec.config.exporters.otlp.endpoint
+          path: spec.config.exporters.otlp_grpc.endpoint
           value: lgtm:4317
       - equal:
           path: spec.config.service.pipelines
           value:
-            metrics: {receivers: [otlp/insecure, otlp/secure, prometheus], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp]}
-            logs: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp]}
-            traces: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp]}
+            metrics: {receivers: [otlp/insecure, otlp/secure, prometheus], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
+            logs: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
+            traces: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
 
   - it: changes forwarding settings independently of its own telemetry
     template: templates/watchdog.yaml
     set:
-      watchdog.otelcol.config.exporters.otlp.endpoint: telemetry.example:4317
-      watchdog.otelcol.config.exporters.otlp.sending_queue.queue_size: 2097152
+      watchdog.otelcol.config.exporters.otlp_grpc.endpoint: telemetry.example:4317
+      watchdog.otelcol.config.exporters.otlp_grpc.sending_queue.queue_size: 2097152
     asserts:
       - equal:
-          path: spec.config.exporters.otlp.endpoint
+          path: spec.config.exporters.otlp_grpc.endpoint
           value: telemetry.example:4317
       - equal:
-          path: spec.config.exporters.otlp.sending_queue
+          path: spec.config.exporters.otlp_grpc.sending_queue
           value:
             storage: file_storage/queue
             block_on_overflow: true
@@ -714,18 +714,18 @@ tests:
     template: templates/watchdog.yaml
     set:
       watchdog.otelcol.config.receivers.otlp/secure.protocols.grpc.endpoint: ${env:WATCHDOG_LISTEN_ADDR}
-      watchdog.otelcol.config.exporters.otlp.endpoint: ${env:WATCHDOG_OTLP_ENDPOINT}
-      watchdog.otelcol.config.exporters.otlp.headers:
+      watchdog.otelcol.config.exporters.otlp_grpc.endpoint: ${env:WATCHDOG_OTLP_ENDPOINT}
+      watchdog.otelcol.config.exporters.otlp_grpc.headers:
         x-literal: "{{ preserved }} $$TOKEN"
     asserts:
       - equal:
           path: spec.config.receivers["otlp/secure"].protocols.grpc.endpoint
           value: ${env:WATCHDOG_LISTEN_ADDR}
       - equal:
-          path: spec.config.exporters.otlp.endpoint
+          path: spec.config.exporters.otlp_grpc.endpoint
           value: ${env:WATCHDOG_OTLP_ENDPOINT}
       - equal:
-          path: spec.config.exporters.otlp.headers
+          path: spec.config.exporters.otlp_grpc.headers
           value:
             x-literal: "{{ preserved }} $$TOKEN"
 
@@ -745,14 +745,14 @@ tests:
           path: spec.config.exporters.debug
           value: {}
       - equal:
-          path: spec.config.exporters.otlp.endpoint
+          path: spec.config.exporters.otlp_grpc.endpoint
           value: lgtm:4317
       - equal:
           path: spec.config.service.pipelines.logs.exporters
-          value: [otlp]
+          value: [otlp_grpc]
       - equal:
           path: spec.config.service.pipelines.traces.exporters
-          value: [otlp]
+          value: [otlp_grpc]
 
   - it: replaces plaintext gRPC with HTTP without altering the secure receiver
     template: templates/watchdog.yaml
@@ -872,8 +872,8 @@ tests:
           path: spec.config.service.extensions
           value: [health_check, file_storage/queue]
       - equal:
-          path: spec.config.exporters.otlp.sending_queue.storage
+          path: spec.config.exporters.otlp_grpc.sending_queue.storage
           value: file_storage/queue
       - equal:
-          path: spec.config.exporters.otlp.sending_queue.queue_size
+          path: spec.config.exporters.otlp_grpc.sending_queue.queue_size
           value: 85899346

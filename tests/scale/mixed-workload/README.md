@@ -37,7 +37,7 @@ Each of 100 workers runs 100 local generator Pods:
 | Span payloads | 1,179,648 B/s | 117,964,800 B/s |
 
 - Metrics: Avalanche, four generated labels, no churn, 30s scrapes / 10s timeout. Instrumented Pods use private Avalanche targets and an OTLP adapter.
-- Logs: Vector `demo_logs` → stdout → runtime files → native filelog receiver.
+- Logs: Vector `demo_logs` → stdout → runtime files → native file_log receiver.
 - Adjust load: Pod counts and Avalanche arguments in the plan, log/span sizes and rates in the profile ConfigMaps. Rate calculations are beside each value. Span rates count spans, with two spans per trace.
 - Bytes: log bodies and span payload attributes. Newline, CRI and OTLP overhead are additional. Platform telemetry adds background load.
 

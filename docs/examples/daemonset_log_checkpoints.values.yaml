@@ -91,17 +91,17 @@ daemonset:
           create_directory: true
           timeout: 1s
       receivers:
-        filelog:
+        file_log:
           storage: file_storage/log-checkpoints
-        filelog/host-auth:
+        file_log/host-auth:
           storage: file_storage/log-checkpoints
-        filelog/host-audit:
+        file_log/host-audit:
           storage: file_storage/log-checkpoints
-        filelog/kube-api-audit:
+        file_log/kube-api-audit:
           storage: file_storage/log-checkpoints
-        filelog/targetallocator:
+        file_log/targetallocator:
           storage: file_storage/log-checkpoints
-        filelog/operator:
+        file_log/operator:
           storage: file_storage/log-checkpoints
         journald:
           storage: file_storage/log-checkpoints

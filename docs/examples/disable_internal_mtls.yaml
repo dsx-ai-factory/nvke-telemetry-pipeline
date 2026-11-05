@@ -53,7 +53,7 @@ gateway_logs:
     otelcol:
       config:
         exporters:
-          otlp:
+          otlp_grpc:
             tls:
               insecure: true
               ca_file: null
@@ -80,7 +80,7 @@ gateway_metrics:
     otelcol:
       config:
         exporters:
-          otlp:
+          otlp_grpc:
             tls:
               insecure: true
               ca_file: null
@@ -107,7 +107,7 @@ gateway_traces:
     otelcol:
       config:
         exporters:
-          otlp:
+          otlp_grpc:
             tls:
               insecure: true
               ca_file: null
@@ -148,21 +148,21 @@ daemonset:
   otelcol:
     config:
       exporters:
-        otlp/logs:
+        otlp_grpc/logs:
           tls:
             insecure: true
             ca_file: null
             cert_file: null
             key_file: null
             reload_interval: null
-        otlp/metrics:
+        otlp_grpc/metrics:
           tls:
             insecure: true
             ca_file: null
             cert_file: null
             key_file: null
             reload_interval: null
-        otlp/traces:
+        otlp_grpc/traces:
           tls:
             insecure: true
             ca_file: null
@@ -170,7 +170,7 @@ daemonset:
             key_file: null
             reload_interval: null
         # Operator and Target Allocator logs go directly to watchdog.
-        otlp/watchdog:
+        otlp_grpc/watchdog:
           tls:
             insecure: true
             ca_file: null
@@ -183,7 +183,7 @@ daemonset:
     otelcol:
       config:
         exporters:
-          otlp:
+          otlp_grpc:
             tls:
               insecure: true
               ca_file: null
@@ -198,7 +198,7 @@ large_target_metrics:
   otelcol:
     config:
       exporters:
-        otlp:
+        otlp_grpc:
           tls:
             insecure: true
             ca_file: null
@@ -211,7 +211,7 @@ large_target_metrics:
     otelcol:
       config:
         exporters:
-          otlp:
+          otlp_grpc:
             tls:
               insecure: true
               ca_file: null
@@ -226,7 +226,7 @@ cluster_events:
   otelcol:
     config:
       exporters:
-        otlp:
+        otlp_grpc:
           tls:
             insecure: true
             ca_file: null
@@ -239,7 +239,7 @@ cluster_events:
     otelcol:
       config:
         exporters:
-          otlp:
+          otlp_grpc:
             tls:
               insecure: true
               ca_file: null
