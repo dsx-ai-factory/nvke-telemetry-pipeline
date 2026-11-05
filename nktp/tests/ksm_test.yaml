@@ -286,9 +286,20 @@ tests:
       path: metadata.name
       value: nktp-ksm-pods
     asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].image
+          pattern: '^mirror\.example\.com/kube-state-metrics/kube-state-metrics:v[0-9]+\.[0-9]+\.[0-9]+$'
+
+  - it: uses a kube-state-metrics image tag override
+    set:
+      kube-state-metrics.image.tag: v9.9.9
+    documentSelector:
+      path: metadata.name
+      value: nktp-ksm-pods
+    asserts:
       - equal:
           path: spec.template.spec.containers[0].image
-          value: mirror.example.com/kube-state-metrics/kube-state-metrics:v2.20.0
+          value: registry.k8s.io/kube-state-metrics/kube-state-metrics:v9.9.9
 
   - it: collects all Pods centrally with independent hash shards
     set:

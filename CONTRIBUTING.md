@@ -123,6 +123,9 @@ The first requires the SPDX header on Go, shell, `.tpl`, workflow and Taskfile
 files. The second reads the chart dependencies in `nktp/charts/`, which the
 task fetches first, and fails when a bundled chart's version changes without
 the same change in [nktp/THIRD_PARTY_NOTICES.md](nktp/THIRD_PARTY_NOTICES.md).
+For a chart version bump, run `task license:update-notices`, review the notices
+diff and rendered chart, then run `task license:check`. Additions or removals of
+bundled charts require a manual notices review.
 
 No specialized hardware or credentials are needed for any of the above. Chart
 publishing to NVCR runs only from `main` and release tags and is described in

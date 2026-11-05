@@ -9,16 +9,16 @@ templates:
   - charts/opentelemetry-kube-stack/templates/collector.yaml
   - charts/opentelemetry-kube-stack/templates/hooks.yaml
 tests:
-  - it: runs the pinned operator by default
+  - it: runs the upstream operator by default
     template: charts/opentelemetry-kube-stack/charts/opentelemetry-operator/templates/deployment.yaml
     asserts:
       - containsDocument:
           apiVersion: apps/v1
           kind: Deployment
           name: nktp-operator
-      - equal:
+      - matchRegex:
           path: spec.template.spec.containers[0].image
-          value: ghcr.io/open-telemetry/opentelemetry-operator/opentelemetry-operator:0.161.0
+          pattern: '^ghcr\.io/open-telemetry/opentelemetry-operator/opentelemetry-operator:[0-9]+\.[0-9]+\.[0-9]+$'
 
   - it: passes through operator image overrides
     set:

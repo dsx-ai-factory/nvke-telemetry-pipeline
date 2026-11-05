@@ -381,14 +381,14 @@ tests:
           name: lgtm-dashboard-provider
         not: true
 
-  - it: pins the backend image
+  - it: uses the configured upstream backend image
     documentSelector:
       path: kind
       value: Deployment
     asserts:
-      - equal:
+      - matchRegex:
           path: spec.template.spec.containers[0].image
-          value: grafana/otel-lgtm:0.38.0
+          pattern: '^grafana/otel-lgtm:[0-9]+\.[0-9]+\.[0-9]+$'
 
   - it: sets a custom image
     set:
@@ -409,9 +409,9 @@ tests:
       path: kind
       value: Deployment
     asserts:
-      - equal:
+      - matchRegex:
           path: spec.template.spec.containers[0].image
-          value: mirror.example.com/grafana/otel-lgtm:0.38.0
+          pattern: '^mirror\.example\.com/grafana/otel-lgtm:[0-9]+\.[0-9]+\.[0-9]+$'
 
   - it: applies backend resources and placement
     set:

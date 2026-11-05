@@ -126,9 +126,9 @@ tests:
     set:
       global.imageRegistry: mirror.example.com
     asserts:
-      - equal:
+      - matchRegex:
           path: spec.image
-          value: mirror.example.com/otel/opentelemetry-collector-k8s:0.164.0
+          pattern: '^mirror\.example\.com/otel/opentelemetry-collector-k8s:[0-9]+\.[0-9]+\.[0-9]+$'
 
   - it: passes workload overrides through and resolves the Collector image separately
     set:

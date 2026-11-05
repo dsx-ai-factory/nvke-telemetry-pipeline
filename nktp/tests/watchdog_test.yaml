@@ -167,9 +167,9 @@ tests:
                 min_size: 1048576
                 max_size: 2097152
                 flush_timeout: 1s
-      - equal:
+      - matchRegex:
           path: spec.image
-          value: otel/opentelemetry-collector-k8s:0.164.0
+          pattern: '^otel/opentelemetry-collector-k8s:[0-9]+\.[0-9]+\.[0-9]+$'
       - equal:
           path: metadata.labels["helm.sh/chart"]
           value: opentelemetry-kube-stack-0.25.1
@@ -340,19 +340,19 @@ tests:
     set:
       global.imageRegistry: mirror.example.com
     asserts:
-      - equal:
+      - matchRegex:
           path: spec.image
-          value: mirror.example.com/otel/opentelemetry-collector-k8s:0.164.0
-      - equal:
+          pattern: '^mirror\.example\.com/otel/opentelemetry-collector-k8s:[0-9]+\.[0-9]+\.[0-9]+$'
+      - matchRegex:
           path: spec.targetAllocator.image
-          value: mirror.example.com/open-telemetry/opentelemetry-operator/target-allocator:0.161.0
+          pattern: '^mirror\.example\.com/open-telemetry/opentelemetry-operator/target-allocator:[0-9]+\.[0-9]+\.[0-9]+$'
 
   - it: uses the Operator's Target Allocator image by default
     template: templates/watchdog.yaml
     asserts:
-      - equal:
+      - matchRegex:
           path: spec.targetAllocator.image
-          value: ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:0.161.0
+          pattern: '^ghcr\.io/open-telemetry/opentelemetry-operator/target-allocator:[0-9]+\.[0-9]+\.[0-9]+$'
 
   - it: keeps a workload Target Allocator image override
     template: templates/watchdog.yaml

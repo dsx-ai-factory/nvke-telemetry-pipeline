@@ -116,6 +116,12 @@ tasks:
       - task: chart:deps
       - .github/scripts/check-third-party-notices.sh
 
+  license:update-notices:
+    desc: Update existing bundled chart versions in Third-Party Notices for review
+    cmds:
+      - task: chart:deps
+      - .github/scripts/check-third-party-notices.sh --update
+
   security:scan:
     desc: Scan source dependencies and default NKTP images for fixed critical vulnerabilities
     cmds:
