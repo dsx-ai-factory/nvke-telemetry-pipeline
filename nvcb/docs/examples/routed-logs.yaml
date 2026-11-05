@@ -1,0 +1,46 @@
+# Routes logs with route: priority through an internal priority pipeline and
+# other logs through a default pipeline; both paths rejoin at the boundary.
+# Pipeline references inside the routing connector must use .scope explicitly.
+# Render this NVCB input with nvcb.run for a Collector with otlp, routing,
+# forward, and debug.
+blueprints:
+  receivers:
+    routed_logs:
+      template: |
+        receivers:
+          otlp:
+            protocols:
+              grpc:
+                endpoint: 127.0.0.1:4317
+
+        connectors:
+          routing:
+            default_pipelines: [logs/default/{{ .scope }}]
+            table:
+              - context: log
+                condition: 'attributes["route"] == "priority"'
+                pipelines: [logs/priority/{{ .scope }}]
+
+        pipelines:
+          logs/collect:
+            receivers: [otlp]
+            exporters: [routing]
+          logs/default:
+            receivers: [routing]
+            exporters: [{{ .forward }}]
+          logs/priority:
+            receivers: [routing]
+            exporters: [{{ .forward }}]
+
+receivers:
+  blueprint/routed_logs: {}
+
+exporters:
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    logs:
+      receivers: [blueprint/routed_logs]
+      exporters: [debug]

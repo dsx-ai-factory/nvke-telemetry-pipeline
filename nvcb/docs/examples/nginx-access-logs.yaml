@@ -1,0 +1,60 @@
+# Parses NGINX combined access logs, extracts timestamps, maps HTTP status to
+# severity, and assigns service.name.
+# Supply a readable file path and service name, then render this NVCB input with
+# nvcb.run for Collector Contrib.
+# Reads newly appended lines without persisting file offsets across restarts.
+# Raw log bodies remain unredacted; non-matching lines are forwarded unparsed.
+blueprints:
+  receivers:
+    nginx_access_logs:
+      template: |
+        receivers:
+          filelog:
+            include:
+              - {{ .values.path | required "nginx_access_logs: path is required" | quote }}
+            start_at: end
+            operators:
+              - type: regex_parser
+                regex: '^(?P<remote_addr>\S+) - (?P<remote_user>\S+) \[(?P<time_local>[^\]]+)\] "(?P<request>[^"]*)" (?P<status>\d{3}) (?P<body_bytes_sent>\d+) "(?P<http_referer>[^"]*)" "(?P<http_user_agent>[^"]*)"$'
+                on_error: send
+                timestamp:
+                  parse_from: attributes.time_local
+                  layout_type: gotime
+                  layout: '02/Jan/2006:15:04:05 -0700'
+                severity:
+                  parse_from: attributes.status
+                  overwrite_text: true
+                  mapping:
+                    info:
+                      - min: 100
+                        max: 399
+                    warn: 4xx
+                    error: 5xx
+
+        processors:
+          resource:
+            attributes:
+              - key: service.name
+                value: {{ .values.service_name | required "nginx_access_logs: service_name is required" | quote }}
+                action: upsert
+
+        pipelines:
+          logs:
+            receivers: [filelog]
+            processors: [resource]
+            exporters: [{{ .forward }}]
+
+receivers:
+  blueprint/nginx_access_logs/storefront:
+    path: /var/log/nginx/access.log
+    service_name: storefront
+
+exporters:
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    logs:
+      receivers: [blueprint/nginx_access_logs/storefront]
+      exporters: [debug]
