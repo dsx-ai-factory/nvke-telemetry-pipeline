@@ -1,5 +1,5 @@
 # Routes logs with route: priority through an internal priority pipeline and
-# other logs through a default pipeline; both paths rejoin at the boundary.
+# other logs through a default pipeline;
 # Pipeline references inside the routing connector must use .scope explicitly.
 # Render this NVCB input with nvcb.run for a Collector with otlp, routing,
 # forward, and debug.

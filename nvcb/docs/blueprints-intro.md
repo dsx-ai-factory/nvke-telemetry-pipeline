@@ -58,9 +58,8 @@ The direction depends on the kind of blueprint:
 ### Constraints
 
 1. At least one internal pipeline must connect to `{{ .forward }}`. Other internal pipelines can connect through your own connectors.
-2. Use the direction shown above; `{{ .forward }}` cannot be used as a processor.
-3. Do not declare the generated connector yourself or hardcode its identifier; NVCB owns it.
-4. Match the signals on both sides of the boundary. A `logs` pipeline cannot forward into a `metrics` pipeline; the boundary does not convert signals.
+2. Do not declare the generated connector yourself or hardcode its identifier; NVCB owns it.
+3. Each blueprint pipeline using `{{ .forward }}` must match the signal type of the config pipeline referencing the blueprint. A `logs` pipeline cannot forward into a `metrics` pipeline.
 
 ### Multiple signals
 
@@ -109,7 +108,7 @@ Both references resolve to `forward/exp/debug_signals`. Metrics go to the intern
 
 ## Receiver Blueprints
 
-Receiver blueprints package collection and processing behind a receiver reference. Your blueprint's pipelines prepare telemetry before passing it to the consuming config through the [connector boundary](#connector-boundary).
+Receiver blueprints package collection and processing configuration into a template that can be used as a receiver.
 
 ### Constraints
 

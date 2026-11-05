@@ -19,7 +19,7 @@ You must decide what your blueprint `template` will contain. Some important deci
 2. Which signals will it emit to/receive from? *Refer back to [generated forward connector](./blueprints-intro.md#generated-forward-connector) for how this works.*
 3. What are the required and optional parameters of your blueprint?
 
-For example blueprints, check out [parsing access logs](./examples/nginx-access-logs.yaml) and [tail sampling](./examples/tail-sampled-traces.yaml). 
+For example blueprints, check out [parsing access logs](./examples/nginx-access-logs.yaml) and [authenticated OTLP export](./examples/authenticated-otlp.yaml).
 
 A blueprints `template` uses Go templating syntax, just like native Helm templates. All the same [template functions](https://helm.sh/docs/chart_template_guide/function_list/) apply to blueprints.
 
