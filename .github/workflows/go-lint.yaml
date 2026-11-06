@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - main
+      - "release/nktp-*"
     paths:
       - 'tests/**'
       - 'tools/**'

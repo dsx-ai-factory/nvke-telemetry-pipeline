@@ -10,6 +10,7 @@ on:
   pull_request:
     branches:
       - main
+      - "release/nktp-*"
   schedule:
     - cron: '30 7 * * *'
   workflow_dispatch: {}
