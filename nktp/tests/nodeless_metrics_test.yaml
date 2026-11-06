@@ -103,6 +103,44 @@ tests:
                   regex: "[^;]+;.*|[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]*;Node;[^;]+"
                   action: drop
 
+  - it: drops targets with a node in a user's scrape class and keeps the default class
+    set:
+      nodeless_metrics.kubernetes.targetAllocator.prometheusCR.scrapeClasses:
+        - name: team-a
+          relabelings:
+            - {targetLabel: team, replacement: a}
+    asserts:
+      - equal:
+          path: spec.targetAllocator.prometheusCR.scrapeClasses[0].name
+          value: nktp-nodeless-targets
+      - equal:
+          path: spec.targetAllocator.prometheusCR.scrapeClasses[1].name
+          value: team-a
+      - notExists:
+          path: spec.targetAllocator.prometheusCR.scrapeClasses[1].default
+      - equal:
+          path: spec.targetAllocator.prometheusCR.scrapeClasses[1].relabelings[0].action
+          value: drop
+      - equal:
+          path: spec.targetAllocator.prometheusCR.scrapeClasses[1].relabelings[1]
+          value: {targetLabel: team, replacement: a}
+
+  - it: lets a user's default scrape class replace nktp-nodeless-targets and still drops targets with a node
+    set:
+      nodeless_metrics.kubernetes.targetAllocator.prometheusCR.scrapeClasses:
+        - name: team-default
+          default: true
+    asserts:
+      - lengthEqual:
+          path: spec.targetAllocator.prometheusCR.scrapeClasses
+          count: 1
+      - equal:
+          path: spec.targetAllocator.prometheusCR.scrapeClasses[0].name
+          value: team-default
+      - equal:
+          path: spec.targetAllocator.prometheusCR.scrapeClasses[0].relabelings[0].action
+          value: drop
+
   - it: pushes allocator metrics to watchdog and sets its own resource budget
     asserts:
       - equal:

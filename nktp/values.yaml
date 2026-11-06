@@ -1657,23 +1657,10 @@ daemonset:
             - key: nktp.nvidia.io/large-target
               operator: NotIn
               values: ["true"]
-        # Keeps only targets with a node, so no target is scraped by both this pool and nodeless_metrics, which
-        # drops the same set. The regex mirrors Item.GetNodeName in the pinned Target Allocator: a node label is
-        # set, or the EndpointSlice address targets a Node by name. A monitor that names another scrape class
-        # skips this one.
-        scrapeClasses:
-          - name: nktp-node-targets
-            default: true
-            relabelings:
-              - sourceLabels:
-                  - __meta_kubernetes_pod_node_name
-                  - __meta_kubernetes_node_name
-                  - __meta_kubernetes_endpoint_node_name
-                  - __meta_kubernetes_endpointslice_address_target_kind
-                  - __meta_kubernetes_endpointslice_address_target_name
-                separator: ";"
-                regex: "[^;]+;.*|[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]*;Node;[^;]+"
-                action: keep
+        # The chart gives every scrape class here a first relabeling that keeps only targets with a node, and adds
+        # the default class nktp-node-targets when none is the default. nodeless_metrics drops the same targets, so
+        # each target is scraped by one pool, whichever class its monitor names. See docs/components/nodeless_metrics.md.
+        scrapeClasses: []
     resources:
       requests:
         cpu: 500m
@@ -2732,22 +2719,10 @@ nodeless_metrics:
             - key: nktp.nvidia.io/large-target
               operator: NotIn
               values: ["true"]
-        # Drops every target with a node, which the daemonset's per-node allocation owns; the rest have no node
-        # and would otherwise go unscraped. The regex is the daemonset class's, inverted, and mirrors
-        # Item.GetNodeName in the pinned Target Allocator. A monitor that names another scrape class skips this one.
-        scrapeClasses:
-          - name: nktp-nodeless-targets
-            default: true
-            relabelings:
-              - sourceLabels:
-                  - __meta_kubernetes_pod_node_name
-                  - __meta_kubernetes_node_name
-                  - __meta_kubernetes_endpoint_node_name
-                  - __meta_kubernetes_endpointslice_address_target_kind
-                  - __meta_kubernetes_endpointslice_address_target_name
-                separator: ";"
-                regex: "[^;]+;.*|[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]*;Node;[^;]+"
-                action: drop
+        # The chart gives every scrape class here a first relabeling that drops the targets with a node, which the
+        # daemonset's per-node allocation owns, and adds the default class nktp-nodeless-targets when none is the
+        # default. Define a class on both allocators for monitors that name it.
+        scrapeClasses: []
     resources:
       requests:
         cpu: 100m

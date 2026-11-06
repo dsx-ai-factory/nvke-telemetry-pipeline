@@ -12,18 +12,21 @@ PodMonitor, Probe, and ScrapeConfig resources as the node collector's, and uses
 it runs. Monitors labeled `nktp.nvidia.io/large-target: "true"` go to the
 [large-target pool](large_target_metrics.md) instead.
 
-Each allocator has a default scrape class that splits targets by node. A target
+The chart splits targets by node in the allocators' scrape classes. A target
 has a node when `__meta_kubernetes_pod_node_name`, `__meta_kubernetes_node_name`
 or `__meta_kubernetes_endpoint_node_name` is set, or when its EndpointSlice
 address targets a `Node` by name. This is how the Target Allocator's
-`per-node` strategy places targets. The node collector's class keeps only
-targets with a node, and this pool's class drops them, so no target is scraped
+`per-node` strategy places targets. The node collector's classes keep only
+targets with a node, and this pool's classes drop them, so no target is scraped
 by both. The allocators apply these relabelings before allocating targets.
 
-A monitor that sets `scrapeClassName` skips both default classes. Its targets
-with a node are then scraped by both pools, and its targets without one by
-this pool only. To use your own scrape class, add the matching `keep` or `drop`
-relabeling from `nktp/values.yaml` to it.
+Each allocator gets a default class, `nktp-node-targets` or
+`nktp-nodeless-targets`, for monitors that do not set `scrapeClassName`. Every
+class under `prometheusCR.scrapeClasses` also gets the split as its first
+relabeling, so a monitor that names its own class is still scraped by one pool.
+Define such a class on both allocators: an allocator rejects a monitor that
+names a class it does not have. A class you mark as the default replaces the
+chart's.
 
 Collectors refresh their assigned targets every 10 seconds. Configure this with
 `nodeless_metrics.kubernetes.targetAllocator.collectorTargetReloadInterval`.

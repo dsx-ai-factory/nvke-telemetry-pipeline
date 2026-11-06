@@ -447,6 +447,23 @@ tests:
                       regex: "[^;]+;.*|[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]*;Node;[^;]+"
                       action: keep
 
+  - it: keeps only targets with a node in a user's scrape class
+    set:
+      daemonset.kubernetes.targetAllocator.prometheusCR.scrapeClasses:
+        - name: team-a
+          relabelings:
+            - {targetLabel: team, replacement: a}
+    asserts:
+      - equal:
+          path: spec.targetAllocator.prometheusCR.scrapeClasses[0].name
+          value: nktp-node-targets
+      - equal:
+          path: spec.targetAllocator.prometheusCR.scrapeClasses[1].relabelings[0].action
+          value: keep
+      - equal:
+          path: spec.targetAllocator.prometheusCR.scrapeClasses[1].relabelings[1]
+          value: {targetLabel: team, replacement: a}
+
   - it: uses the global image and release namespace with an existing Operator
     release:
       namespace: telemetry
