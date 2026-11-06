@@ -35,7 +35,7 @@ Pass the Collector config map into `nvcb.run`, not the Helm root context (`.`). 
 
 Here, both the config and its `blueprints` key live under `.Values.myCollector.config`:
 
-```yaml
+```gotemplate
 {{- $config := .Values.myCollector.config -}}
 apiVersion: v1
 kind: ConfigMap
@@ -58,5 +58,6 @@ If the definitions live under `.Values.blueprints` instead, replace the first li
 This adds the definitions under `$config.blueprints`, keeping the rest of the config intact and leaving `.Values.myCollector.config` unchanged. The ConfigMap still passes `$config` into `nvcb.run`. Use this option when the config does not already contain its own blueprint definitions.
 
 ## Learn more
+
 - See [NVCB design principles](design_principles.md) to better understand the interface NVCB implements and why.
 - See [Test Cases](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/tree/main/nvcb/tests) for blueprint success and failure scenarios and general limitations.

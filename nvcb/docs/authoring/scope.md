@@ -52,7 +52,7 @@ connectors:
 
 service:
   pipelines:
-    metrics: 
+    metrics:
       receivers: [nop]
       exporters: [forward/exp/otlp]
     metrics/(exp/otlp):             # Scoped pipeline ID
@@ -75,12 +75,12 @@ blueprints:
       template: |
         extensions:
           file_storage:
-            directory: {{ .values.storage_directory | required "file_logs: storage_directory is required" | quote }}
+            directory: {{ .values.storage_directory | required "file_log: storage_directory is required" | quote }}
 
         receivers:
           filelog:
             include:
-              - {{ .values.path | required "file_logs: path is required" | quote }}
+              - {{ .values.path | required "file_log: path is required" | quote }}
             start_at: end
             storage: file_storage/{{ .scope }}  # Need manual scoping here
 
@@ -90,7 +90,7 @@ blueprints:
             exporters: [{{ .forward }}]
 ```
 
-## 2. Routing connector references
+### 2. Routing connector references
 
 The same rule applies to pipeline references inside a connector's config.
 
@@ -107,7 +107,7 @@ blueprints:
 
         connectors:
           routing:
-            default_pipelines: [logs/default/{{ .scope }}]      # Need manual scoping 
+            default_pipelines: [logs/default/{{ .scope }}]      # Need manual scoping
             table:
               - context: log
                 condition: 'attributes["route"] == "priority"'

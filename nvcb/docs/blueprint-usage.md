@@ -2,7 +2,7 @@
 
 Use this guide to add existing receiver or exporter blueprints to your Collector config. You supply parameters and reference the blueprint in your pipelines.
 
-1. Read the desired blueprints `description` to learn about its required/optional parameters it exposes.
+1. Read the blueprint's description to learn which parameters it requires and accepts.
 2. Declare the blueprint under the correct kind map in your collector config, supplying desired parameters and optionally adding a suffix to the declaration:
 
 ```yaml
