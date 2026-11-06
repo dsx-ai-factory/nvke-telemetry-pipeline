@@ -8,49 +8,30 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/internal/funcs"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	coreclient "k8s.io/client-go/kubernetes/typed/core/v1"
 	"sigs.k8s.io/e2e-framework/klient/decoder"
-	"sigs.k8s.io/e2e-framework/klient/k8s"
 	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/features"
 )
 
-// TestNodelessMetrics proves that an unlabeled Probe is scraped through the
-// blackbox exporter by the nodeless pool only. Its target has no node, so the
-// node collector's scrape class drops it and the nodeless pool's keeps it.
 func TestNodelessMetrics(t *testing.T) {
 	const manifests = "manifests/nodeless-metrics"
 	namespace := testenv.EnvConf().Namespace()
 	job := fmt.Sprintf("probe/%s/nktp-e2e-nodeless-probe", namespace)
 	var started time.Time
-	f := features.New("Nodeless metrics").
-		Setup(func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
-			// Fail-fast skips Teardown after a failed assessment, so the Probe is
-			// removed through t.Cleanup, registered before it is applied.
-			t.Cleanup(func() {
-				cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
-				defer cancel()
-				err := decoder.DecodeEachFile(cleanupCtx, os.DirFS(manifests), "*.yaml", func(ctx context.Context, obj k8s.Object) error {
-					if err := c.Client().Resources().Delete(ctx, obj); err != nil && !apierrors.IsNotFound(err) {
-						return err
-					}
-					return nil
-				}, decoder.MutateNamespace(namespace))
-				assert.NoError(t, err, "deleting the nodeless Probe")
-			})
+	f := features.NewWithDescription("NodelessMetrics",
+		"An unlabeled Probe has no node, so the nodeless pool scrapes it through the blackbox exporter and the node collector does not.").
+		WithSetup("ApplyingUnlabeledProbe", func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
 			started = time.Now()
 			return funcs.ApplyResources(FieldManager, manifests, "*.yaml", decoder.MutateNamespace(namespace))(ctx, t, c)
 		}).
-		Assess("An unlabeled Probe is scraped by the nodeless pool only", func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
+		AssessWithDescription("ProbeScrapedByNodelessPoolOnly", "The Probe's samples come from the nodeless pool and from no other pool.", func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
 			waitCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 			defer cancel()
 			client, err := coreclient.NewForConfig(c.Client().RESTConfig())
@@ -85,6 +66,7 @@ func TestNodelessMetrics(t *testing.T) {
 			require.Empty(t, duplicates, "job %s is also scraped outside the nodeless pool", job)
 			return ctx
 		}).
+		WithTeardown("DeletingUnlabeledProbe", funcs.DeleteResources(FieldManager, manifests, "*.yaml", decoder.MutateNamespace(namespace))).
 		Feature()
 	testenv.Test(t, f)
 }
