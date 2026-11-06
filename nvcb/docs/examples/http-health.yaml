@@ -1,0 +1,50 @@
+# Checks an HTTP endpoint and labels its metrics with service.name.
+# Supply the endpoint and service name; interval defaults to 30s.
+# Render this NVCB input with nvcb.run for a Collector with httpcheck, resource,
+# forward, and debug, and use an endpoint reachable from that Collector.
+blueprints:
+  receivers:
+    http_health:
+      version: 0.1.0
+      description: |
+        Checks an HTTP endpoint and labels its metrics with service.name.
+        Parameters:
+          endpoint (required): the URL to check.
+          service_name (required): the service.name resource attribute.
+          interval (optional): the check interval, defaults to 30s.
+      template: |
+        receivers:
+          httpcheck:
+            collection_interval: {{ .values.interval | default "30s" | quote }}
+            targets:
+              - endpoint: {{ .values.endpoint | required "http_health: endpoint is required" | quote }}
+                method: GET
+                timeout: 5s
+
+        processors:
+          resource:
+            attributes:
+              - key: service.name
+                value: {{ .values.service_name | required "http_health: service_name is required" | quote }}
+                action: upsert
+
+        pipelines:
+          metrics:
+            receivers: [httpcheck]
+            processors: [resource]
+            exporters: [{{ .forward }}]
+
+receivers:
+  blueprint/http_health/orders:
+    endpoint: http://orders.default.svc.cluster.local:8080/health
+    service_name: orders
+
+exporters:
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    metrics:
+      receivers: [blueprint/http_health/orders]
+      exporters: [debug]

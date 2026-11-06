@@ -2,6 +2,11 @@
 
 NVIDIA Collector Blueprints is a library chart that allows you to define OpenTelemetry collector config fragments ("blueprints") and reference them alongside normal OpenTelemetry receiver/exporter components. The library takes a config that includes blueprint definitions and expands it into a fully native OpenTelemetry config. The blueprints layer is entirely optional; native config without blueprints passes through unchanged.
 
+## Guides
+
+- [Use a blueprint](./docs/blueprint-usage.md): add existing blueprints to your Collector config and supply their parameters.
+- [Create a blueprint](./docs/authoring/blueprint-creation.md): define templates, parameters, and internal pipelines.
+
 ## Prerequisites
 
 If you are using a custom collector build, ensure that the `forwardconnector` component is added to your OCB config.
@@ -53,7 +58,5 @@ If the definitions live under `.Values.blueprints` instead, replace the first li
 This adds the definitions under `$config.blueprints`, keeping the rest of the config intact and leaving `.Values.myCollector.config` unchanged. The ConfigMap still passes `$config` into `nvcb.run`. Use this option when the config does not already contain its own blueprint definitions.
 
 ## Learn more
-- See [Blueprints](./docs/blueprints-intro.md) to learn more about how blueprints work.
-- See [Create Blueprints](./docs/create-a-blueprint.md) to create your own blueprint.
-- See [Test Cases](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/tree/main/nvcb/tests) for blueprint success and failure scenarios and general limitations.
 - See [NVCB design principles](design_principles.md) to better understand the interface NVCB implements and why.
+- See [Test Cases](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/tree/main/nvcb/tests) for blueprint success and failure scenarios and general limitations.

@@ -7,6 +7,12 @@
 blueprints:
   exporters:
     authenticated_otlp:
+      version: 0.1.0
+      description: |
+        Exports metrics, logs, and traces over OTLP/HTTP with Basic authentication.
+        Parameters:
+          endpoint (required): the HTTPS backend URL.
+        Credentials come from OTLP_USERNAME and OTLP_PASSWORD in the Collector environment.
       template: |
         extensions:
           basicauth:
