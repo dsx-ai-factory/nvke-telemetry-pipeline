@@ -174,6 +174,7 @@ tests:
       - equal:
           path: spec.config.receivers.file_log
           value:
+            storage: file_storage/log-checkpoints
             include: [/var/log/pods/*/*/*.log]
             exclude:
               - "/var/log/pods/${env:POD_NAMESPACE}_nktp-*-collector-*_*/*/*.log"
@@ -220,6 +221,8 @@ tests:
                   - {key: tls.crt, path: tls.crt}
                   - {key: tls.key, path: tls.key}
                   - {key: ca.crt, path: ca.crt}
+            - name: log-checkpoints
+              hostPath: {path: /var/lib/nktp/log-checkpoints, type: DirectoryOrCreate}
       - equal:
           path: spec.volumeMounts
           value:
@@ -253,6 +256,8 @@ tests:
             - name: internal-tls-client
               mountPath: /etc/nktp/internal-tls/client
               readOnly: true
+            - name: log-checkpoints
+              mountPath: /var/lib/otelcol/log-checkpoints
       - equal:
           path: spec.securityContext
           value:
@@ -269,6 +274,7 @@ tests:
       - equal:
           path: spec.config.receivers["file_log/targetallocator"]
           value:
+            storage: file_storage/log-checkpoints
             include: ["/var/log/pods/${env:POD_NAMESPACE}_nktp-*-targetallocator-*_*/ta-container/*.log"]
             start_at: beginning
             include_file_path: true
@@ -309,6 +315,7 @@ tests:
       - equal:
           path: spec.config.receivers["file_log/operator"]
           value:
+            storage: file_storage/log-checkpoints
             include: ["/var/log/pods/${env:POD_NAMESPACE}_nktp-operator-*_*/manager/*.log"]
             start_at: beginning
             include_file_path: true
@@ -780,6 +787,7 @@ tests:
       - equal:
           path: spec.config.receivers.journald
           value:
+            storage: file_storage/log-checkpoints
             root_path: /hostfs
             journalctl_path: /usr/bin/journalctl
             directory: /var/log/journal
@@ -814,10 +822,10 @@ tests:
           content: {name: journal-persistent, mountPath: /hostfs/run/log/journal, readOnly: true}
       - lengthEqual:
           path: spec.volumes
-          count: 10
+          count: 11
       - lengthEqual:
           path: spec.volumeMounts
-          count: 11
+          count: 12
       - contains:
           path: spec.volumes
           content:
@@ -887,3 +895,12 @@ tests:
       - equal:
           path: spec.securityContext.readOnlyRootFilesystem
           value: true
+
+  - it: persists node log reader checkpoints on the dedicated host mount
+    asserts:
+      - equal:
+          path: spec.config.extensions["file_storage/log-checkpoints"]
+          value: {directory: /var/lib/otelcol/log-checkpoints, create_directory: true, timeout: 1s, fsync: false}
+      - equal:
+          path: spec.config.service.extensions
+          value: [health_check, file_storage/log-checkpoints]

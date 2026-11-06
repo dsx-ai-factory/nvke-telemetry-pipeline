@@ -1579,6 +1579,8 @@ daemonset:
     create: true
   kubernetes:
     mode: daemonset
+    # Persistent checkpoints require rollingUpdate.maxSurge: 0 (the Kubernetes default).
+    # Retain it when overriding daemonSetUpdateStrategy to avoid sharing database files.
     # Match KSM node coverage so targets on tainted nodes have a local Collector.
     tolerations:
       - operator: Exists
@@ -1729,6 +1731,12 @@ daemonset:
             - {key: tls.crt, path: tls.crt}
             - {key: tls.key, path: tls.key}
             - {key: ca.crt, path: ca.crt}
+      # Existing overrides must include log-checkpoints in both volumes and volumeMounts.
+      # Otherwise, use the memory-only configuration in docs/guides/configure_daemonset_log_checkpoints.md.
+      - name: log-checkpoints
+        hostPath:
+          path: /var/lib/nktp/log-checkpoints
+          type: DirectoryOrCreate
     volumeMounts:
       - name: pod-logs
         mountPath: /var/log/pods
@@ -1760,6 +1768,8 @@ daemonset:
       - name: internal-tls-client
         mountPath: /etc/nktp/internal-tls/client
         readOnly: true
+      - name: log-checkpoints
+        mountPath: /var/lib/otelcol/log-checkpoints
   otelcol:
     # Set a custom image for this workload only.
     # image:
@@ -1768,6 +1778,11 @@ daemonset:
     #   tag: 0.164.0
     config:
       extensions:
+        file_storage/log-checkpoints:
+          directory: /var/lib/otelcol/log-checkpoints
+          create_directory: true
+          timeout: 1s
+          fsync: false
         health_check:
           endpoint: 0.0.0.0:13133
       receivers:
@@ -1778,6 +1793,7 @@ daemonset:
             http:
               endpoint: 0.0.0.0:4318
         journald:
+          storage: file_storage/log-checkpoints
           root_path: /hostfs
           journalctl_path: /usr/bin/journalctl
           directory: /var/log/journal # Relative to root_path. Override for nodes using runtime journals.
@@ -1797,6 +1813,7 @@ daemonset:
               field: resource["nvidia.telemetry.class"]
               value: system.auth
         file_log:
+          storage: file_storage/log-checkpoints
           include: [/var/log/pods/*/*/*.log]
           exclude:
             - "/var/log/pods/${env:POD_NAMESPACE}_nktp-*-collector-*_*/*/*.log" # Avoid duplicate logs already exported over OTLP.
@@ -1822,6 +1839,7 @@ daemonset:
               field: resource["nvidia.telemetry.class"]
               value: k8s.control_plane
         file_log/host-auth:
+          storage: file_storage/log-checkpoints
           include: [/hostfs/var/log/auth.log, /hostfs/var/log/secure]
           start_at: end
           include_file_path: true
@@ -1830,6 +1848,7 @@ daemonset:
             nvidia.telemetry.class: system.auth
             service.name: auth
         file_log/host-audit:
+          storage: file_storage/log-checkpoints
           include: [/hostfs/var/log/audit/audit.log]
           start_at: end
           include_file_path: true
@@ -1838,6 +1857,7 @@ daemonset:
             nvidia.telemetry.class: system.audit
             service.name: auditd
         file_log/kube-api-audit:
+          storage: file_storage/log-checkpoints
           # Must match the API server's audit-log-path on the node.
           include: [/hostfs/var/log/kubernetes/audit/audit.log]
           start_at: end
@@ -1847,6 +1867,7 @@ daemonset:
             nvidia.telemetry.class: k8s.api.audit
             service.name: kube-apiserver
         file_log/targetallocator:
+          storage: file_storage/log-checkpoints
           include: ["/var/log/pods/${env:POD_NAMESPACE}_nktp-*-targetallocator-*_*/ta-container/*.log"]
           start_at: beginning # Include allocator startup diagnostics.
           include_file_path: true
@@ -1856,6 +1877,7 @@ daemonset:
           operators:
             - type: container
         file_log/operator:
+          storage: file_storage/log-checkpoints
           include: ["/var/log/pods/${env:POD_NAMESPACE}_nktp-operator-*_*/manager/*.log"]
           start_at: beginning # Include operator startup diagnostics.
           include_file_path: true
@@ -2075,7 +2097,7 @@ daemonset:
               max_size: 262144
               flush_timeout: 1s
       service:
-        extensions: [health_check]
+        extensions: [health_check, file_storage/log-checkpoints]
         telemetry:
           resource:
             service.name: nktp-daemonset

@@ -14,6 +14,10 @@ Both use the Collector's
 [sending queue](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/exporter/exporterhelper/README.md#sending-queue),
 configured through the chart's values.
 
+Node log read positions use separate
+[checkpoint storage](configure_daemonset_log_checkpoints.md), including when
+exporter queues are kept in memory.
+
 See OpenTelemetry's
 [persistent storage overview](https://opentelemetry.io/docs/collector/resiliency/#persistent-storage-write-ahead-log---wal)
 for restart recovery and remaining data-loss scenarios. This guide covers
