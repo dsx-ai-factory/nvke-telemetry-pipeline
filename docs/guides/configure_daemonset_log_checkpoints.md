@@ -17,9 +17,7 @@ is replaced.
 
 No overrides are needed to enable checkpoints. The
 [persistent-checkpoint values example](../examples/daemonset_log_checkpoints.values.yaml)
-shows the default storage configuration. To re-enable checkpoints after using
-the memory-only configuration below, remove those overrides from your values
-and upgrade using the [chart README](../../nktp/README.md#install).
+shows the default storage configuration.
 
 Each node must allow the Collector to write to `/var/lib/nktp/log-checkpoints`.
 SELinux policies, non-root users, or read-only node filesystems may require
@@ -40,6 +38,11 @@ when adding a log reader, as shown in the values example.
 Helm replaces `volumes` and `volumeMounts` lists in full. Preserve host-log,
 checkpoint, and TLS mounts when customizing these lists or combining examples.
 
+For rolling updates, keep
+`daemonset.kubernetes.daemonSetUpdateStrategy.rollingUpdate.maxSurge` at `0`
+(the Kubernetes default). Surge updates can start two Collectors on the same
+node, where they contend for the same checkpoint database files.
+
 ## Without persistent checkpoints
 
 Use the [memory-checkpoint values example](../examples/memory_log_checkpoints.values.yaml)
@@ -48,17 +51,10 @@ the storage extension, and the checkpoint volume and mount, while retaining
 host-log and TLS mounts. Preserve any custom mounts when combining these
 values with your own.
 
-First complete the [chart installation prerequisites](../../nktp/README.md#install).
-From the repository root, edit the release name and namespace below to match
-your installation, then install or upgrade with the example:
-
-```console
-NKTP_RELEASE=nktp
-NKTP_NAMESPACE=nktp
-helm dependency build nktp
-helm upgrade --install "$NKTP_RELEASE" ./nktp --namespace "$NKTP_NAMESPACE" \
-  --values docs/examples/memory_log_checkpoints.values.yaml
-```
+Merge the example into the values file you already use for NKTP, including
+your custom volume and mount entries in its replacement lists. Then apply
+the merged values using the chart README's [installation](../../nktp/README.md#install)
+or [upgrade](../../nktp/README.md#upgrading) instructions.
 
 After a restart, readers using `start_at: end` skip records written while they
 were unavailable; readers using `beginning` can reread retained files.

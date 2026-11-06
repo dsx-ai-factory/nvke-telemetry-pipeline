@@ -48,22 +48,20 @@ func TestNodeLogCheckpoints(t *testing.T) {
 	id := envconf.RandomName("checkpoints", 28)
 	const selector = "app.kubernetes.io/name=nktp-daemonset-collector"
 
-	// Both cases exercise the installed pipeline through Loki. The enabled case
-	// verifies recovery of logs written while the Collector is down. The disabled
-	// control verifies those logs are skipped without checkpoints, demonstrating
-	// that recovery depends on checkpointing. Run serially because scheduling
-	// and configuration changes interrupt a shared node Collector. A host journald
-	// socket and permission to update the Collector resource and delete its Pods
-	// are required.
+	// Run serially because both cases interrupt a shared node Collector.
+	// Requires a host journald socket and permission to update the Collector
+	// resource and delete its Pods.
 	runCase := func(persistent bool) func(context.Context, *testing.T, *envconf.Config) context.Context {
 		return func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
 			checkCtx, cancel := context.WithTimeout(ctx, 6*time.Minute)
 			defer cancel()
+			// Verify that the installed checkpointing recovers downtime logs.
 			mode := "persistent"
 			if !persistent {
 				mode = "memory"
-				// Adopt the control configuration before priming the readers.
-				// Use the same outage helpers as the recovery scenario itself.
+				// Disable checkpointing as a control: downtime logs must be lost,
+				// demonstrating that recovery depends on saved read positions.
+				// Apply this configuration before priming the readers.
 				require.NoError(t, stopCollector(checkCtx))
 				config := runtime.DeepCopyJSONValue(originalConfig).(map[string]interface{})
 				for _, receiver := range []string{"file_log", "journald"} {

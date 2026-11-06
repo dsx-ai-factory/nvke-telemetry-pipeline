@@ -28,7 +28,11 @@ Provide the following before installing NKTP.
   three integrations. See [More information](#more-information) for the
   "Configure cert-manager" guide covering both options.
 - **SSD-backed persistent storage.** Required with default values for gateway
-  and watchdog exporter queues. If suitable storage is unavailable, configure
+  and watchdog exporter queues. Each replica requests a `1Gi` claim; minimum
+  replica counts require eight volumes totaling 8Gi. Claims use the cluster's
+  default StorageClass unless `storageClassName` is set in each component's
+  `kubernetes.volumeClaimTemplates`. Without a suitable class, claims may
+  remain pending. If suitable storage is unavailable, configure
   in-memory queues. See [More information](#more-information) for the
   "Configure exporter queue storage" guide covering both options.
 - **Image registry access** to `docker.io`, `ghcr.io`, `quay.io` and
@@ -59,18 +63,22 @@ Provide the following before installing NKTP.
 ## Install
 
 From a checkout, build the chart's dependencies first. Their archives aren't
-committed. Set `NKTP_VALUES_FILE` below to your overrides file, or keep
-`nktp/values.yaml` to use the chart defaults:
+committed. Edit the release name and namespace below, and set `NKTP_VALUES_FILE`
+to your merged overrides file, or keep `nktp/values.yaml` for chart defaults.
+If the namespace already exists, omit its creation command; ensure it has the
+privileged Pod Security label:
 
 ```bash
+NKTP_RELEASE=nktp
+NKTP_NAMESPACE=nktp
 NKTP_VALUES_FILE=nktp/values.yaml
 helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
 helm dependency build nktp
-kubectl create namespace nktp
-kubectl label namespace nktp pod-security.kubernetes.io/enforce=privileged
-helm install nktp ./nktp --namespace nktp --values "$NKTP_VALUES_FILE" --wait
+kubectl create namespace "$NKTP_NAMESPACE"
+kubectl label namespace "$NKTP_NAMESPACE" pod-security.kubernetes.io/enforce=privileged --overwrite
+helm install "$NKTP_RELEASE" ./nktp --namespace "$NKTP_NAMESPACE" --values "$NKTP_VALUES_FILE" --wait
 ```
 
 The Operator creates the Collectors after `helm install --wait` returns, so

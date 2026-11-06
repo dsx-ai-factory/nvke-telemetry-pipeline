@@ -1579,6 +1579,8 @@ daemonset:
     create: true
   kubernetes:
     mode: daemonset
+    # Persistent checkpoints require rollingUpdate.maxSurge: 0 (the Kubernetes default).
+    # Retain it when overriding daemonSetUpdateStrategy to avoid sharing database files.
     # Match KSM node coverage so targets on tainted nodes have a local Collector.
     tolerations:
       - operator: Exists
@@ -1729,7 +1731,8 @@ daemonset:
             - {key: tls.crt, path: tls.crt}
             - {key: tls.key, path: tls.key}
             - {key: ca.crt, path: ca.crt}
-      # Dedicated node-local receiver state; use a different path for each installation sharing nodes.
+      # Existing overrides must include log-checkpoints in both volumes and volumeMounts.
+      # Otherwise, use the memory-only configuration in docs/guides/configure_daemonset_log_checkpoints.md.
       - name: log-checkpoints
         hostPath:
           path: /var/lib/nktp/log-checkpoints
