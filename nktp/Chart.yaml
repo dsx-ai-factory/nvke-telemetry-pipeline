@@ -15,7 +15,7 @@ dependencies:
     condition: node-exporter.enabled
   - name: metrics-server
     repository: https://kubernetes-sigs.github.io/metrics-server/
-    version: 3.13.1
+    version: 3.14.0
     condition: metrics-server.enabled
   - name: nvcb
     repository: file://../nvcb/chart

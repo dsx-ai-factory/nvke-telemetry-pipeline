@@ -7,9 +7,9 @@ dependencies:
   version: 4.56.1
 - name: metrics-server
   repository: https://kubernetes-sigs.github.io/metrics-server/
-  version: 3.13.1
+  version: 3.14.0
 - name: nvcb
   repository: file://../nvcb/chart
   version: 0.1.0
-digest: sha256:82986740da0e6275bf0e426d23ebef777eb4192e718efff52de434df71fd3bee
-generated: "2026-11-03T13:01:59.363751-05:00"
+digest: sha256:520044b6ad294f0f6cfb9314687a56064335b35994d2c427f2af3b3f3db8e9d5
+generated: "2026-11-06T21:47:08.312220155Z"
