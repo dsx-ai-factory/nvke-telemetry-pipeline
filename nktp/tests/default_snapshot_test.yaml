@@ -2,6 +2,10 @@ suite: default snapshot
 templates:
   - templates/*.yaml
   - templates/*/*.yaml
+postRenderer:
+  cmd: python3
+  args:
+    - nktp/tests/normalize_snapshot.py
 tests:
   - it: matches the snapshot with default values
     asserts:

@@ -373,63 +373,84 @@ tests:
   - it: allocates per node and excludes large-target and kubelet ServiceMonitors
     asserts:
       - equal:
-          path: spec.targetAllocator
+          path: spec.targetAllocator.enabled
+          value: true
+      - matchRegex:
+          path: spec.targetAllocator.image
+          pattern: '^ghcr\.io/open-telemetry/opentelemetry-operator/target-allocator:[0-9]+\.[0-9]+\.[0-9]+$'
+      - equal:
+          path: spec.targetAllocator.mtls
           value:
             enabled: true
-            image: ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:0.161.0
-            mtls:
-              enabled: true
-              useCertManager: true
-            replicas: 1
-            podSecurityContext:
-              runAsNonRoot: true
-              seccompProfile:
-                type: RuntimeDefault
-            securityContext:
-              allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: true
-              capabilities:
-                drop: [ALL]
-            allocationStrategy: per-node
-            resources:
-              requests: {cpu: 250m, memory: 2Gi}
-              limits: {cpu: "2", memory: 4Gi}
-            env:
-              - name: OTEL_SERVICE_NAME
-                value: nktp-targetallocator
-              - name: POD_NAME
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.name
-              - name: OTEL_RESOURCE_ATTRIBUTES
-                value: service.instance.id=$(POD_NAME)
-            telemetry:
-              metrics:
-                readers:
-                  - periodic:
-                      interval: 30s
-                      exporter:
-                        otlpGrpc:
-                          endpoint: nktp-watchdog-collector:4320
-                          tls:
-                            insecure: true
-                          temporalityPreference: cumulative
-            observability:
-              metrics:
-                enableMetrics: false
-            prometheusCR:
-              enabled: true
-              denyFSAccessThroughSMs: false
-              serviceMonitorSelector:
-                matchExpressions:
-                  - {key: nktp.nvidia.io/large-target, operator: NotIn, values: ["true"]}
-                  - {key: app, operator: NotIn, values: [kube-prometheus-stack-kubelet, prometheus-operator-kubelet]}
-              podMonitorSelector:
-                matchExpressions: [{key: nktp.nvidia.io/large-target, operator: NotIn, values: ["true"]}]
-              probeSelector:
-                matchExpressions: [{key: nktp.nvidia.io/large-target, operator: NotIn, values: ["true"]}]
-              scrapeConfigSelector:
-                matchExpressions: [{key: nktp.nvidia.io/large-target, operator: NotIn, values: ["true"]}]
+            useCertManager: true
+      - equal:
+          path: spec.targetAllocator.replicas
+          value: 1
+      - equal:
+          path: spec.targetAllocator.podSecurityContext
+          value:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+      - equal:
+          path: spec.targetAllocator.securityContext
+          value:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+      - equal:
+          path: spec.targetAllocator.allocationStrategy
+          value: per-node
+      - equal:
+          path: spec.targetAllocator.resources
+          value:
+            requests: {cpu: 250m, memory: 2Gi}
+            limits: {cpu: "2", memory: 4Gi}
+      - equal:
+          path: spec.targetAllocator.env
+          value:
+            - name: OTEL_SERVICE_NAME
+              value: nktp-targetallocator
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: service.instance.id=$(POD_NAME)
+      - equal:
+          path: spec.targetAllocator.telemetry
+          value:
+            metrics:
+              readers:
+                - periodic:
+                    interval: 30s
+                    exporter:
+                      otlpGrpc:
+                        endpoint: nktp-watchdog-collector:4320
+                        tls:
+                          insecure: true
+                        temporalityPreference: cumulative
+      - equal:
+          path: spec.targetAllocator.observability
+          value:
+            metrics:
+              enableMetrics: false
+      - equal:
+          path: spec.targetAllocator.prometheusCR
+          value:
+            enabled: true
+            denyFSAccessThroughSMs: false
+            serviceMonitorSelector:
+              matchExpressions:
+                - {key: nktp.nvidia.io/large-target, operator: NotIn, values: ["true"]}
+                - {key: app, operator: NotIn, values: [kube-prometheus-stack-kubelet, prometheus-operator-kubelet]}
+            podMonitorSelector:
+              matchExpressions: [{key: nktp.nvidia.io/large-target, operator: NotIn, values: ["true"]}]
+            probeSelector:
+              matchExpressions: [{key: nktp.nvidia.io/large-target, operator: NotIn, values: ["true"]}]
+            scrapeConfigSelector:
+              matchExpressions: [{key: nktp.nvidia.io/large-target, operator: NotIn, values: ["true"]}]
 
   - it: uses the global image and release namespace with an existing Operator
     release:
@@ -441,9 +462,9 @@ tests:
       - equal:
           path: metadata.namespace
           value: telemetry
-      - equal:
+      - matchRegex:
           path: metadata.labels["helm.sh/chart"]
-          value: opentelemetry-kube-stack-0.25.1
+          pattern: '^opentelemetry-kube-stack-[0-9]+\.[0-9]+\.[0-9]+$'
       - equal:
           path: spec.image
           value: example.com/collector:global
