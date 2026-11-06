@@ -20,8 +20,7 @@ exporter queues are kept in memory.
 
 See OpenTelemetry's
 [persistent storage overview](https://opentelemetry.io/docs/collector/resiliency/#persistent-storage-write-ahead-log---wal)
-for restart recovery and remaining data-loss scenarios. This guide covers
-NKTP's volume configuration and the memory-queue alternative.
+for restart recovery and data-loss scenarios.
 
 Both queue types buffer telemetry before export, even while the backend is
 available. Both use the exporter's retry settings: a batch that still fails
@@ -29,7 +28,7 @@ after `retry_on_failure.max_elapsed_time`, 30 minutes by default, is dropped.
 
 ## Size queues for outage tolerance
 
-Choose serialized queue capacity first, for either storage option. Then use
+Choose serialized queue capacity first. Then use
 [Size the volumes](#size-the-volumes) or [Size memory](#size-memory) to budget
 the storage needed for that capacity.
 
@@ -139,7 +138,7 @@ starting volume request = round up (2 × sum of serialized queue capacities)
 Watchdog has separate logs, metrics, and traces queues: `queue_size` applies to
 each signal. Although its configuration defines `otlp_grpc` once, using that exporter
 in three pipelines creates three independent queues sharing the volume.
-The defaults apply the starting budget as follows:
+The default capacities and volume requests are:
 
 | Collector | `sending_queue.queue_size` (serialized bytes per signal) | Serialized capacity per replica | Volume request per replica |
 | --- | ---: | --- | --- |
@@ -156,8 +155,7 @@ minimum volumes.
 
 The volume request is set in
 `kubernetes.volumeClaimTemplates[].spec.resources.requests.storage` for each
-component.
-Increasing the PVC alone leaves `queue_size` unchanged.
+component. Increasing the PVC alone leaves `queue_size` unchanged.
 
 Each replica that has run keeps its own claim. The watchdog autoscales between
 2 and 16 replicas and each gateway between 2 and 128, so at their maximum that
@@ -181,7 +179,7 @@ To select another class, set `spec.storageClassName` on each `queue` claim in
 Helm replaces these lists in full, so retain each complete claim template
 when overriding it.
 
-The default `file_storage.fsync: false` follows the extension's default.
+The default is `file_storage.fsync: false`.
 Queued data can survive a Collector process restart; an abrupt node or power
 failure can lose unsynchronized writes. Set `fsync: true` under
 `<component>.otelcol.config.extensions.file_storage/queue` to synchronize each
@@ -211,7 +209,7 @@ Kubernetes does not allow changing the volume claim templates of a
 StatefulSet. When they are added or changed, the OpenTelemetry Operator deletes
 the StatefulSet and creates it again, so every replica of that Collector
 restarts at once. Senders retry while it is unavailable. `whenDeleted: Retain`
-keeps the claims through this, and the new replicas reuse them as they are.
+keeps the claims, and the new replicas reuse them.
 With `Delete`, the queued data is deleted.
 
 When switching from memory queues, use **Exporter queue use · top 20** in the
@@ -220,18 +218,18 @@ component dashboards, such as
 to check the backlog over time. If utilization keeps rising, defer the switch
 until export catches up and the backlog subsides.
 
-Once utilization is low and recovers between traffic bursts, proceed with the
-Helm upgrade above using normal graceful termination. The Collector
+Once utilization is low and recovers between traffic bursts, apply the queue
+configuration change. The Collector
 [stops receivers before flushing queued exports](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/service/internal/graph/graph.go#L433-L441),
-so a small, transient backlog can drain during replacement. NKTP allows 60
+so a small backlog can drain during replacement. NKTP allows 60
 seconds through `<component>.kubernetes.terminationGracePeriodSeconds`.
-Export failures or expiry of that grace period can still lose buffered data;
+Export failures or expiry of that grace period can lose buffered data;
 sender retries cannot recover telemetry the terminating Collector already accepted.
 
 A larger claim template applies to new claims. For existing claims, follow
 Kubernetes' [volume expansion procedure](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#expanding-persistent-volumes-claims),
-which requires a StorageClass that allows expansion. The
-[Verify](#verify) commands show requested and provisioned capacity.
+which requires a StorageClass that allows expansion. [Verify](#verify) shows
+how to inspect requested and provisioned capacity.
 
 ### Delete the claims
 
@@ -329,6 +327,5 @@ requests 512Mi.
 Switching an existing installation to memory restarts the affected Collectors,
 as described in [Change the claim templates](#change-the-claim-templates).
 Telemetry stored in retained claims is replayed when the Collector uses those
-persistent queues. The
-[Delete the claims](#delete-the-claims) commands remove the claims and their
-stored telemetry.
+persistent queues. [Delete the claims](#delete-the-claims) explains how to
+remove the claims and their stored telemetry.

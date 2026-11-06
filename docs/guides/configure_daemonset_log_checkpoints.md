@@ -1,9 +1,8 @@
 # Configure node log checkpoints
 
 The node Collector persists log read positions on each node by default, using
-the Collector's `file_storage` extension. This requires write access to a node
-hostPath directory, `/var/lib/nktp/log-checkpoints` by default. Choose one
-configuration:
+the `file_storage` extension. This requires write access to a node hostPath
+directory, `/var/lib/nktp/log-checkpoints` by default.
 
 - **With persistent checkpoints (default):** resume from saved read positions
   after a Collector restart or Pod replacement on the same node.
@@ -15,9 +14,8 @@ is replaced.
 
 ## With persistent checkpoints (default)
 
-No overrides are needed to enable checkpoints. The
-`daemonset` section in [chart defaults](../../nktp/values.yaml) defines the
-storage configuration.
+No overrides are needed. The `daemonset` section in
+[chart defaults](../../nktp/values.yaml) defines the storage configuration.
 
 Each node must allow the Collector to write to `/var/lib/nktp/log-checkpoints`.
 SELinux policies, non-root users, or read-only node filesystems may require
@@ -30,11 +28,11 @@ Collector. To change the host location, edit `hostPath.path` on the
 and extension directory can remain unchanged. Use a different host directory
 for each NKTP release running on the same node.
 
-Every `file_log` receiver and `journald` references
-`file_storage/log-checkpoints` through its `storage` setting. The extension is
+The `file_log` and `journald` receivers reference `file_storage/log-checkpoints`
+through their `storage` settings. The extension is
 registered alongside `health_check` in
 `daemonset.otelcol.config.service.extensions`. Include a `storage` reference
-when adding a log reader, following the existing receivers in the chart defaults.
+when adding a log reader.
 
 Helm replaces `volumes` and `volumeMounts` lists in full. Preserve host-log,
 checkpoint, and TLS mounts when customizing these lists or combining examples.
@@ -49,13 +47,10 @@ node, where they contend for the same checkpoint database files.
 Use the [memory-checkpoint values example](../examples/memory_log_checkpoints.values.yaml)
 to disable persistent checkpoints. It removes receiver storage references,
 the storage extension, and the checkpoint volume and mount, while retaining
-host-log and TLS mounts. Preserve any custom mounts when combining these
-values with your own.
+host-log and TLS mounts.
 
 Merge the example into the values file you already use for NKTP, including
-your custom volume and mount entries in its replacement lists. Then apply
-the merged values using the chart README's [installation](../../nktp/README.md#install)
-or [upgrade](../../nktp/README.md#upgrading) instructions.
+your custom volume and mount entries in its replacement lists.
 
 After a restart, readers using `start_at: end` skip records written while they
 were unavailable; readers using `beginning` can reread retained files.
