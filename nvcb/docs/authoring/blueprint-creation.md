@@ -2,7 +2,7 @@
 
 Use this guide to create a new OpenTelemetry Collector blueprint. Check out the blueprint [examples](../examples/) for inspiration.
 
-1. Create a blueprints key in the collector config you pass into `nvcb.run` or at the top level if your chart copies it in (see [README Option 2](../../README.md#usage)). Within that map, NVCB supports two blueprint kinds: `receivers` and `exporters`. To learn more about both blueprint kinds, see [Blueprint Kinds](./blueprint-kinds.md).
+1. Create a `blueprints` key in the collector config you pass into `nvcb.run` or at the top level if your chart copies it in (see [README Option 2](../../README.md#usage)). Within that map, NVCB supports two blueprint kinds: `receivers` and `exporters`. To learn more about both blueprint kinds, see [Blueprint Kinds](./blueprint-kinds.md).
 
 2. Next, choose your blueprint's type under your chosen kind (snake-case is encouraged for the naming pattern but not enforced).
 

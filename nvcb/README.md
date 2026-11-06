@@ -24,7 +24,7 @@ version: 0.0.0
 dependencies:
   - name: nvcb
     version: "0.1.0"
-    repository: "https://helm.ngc.nvidia.com/<org-or-org/team>"
+    repository: "https://helm.ngc.nvidia.com/nvidia/nvcb"
 ```
 
 Pass the Collector config map into `nvcb.run`, not the Helm root context (`.`). This is the map containing `receivers`, `processors`, `exporters`, `service`, and any other native Collector settings. If you use blueprints, their definitions must be under a `blueprints` key in that same map.
