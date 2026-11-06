@@ -8,8 +8,11 @@ dependencies:
 - name: metrics-server
   repository: https://kubernetes-sigs.github.io/metrics-server/
   version: 3.13.1
+- name: prometheus-blackbox-exporter
+  repository: https://prometheus-community.github.io/helm-charts
+  version: 11.20.2
 - name: nvcb
   repository: file://../nvcb/chart
   version: 0.1.0
-digest: sha256:82986740da0e6275bf0e426d23ebef777eb4192e718efff52de434df71fd3bee
-generated: "2026-11-03T13:01:59.363751-05:00"
+digest: sha256:529435d6ea2a7adadd7241a65a8a9977db9684ff9113600ef56e1b790929aa9b
+generated: "2026-11-06T19:51:02.114924+05:30"

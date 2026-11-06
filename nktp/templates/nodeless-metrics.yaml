@@ -1,0 +1,23 @@
+{{- $values := .Values.nodeless_metrics -}}
+{{- $allocator := $values.kubernetes.targetAllocator | default dict -}}
+{{- if not (and (kindIs "map" $allocator) (deepEqual $allocator.enabled true)) -}}
+{{- fail "nodeless_metrics.kubernetes.targetAllocator.enabled must be true to assign each scrape target to one Collector replica" -}}
+{{- end -}}
+{{- $workload := omit (include "nktp.withSidecar" (dict "name" "nodeless_metrics" "values" $values "root" $) | fromYaml) "config" -}}
+{{- with $workload.targetAllocator.prometheusCR -}}
+{{- $_ := set . "scrapeClasses" (include "nktp.nodeScrapeClasses" (dict "classes" .scrapeClasses "action" "drop" "name" "nktp-nodeless-targets") | fromYaml).scrapeClasses -}}
+{{- end -}}
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: nktp-nodeless-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- /* The upstream pre-delete Job selects this label to delete the Collector before the Operator. */}}
+    helm.sh/chart: {{ include "opentelemetry-kube-stack.chart" (index .Subcharts "opentelemetry-kube-stack") }}
+spec:
+  {{- $collector := dict "image" (include "nktp.image" (dict "imageRegistry" .Values.global.imageRegistry "image" ($values.otelcol.image | default .Values.otelcol_image))) }}
+  {{- /* Kubernetes workload values override defaults. The resolved Collector image overrides any workload image. */}}
+  {{- mustMergeOverwrite (dict "mode" "statefulset" "managementState" "managed" "upgradeStrategy" "automatic" "targetAllocator" (dict "mtls" (dict "useCertManager" .Values.certManager.targetAllocators.enabled) "image" (include "nktp.image" (dict "imageRegistry" .Values.global.imageRegistry "image" .Values.targetallocator_image)))) $workload $collector | toYaml | nindent 2 }}
+  config:
+    {{- include "nktp.collectorConfig" (dict "config" $values.otelcol.config "blueprints" .Values.blueprints) | nindent 4 }}

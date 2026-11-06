@@ -40,7 +40,7 @@ priorityClass:
   preemptionPolicy: PreemptLowerPriority # Set Never to prioritize scheduling without preempting other Pods.
 
 certManager:
-  # Sets mtls.useCertManager on the watchdog, daemonset, and large_target_metrics Target Allocators.
+  # Sets mtls.useCertManager on the watchdog, daemonset, large_target_metrics, and nodeless_metrics Target Allocators.
   # Set false to supply your own certificates; mtls.enabled stays per allocator.
   targetAllocators:
     enabled: true
@@ -64,8 +64,8 @@ otelcol_image:
   repository: otel/opentelemetry-collector-k8s
   tag: 0.164.0
 
-# Target Allocator image used by the watchdog, daemonset, and large_target_metrics
-# allocators. global.imageRegistry replaces registry. Keep the tag equal to the
+# Target Allocator image used by the watchdog, daemonset, large_target_metrics, and
+# nodeless_metrics allocators. global.imageRegistry replaces registry. Keep the tag equal to the
 # Operator version from opentelemetry-kube-stack. A workload's
 # kubernetes.targetAllocator.image, as a full image string, overrides it.
 targetallocator_image:
@@ -1632,7 +1632,8 @@ daemonset:
         denyFSAccessThroughSMs: false # Preserve compatibility with monitors that reference files in the Collector container.
         # Explicit namespaces for chart-managed RBAC and Secret watching.
         # secretNamespaces: [metrics-monitors]
-        # Exclude monitoring CRs labeled nktp.nvidia.io/large-target: "true" and common kubelet ServiceMonitors
+        # Exclude monitoring CRs labeled nktp.nvidia.io/large-target: "true" and common kubelet ServiceMonitors.
+        # nodeless_metrics uses the same selectors.
         serviceMonitorSelector:
           matchExpressions:
             - key: nktp.nvidia.io/large-target
@@ -1656,6 +1657,10 @@ daemonset:
             - key: nktp.nvidia.io/large-target
               operator: NotIn
               values: ["true"]
+        # The chart gives every scrape class here a first relabeling that keeps only targets with a node, and adds
+        # the default class nktp-node-targets when none is the default. nodeless_metrics drops the same targets, so
+        # each target is scraped by one pool, whichever class its monitor names. See docs/components/nodeless_metrics.md.
+        scrapeClasses: []
     resources:
       requests:
         cpu: 500m
@@ -1991,6 +1996,7 @@ daemonset:
                 - set(attributes["service.name"], "nktp-targetallocator") where IsMatch(attributes["k8s.pod.name"], "^nktp-daemonset-targetallocator-")
                 - set(attributes["service.name"], "nktp-watchdog-targetallocator") where IsMatch(attributes["k8s.pod.name"], "^nktp-watchdog-targetallocator-")
                 - set(attributes["service.name"], "nktp-large-target-metrics-targetallocator") where IsMatch(attributes["k8s.pod.name"], "^nktp-large-target-metrics-targetallocator-")
+                - set(attributes["service.name"], "nktp-nodeless-metrics-targetallocator") where IsMatch(attributes["k8s.pod.name"], "^nktp-nodeless-metrics-targetallocator-")
         transform/operator:
           log_statements:
             - context: resource
@@ -2632,6 +2638,359 @@ large_target_metrics:
               processors: [memory_limiter, tail_sampling]
               exporters: [otlp_grpc]
 
+# Scrapes the targets that have no node for a daemonset Collector to own, such
+# as Probes and static ScrapeConfigs. It selects the same monitoring CRs as the
+# node collector, and a default scrape class drops the targets that have a node.
+nodeless_metrics:
+  kubernetes:
+    mode: statefulset # The Target Allocator uses stable Collector identities.
+    replicas: 2
+    targetAllocator:
+      enabled: true
+      mtls:
+        enabled: true # Let cert-manager secure Collector requests to the allocator.
+      replicas: 1
+      allocationStrategy: consistent-hashing
+      collectorTargetReloadInterval: 10s
+      env:
+        - name: OTEL_SERVICE_NAME
+          value: nktp-nodeless-metrics-targetallocator
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          value: service.instance.id=$(POD_NAME)
+      telemetry:
+        metrics:
+          readers:
+            - periodic:
+                interval: 30s
+                exporter:
+                  otlpGrpc:
+                    endpoint: nktp-watchdog-collector:4320
+                    tls:
+                      insecure: true
+                    temporalityPreference: cumulative
+      # Discovers the same monitors as the daemonset's allocator but holds few allocations.
+      resources:
+        requests:
+          cpu: 250m
+          memory: 1Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+      podSecurityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
+      observability:
+        metrics:
+          enableMetrics: false # Metrics are pushed over OTLP without a ServiceMonitor.
+      prometheusCR:
+        enabled: true
+        denyFSAccessThroughSMs: false # Preserve compatibility with monitors that reference files in the Collector container.
+        # The node collector's selectors: everything not labeled nktp.nvidia.io/large-target: "true".
+        serviceMonitorSelector:
+          matchExpressions:
+            - key: nktp.nvidia.io/large-target
+              operator: NotIn
+              values: ["true"]
+            - key: app
+              operator: NotIn
+              values: [kube-prometheus-stack-kubelet, prometheus-operator-kubelet]
+        podMonitorSelector:
+          matchExpressions:
+            - key: nktp.nvidia.io/large-target
+              operator: NotIn
+              values: ["true"]
+        probeSelector:
+          matchExpressions:
+            - key: nktp.nvidia.io/large-target
+              operator: NotIn
+              values: ["true"]
+        scrapeConfigSelector:
+          matchExpressions:
+            - key: nktp.nvidia.io/large-target
+              operator: NotIn
+              values: ["true"]
+        # The chart gives every scrape class here a first relabeling that drops the targets with a node, which the
+        # daemonset's per-node allocation owns, and adds the default class nktp-nodeless-targets when none is the
+        # default. Define a class on both allocators for monitors that name it.
+        scrapeClasses: []
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+    env:
+      - name: GOMEMLIMIT
+        value: 384MiB # Runtime target below the memory limiter soft threshold.
+      - name: GOGC
+        value: "50" # More frequent GC trades CPU for lower heap growth.
+    podDisruptionBudget:
+      maxUnavailable: 1
+    terminationGracePeriodSeconds: 60
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: nktp-nodeless-metrics-collector
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: nktp-nodeless-metrics-collector
+    podSecurityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop: [ALL]
+    volumes:
+      - name: internal-tls-client
+        secret:
+          secretName: nktp-nodeless-metrics-client-tls
+          items:
+            - {key: tls.crt, path: tls.crt}
+            - {key: tls.key, path: tls.key}
+            - {key: ca.crt, path: ca.crt}
+    volumeMounts:
+      - name: internal-tls-client
+        mountPath: /etc/nktp/internal-tls/client
+        readOnly: true
+  otelcol:
+    # Set a custom image for this workload only.
+    # image:
+    #   registry: ""
+    #   repository: otel/opentelemetry-collector-k8s
+    #   tag: 0.164.0
+    config:
+      extensions:
+        health_check:
+          endpoint: 0.0.0.0:13133
+      receivers:
+        prometheus:
+          config:
+            global:
+              external_labels:
+                nktp_metrics_pool: nodeless # Identifies this pool's scraped metrics.
+            # The Target Allocator supplies scrape jobs and assigned targets from monitoring CRs.
+            scrape_configs: []
+      processors:
+        redaction/basic_v1:
+          allow_all_keys: true
+          redact_all_types: true
+          summary: silent
+          blocked_key_patterns:
+            - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
+          blocked_values:
+            - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
+            - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
+        memory_limiter:
+          check_interval: 500ms # Poll Go heap Alloc. Bursts can allocate between checks.
+          limit_percentage: 80 # Hard heap threshold, 819.2Mi. Leaves room below the container cap.
+          spike_limit_percentage: 25 # Subtract from hard threshold for soft refusal at 55% (563.2Mi).
+      exporters:
+        otlp_grpc:
+          endpoint: nktp-gateway-metrics-collector:4317
+          tls:
+            ca_file: /etc/nktp/internal-tls/client/ca.crt
+            cert_file: /etc/nktp/internal-tls/client/tls.crt
+            key_file: /etc/nktp/internal-tls/client/tls.key
+            reload_interval: 1h
+          retry_on_failure:
+            max_elapsed_time: 30m
+          sending_queue:
+            block_on_overflow: true
+            sizer: bytes
+            queue_size: 33554432 # 32MiB to absorb temporary export stalls.
+            num_consumers: 4
+            batch:
+              sizer: bytes
+              min_size: 1048576
+              max_size: 2097152
+              flush_timeout: 1s
+      service:
+        extensions: [health_check]
+        telemetry:
+          resource:
+            service.name: nktp-nodeless-metrics
+            service.instance.id: ${env:POD_NAME}
+          metrics:
+            readers:
+              - periodic:
+                  exporter:
+                    otlp:
+                      protocol: http/protobuf
+                      endpoint: http://127.0.0.1:4319
+          logs:
+            processors:
+              - batch:
+                  exporter:
+                    otlp:
+                      protocol: http/protobuf
+                      endpoint: http://127.0.0.1:4319
+          traces:
+            level: basic
+            processors:
+              - batch:
+                  schedule_delay: 1000 # Milliseconds. Keeps spans of one trace close together for tail sampling.
+                  exporter:
+                    otlp:
+                      protocol: http/protobuf
+                      endpoint: http://127.0.0.1:4319
+        pipelines:
+          metrics:
+            receivers: [prometheus]
+            processors: [memory_limiter, redaction/basic_v1]
+            exporters: [otlp_grpc]
+  # Native sidecar for this workload's own telemetry. It buffers through outages,
+  # keeps only error and slow traces, and exports over gRPC to nktp-watchdog-collector:4317.
+  sidecar:
+    kubernetes:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi
+      env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: GOMEMLIMIT
+          value: 96MiB # Soft Go runtime target at 75% of the container limit.
+      startupProbe: # The main Collector starts after this succeeds.
+        httpGet:
+          path: /
+          port: 13134
+        periodSeconds: 1
+        failureThreshold: 30
+      livenessProbe:
+        httpGet:
+          path: /
+          port: 13134
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
+      volumeMounts:
+        - name: internal-tls-client
+          mountPath: /etc/nktp/internal-tls/client
+          readOnly: true
+    otelcol:
+      # Set a custom image for this sidecar only.
+      # image:
+      #   registry: ""
+      #   repository: otel/opentelemetry-collector-k8s
+      #   tag: 0.164.0
+      config:
+        extensions:
+          health_check:
+            endpoint: 0.0.0.0:13134 # Kubelet probes use the Pod IP.
+        receivers:
+          otlp:
+            protocols:
+              http:
+                endpoint: 127.0.0.1:4319 # Reachable only from containers in this Pod.
+                keepalive:
+                  idle_timeout: 5m # Longer than the 60s metric interval, so a reused connection is not closed mid-request.
+        processors:
+          memory_limiter:
+            check_interval: 500ms
+            limit_percentage: 80 # Hard heap threshold, 102.4Mi.
+            spike_limit_percentage: 25 # Soft refusal at 55% (70.4Mi).
+          tail_sampling:
+            decision_wait: 5s # Covers the 1s SDK flush interval with margin.
+            num_traces: 1000 # Bounds traces held in memory. The oldest are dropped first.
+            decision_cache:
+              sampled_cache_size: 10000 # Late spans of a kept trace are also kept.
+            policies:
+              - name: errors
+                type: status_code
+                status_code:
+                  status_codes: [ERROR]
+              - name: slow # Any single span longer than 1s. Trace duration includes up to 1s of export batching.
+                type: ottl_condition
+                ottl_condition:
+                  error_mode: ignore
+                  span:
+                    - end_time_unix_nano - start_time_unix_nano > 1000000000
+        exporters:
+          otlp_grpc:
+            endpoint: nktp-watchdog-collector:4317
+            tls:
+              cert_file: /etc/nktp/internal-tls/client/tls.crt
+              key_file: /etc/nktp/internal-tls/client/tls.key
+              ca_file: /etc/nktp/internal-tls/client/ca.crt
+              reload_interval: 1h
+            retry_on_failure:
+              max_elapsed_time: 30m
+            sending_queue:
+              block_on_overflow: false # The SDK cannot wait or retry, so blocking would only move the loss out of view.
+              sizer: bytes
+              queue_size: 4194304 # 4MiB for each of the 3 signal queues, 12MiB in total. When full, the sidecar refuses new data.
+              num_consumers: 2
+              batch:
+                sizer: bytes
+                min_size: 65536
+                max_size: 262144
+                flush_timeout: 1s
+        service:
+          extensions: [health_check]
+          telemetry:
+            resource:
+              service.name: nktp-nodeless-metrics-sidecar
+              service.instance.id: ${env:POD_NAME}
+            # Own metrics and logs go through this sidecar's own buffer.
+            metrics:
+              readers:
+                - periodic:
+                    exporter:
+                      otlp:
+                        protocol: http/protobuf
+                        endpoint: http://127.0.0.1:4319
+            logs:
+              processors:
+                - batch:
+                    exporter:
+                      otlp:
+                        protocol: http/protobuf
+                        endpoint: http://127.0.0.1:4319
+            traces:
+              level: none # Export failures already show in this sidecar's metrics and logs.
+          pipelines:
+            metrics:
+              receivers: [otlp]
+              processors: [memory_limiter]
+              exporters: [otlp_grpc]
+            logs:
+              receivers: [otlp]
+              processors: [memory_limiter]
+              exporters: [otlp_grpc]
+            traces:
+              receivers: [otlp]
+              processors: [memory_limiter, tail_sampling]
+              exporters: [otlp_grpc]
+
 # Cluster event reader. One elected replica watches Kubernetes Events.
 cluster_events:
   kubernetes:
@@ -3112,3 +3471,27 @@ node-exporter:
 # via other mechanisms in many clusters.
 metrics-server:
   enabled: false
+
+# Probes HTTP, TCP, DNS, gRPC and ICMP endpoints for Probe resources. Disabled by
+# default. Probe targets have no node, so the nodeless_metrics pool scrapes
+# them; see docs/components/nodeless_metrics.md.
+blackbox-exporter:
+  enabled: false
+  fullnameOverride: nktp-blackbox-exporter
+  replicas: 2
+  podDisruptionBudget:
+    maxUnavailable: 1
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  serviceMonitor:
+    selfMonitor:
+      # The exporter's own metrics. Its Pods have a node, so the daemonset scrapes them.
+      enabled: true

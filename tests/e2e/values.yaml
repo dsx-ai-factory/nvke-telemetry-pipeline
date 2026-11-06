@@ -133,12 +133,32 @@ large_target_metrics:
     targetAllocator:
       resources:
         requests:
-          cpu: 100m
+          cpu: 50m
           memory: 256Mi
     resources:
       requests:
         cpu: 50m
         memory: 256Mi
+
+# Large target metrics covers distribution across a pool. One scraper is
+# enough to show that an unlabeled Probe reaches this pool and no other.
+nodeless_metrics:
+  kubernetes:
+    replicas: 1
+    targetAllocator:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 128Mi
+    resources:
+      requests:
+        cpu: 10m
+        memory: 128Mi
+
+# The nodeless metrics test probes through it.
+blackbox-exporter:
+  enabled: true
+  replicas: 1
 
 # Seven partitions share this default, so at 100m each they ask for more CPU
 # than the rest of the chart put together. Each one watches a handful of

@@ -4,7 +4,8 @@ NVKE Telemetry Pipeline (NKTP) runs OpenTelemetry Collectors on a Kubernetes clu
 
 The chart deploys a pipeline that collects a cluster's metrics, logs and traces
 and exports them over OTLP: a Collector on every node, a scrape pool for large
-metrics endpoints, a Kubernetes Event reader, one gateway per signal, and a
+metrics endpoints, a scrape pool for targets without a node, a Kubernetes Event
+reader, one gateway per signal, and a
 watchdog for the pipeline's own telemetry. The bundled OpenTelemetry Operator
 manages the Collectors.
 
@@ -49,9 +50,9 @@ Provide the following before installing NKTP.
   mounts host paths for pod logs, journald and `/proc`. node-exporter uses the
   host network and PID namespaces, host paths, and host port 9100. The
   `baseline` and `restricted` Pod Security levels reject these Pods.
-- **Capacity.** The defaults are sized for large clusters: about 10 CPU and
-  26 GiB of memory in requests for the cluster-wide components, plus about
-  1.1 CPU and 2.2 GiB on every node for the per-node DaemonSets.
+- **Capacity.** The defaults are sized for large clusters: about 5.2 CPU and
+  14.9 GiB of memory in requests for the cluster-wide components, plus about
+  0.6 CPU and 1.2 GiB on every node for the per-node DaemonSets.
 
 ## Install
 
@@ -92,15 +93,17 @@ a retained claim removes its stored telemetry.
 | Node collector | `daemonset` | DaemonSet | Receives OTLP from workloads on its node, and collects pod logs, the journal, host and audit logs, kubelet and cAdvisor metrics, and scrape targets on its node. |
 | Logs, metrics, and traces gateways | `gateway_logs`, `gateway_metrics`, `gateway_traces` | One StatefulSet each | Export each signal to the backend. |
 | Large-target metrics pool | `large_target_metrics` | StatefulSet | Scrapes monitors labeled `nktp.nvidia.io/large-target: "true"`, including the Kubernetes control plane. |
+| Nodeless metrics pool | `nodeless_metrics` | StatefulSet | Scrapes targets that have no node, such as Probes and static ScrapeConfigs. |
 | Cluster event reader | `cluster_events` | StatefulSet | Reads Kubernetes Events, with one elected replica active at a time. |
 | Watchdog | `watchdog` | StatefulSet | Receives the pipeline's own telemetry and exports it to the backend. |
 | kube-state-metrics | `kube-state-metrics` | DaemonSet and Deployments | Exposes Kubernetes object state as metrics. |
 | OpenTelemetry Operator and CRDs | `opentelemetry-kube-stack` | Deployment | Creates the Collectors and their Target Allocators. |
 | node-exporter | `node-exporter` | DaemonSet | Exposes host metrics from every node, tolerating all taints. |
 | metrics-server | `metrics-server` | Deployment, off by default | Serves the resource metrics API that the autoscalers read. |
+| blackbox-exporter | `blackbox-exporter` | Deployment, off by default | Probes HTTP, TCP, DNS, gRPC and ICMP endpoints for Probe resources. |
 | LGTM | `otel-lgtm` | Deployment | Development backend with Grafana, Prometheus, Loki and Tempo. Evaluation only. |
 
-The node collectors, the large-target pool, and the event reader send each
+The node collectors, the large-target and nodeless pools, and the event reader send each
 signal to its gateway over OTLP/gRPC with mutual TLS, and the gateways export to
 the backend.
 Each Collector Pod runs a sidecar Collector that buffers the Collector's own
@@ -134,6 +137,10 @@ receiver's `otelcol.config`.
 - **Large scrape responses:** label the monitor
   `nktp.nvidia.io/large-target: "true"` to scrape it from the large-target pool,
   which reserves more memory per scrape, instead of the node collector.
+- **Probes and targets without a node:** the node collector only scrapes
+  targets on its own node, so the nodeless pool scrapes Probes and static
+  ScrapeConfigs, with no label needed. Set `blackbox-exporter.enabled: true` to install a
+  blackbox exporter for Probes to use, at `nktp-blackbox-exporter.<namespace>:9115`.
 - **Logs:** Pod stdout and stderr are collected from every node without
   configuration.
 
@@ -178,7 +185,7 @@ such as `kubernetes.env`, `kubernetes.volumes`, or a receiver's
 Keep `GOMEMLIMIT` and `GOGC` in every replacement `env` list. The cluster event
 reader also needs `POD_NAMESPACE`.
 
-The watchdog, node collector, and large-target pool require their Target
+The watchdog, node collector, large-target pool, and nodeless pool require their Target
 Allocators. Setting `targetAllocator.enabled: false` for any of them fails
 rendering. Each allocator runs one non-root replica with a read-only root
 filesystem, no privilege escalation, dropped capabilities, and `RuntimeDefault`
@@ -193,6 +200,7 @@ seccomp. Configure its resources and security under
 | Metrics gateway | 250m / 6 | 512Mi / 4Gi | 1536MiB |
 | Logs and traces gateways | 250m / 4 | 512Mi / 4Gi | 1536MiB |
 | Large targets | 500m / 4 | 2Gi / 12Gi | 7168MiB |
+| Nodeless targets | 100m / 1 | 256Mi / 1Gi | 384MiB |
 | Events | 250m / 1 | 256Mi / 512Mi | 192MiB |
 | Watchdog | 100m / 4 | 256Mi / 1Gi | 192MiB |
 
@@ -263,6 +271,7 @@ When `global.clusterName` is empty, the value is `unknown`.
 | opentelemetry-kube-stack | 0.25.1 | OpenTelemetry Operator chart 0.126.0, Operator 0.161.0, and CRDs | Yes | `opentelemetry-kube-stack` |
 | prometheus-node-exporter | 4.56.1 | node-exporter | Yes | `node-exporter` |
 | metrics-server | 3.13.1 | metrics-server 0.8.1 | No | `metrics-server` |
+| prometheus-blackbox-exporter | 11.20.2 | blackbox_exporter 0.29.1 | No | `blackbox-exporter` |
 
 The Collector, Target Allocator, kube-state-metrics, and LGTM images are set in
 `values.yaml` under `otelcol_image`, `targetallocator_image`,

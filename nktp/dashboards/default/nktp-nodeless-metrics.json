@@ -1,0 +1,825 @@
+{
+  "uid": "nktp-nodeless-metrics",
+  "title": "NKTP Nodeless Metrics",
+  "tags": [
+    "nktp",
+    "nktp-collector",
+    "opentelemetry"
+  ],
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "links": [
+    {
+      "title": "Collectors",
+      "type": "dashboards",
+      "tags": [
+        "nktp-collector"
+      ],
+      "asDropdown": true,
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
+    },
+    {
+      "title": "NKTP Health",
+      "type": "link",
+      "url": "/d/nktp-health",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Pipeline",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Received /s",
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(otelcol_receiver_accepted_metric_points_total{job=\"nktp-nodeless-metrics\"}[5m]))",
+          "legendFormat": "metric points",
+          "refId": "A"
+        }
+      ],
+      "description": "Items received per second across all replicas."
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Exported /s",
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(otelcol_exporter_sent_metric_points_total{job=\"nktp-nodeless-metrics\"}[5m]))",
+          "legendFormat": "metric points",
+          "refId": "A"
+        }
+      ],
+      "description": "Items exported per second across all replicas."
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Export failures /s",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(otelcol_exporter_send_failed_metric_points_total{job=\"nktp-nodeless-metrics\"}[5m])) or 0 * sum(otelcol_exporter_queue_capacity{job=\"nktp-nodeless-metrics\",data_type=\"metrics\"})",
+          "legendFormat": "metric points",
+          "refId": "A"
+        }
+      ],
+      "description": "Items that failed to send, across all replicas. The exporter may retry them."
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Refused /s",
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(otelcol_receiver_refused_metric_points_total{job=\"nktp-nodeless-metrics\"}[5m])) or 0 * sum(rate(otelcol_receiver_accepted_metric_points_total{job=\"nktp-nodeless-metrics\"}[5m]))",
+          "legendFormat": "metric points",
+          "refId": "A"
+        }
+      ],
+      "description": "Items the receivers refused across all replicas, for example under memory pressure."
+    },
+    {
+      "id": 32,
+      "type": "timeseries",
+      "title": "Received /s by replica · top 20",
+      "description": "The 20 replicas that received the most at the end of the range, to show imbalance.",
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0
+        }
+      },
+      "targets": [
+        {
+          "expr": "(sum by (instance) (rate(otelcol_receiver_accepted_metric_points_total{job=\"nktp-nodeless-metrics\"}[5m]))) and on (instance) topk(20, sum by (instance) (rate(otelcol_receiver_accepted_metric_points_total{job=\"nktp-nodeless-metrics\"}[5m] @ end())))",
+          "legendFormat": "{{instance}} metric points",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "row",
+      "title": "Target Allocator",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Target Allocator collectors",
+      "description": "Discovered and allocatable nodeless Collectors reported by each Target Allocator replica. A discovered Collector may not yet be allocatable; replica reports are shown separately.",
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0
+        }
+      },
+      "targets": [
+        {
+          "expr": "opentelemetry_allocator_collectors_discovered{job=\"nktp-nodeless-metrics-targetallocator\"}",
+          "legendFormat": "{{instance}} discovered",
+          "refId": "A"
+        },
+        {
+          "expr": "opentelemetry_allocator_collectors_allocatable{job=\"nktp-nodeless-metrics-targetallocator\"}",
+          "legendFormat": "{{instance}} allocatable",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Targets per collector",
+      "description": "Targets assigned to each nodeless Collector by the Target Allocator. This is an assignment count, not a count of successful scrapes. Multiple allocator replicas may report the same assignments.",
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0
+        }
+      },
+      "targets": [
+        {
+          "expr": "opentelemetry_allocator_targets_per_collector{job=\"nktp-nodeless-metrics-targetallocator\"}",
+          "legendFormat": "{{collector_name}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Target Allocator CPU cores",
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "cores"
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"nktp-nodeless-metrics-targetallocator\"}[5m])",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Target Allocator memory (RSS)",
+      "gridPos": {
+        "x": 12,
+        "y": 31,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{job=\"nktp-nodeless-metrics-targetallocator\"}",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "row",
+      "title": "Nodeless targets",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 38,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 12,
+      "type": "table",
+      "title": "Targets",
+      "description": "Every target the pool scrapes, with its latest up value, sample count and scrape duration. Up 0 means the last scrape failed.",
+      "gridPos": {
+        "x": 0,
+        "y": 39,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Up"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Samples"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Scrape duration"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Up",
+            "desc": false
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "max by (job, instance) (up{nktp_metrics_pool=\"nodeless\",job!=\"nktp-nodeless-metrics-targetallocator\"})",
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "expr": "max by (job, instance) (scrape_samples_scraped{nktp_metrics_pool=\"nodeless\",job!=\"nktp-nodeless-metrics-targetallocator\"})",
+          "refId": "B",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "expr": "max by (job, instance) (scrape_duration_seconds{nktp_metrics_pool=\"nodeless\",job!=\"nktp-nodeless-metrics-targetallocator\"})",
+          "refId": "C",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "job": 0,
+              "instance": 1,
+              "Value #A": 2,
+              "Value #B": 3,
+              "Value #C": 4
+            },
+            "renameByName": {
+              "job": "Job",
+              "instance": "Instance",
+              "Value #A": "Up",
+              "Value #B": "Samples",
+              "Value #C": "Scrape duration"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Probe success",
+      "description": "probe_success per Probe target, where 1 is a successful probe. Only Probes report it; ServiceMonitors and static ScrapeConfigs appear in the Targets table.",
+      "gridPos": {
+        "x": 0,
+        "y": 47,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 1,
+          "decimals": 0
+        }
+      },
+      "targets": [
+        {
+          "expr": "min by (job, instance) (probe_success{nktp_metrics_pool=\"nodeless\"})",
+          "legendFormat": "{{job}} {{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Targets down by job",
+      "description": "Targets whose last scrape failed, per job.",
+      "gridPos": {
+        "x": 12,
+        "y": 47,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "decimals": 0
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (job) (up{nktp_metrics_pool=\"nodeless\",job!=\"nktp-nodeless-metrics-targetallocator\"} == bool 0)",
+          "legendFormat": "{{job}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "row",
+      "title": "Queues and resources",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 54,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Exporter queue use · top 20",
+      "gridPos": {
+        "x": 0,
+        "y": 55,
+        "w": 24,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "percent"
+        }
+      },
+      "targets": [
+        {
+          "expr": "100 * (max by (instance, exporter, data_type) (otelcol_exporter_queue_size{job=\"nktp-nodeless-metrics\"} / otelcol_exporter_queue_capacity{job=\"nktp-nodeless-metrics\"})) and on (instance, exporter, data_type) topk(20, max by (instance, exporter, data_type) (otelcol_exporter_queue_size{job=\"nktp-nodeless-metrics\"} @ end() / otelcol_exporter_queue_capacity{job=\"nktp-nodeless-metrics\"} @ end()))",
+          "legendFormat": "{{instance}} {{exporter}} {{data_type}}",
+          "refId": "A"
+        }
+      ],
+      "description": "The 20 fullest exporter queues at the end of the range."
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "CPU cores · top 20",
+      "gridPos": {
+        "x": 0,
+        "y": 62,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "cores"
+        }
+      },
+      "targets": [
+        {
+          "expr": "(sum by (instance) (rate(otelcol_process_cpu_seconds_total{job=\"nktp-nodeless-metrics\"}[5m]))) and on (instance) topk(20, sum by (instance) (rate(otelcol_process_cpu_seconds_total{job=\"nktp-nodeless-metrics\"}[5m] @ end())))",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "type": "timeseries",
+      "title": "Memory (RSS) · top 20",
+      "gridPos": {
+        "x": 12,
+        "y": 62,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "targets": [
+        {
+          "expr": "(sum by (instance) (otelcol_process_memory_rss_bytes{job=\"nktp-nodeless-metrics\"})) and on (instance) topk(20, sum by (instance) (otelcol_process_memory_rss_bytes{job=\"nktp-nodeless-metrics\"} @ end()))",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "type": "row",
+      "title": "Self-telemetry sidecar",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 69,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 26,
+      "type": "timeseries",
+      "title": "Sidecar queue use",
+      "description": "Fullest sidecar export queue of any Pod, per signal. The sidecar buffers this Collector's internal telemetry while the watchdog is unavailable.",
+      "gridPos": {
+        "x": 0,
+        "y": 70,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "percent"
+        }
+      },
+      "targets": [
+        {
+          "expr": "100 * max by (data_type) (otelcol_exporter_queue_size{job=\"nktp-nodeless-metrics-sidecar\"} / otelcol_exporter_queue_capacity{job=\"nktp-nodeless-metrics-sidecar\"})",
+          "legendFormat": "{{data_type}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 27,
+      "type": "timeseries",
+      "title": "Sidecar export failures /s",
+      "description": "Internal telemetry that the sidecar failed to send to the watchdog, per signal.",
+      "gridPos": {
+        "x": 12,
+        "y": 70,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(otelcol_exporter_send_failed_metric_points_total{job=\"nktp-nodeless-metrics-sidecar\"}[5m])) or 0 * sum(otelcol_exporter_queue_capacity{job=\"nktp-nodeless-metrics-sidecar\",data_type=\"metrics\"})",
+          "legendFormat": "metrics",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(otelcol_exporter_send_failed_log_records_total{job=\"nktp-nodeless-metrics-sidecar\"}[5m])) or 0 * sum(otelcol_exporter_queue_capacity{job=\"nktp-nodeless-metrics-sidecar\",data_type=\"logs\"})",
+          "legendFormat": "logs",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(rate(otelcol_exporter_send_failed_spans_total{job=\"nktp-nodeless-metrics-sidecar\"}[5m])) or 0 * sum(otelcol_exporter_queue_capacity{job=\"nktp-nodeless-metrics-sidecar\",data_type=\"traces\"})",
+          "legendFormat": "traces",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 28,
+      "type": "timeseries",
+      "title": "Sidecar refused /s",
+      "description": "Internal telemetry that the sidecar refused, per signal, for example under memory pressure.",
+      "gridPos": {
+        "x": 0,
+        "y": 77,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(otelcol_receiver_refused_metric_points_total{job=\"nktp-nodeless-metrics-sidecar\"}[5m])) or 0 * sum(rate(otelcol_receiver_accepted_metric_points_total{job=\"nktp-nodeless-metrics-sidecar\"}[5m]))",
+          "legendFormat": "metrics",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(otelcol_receiver_refused_log_records_total{job=\"nktp-nodeless-metrics-sidecar\"}[5m])) or 0 * sum(rate(otelcol_receiver_accepted_log_records_total{job=\"nktp-nodeless-metrics-sidecar\"}[5m]))",
+          "legendFormat": "logs",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(rate(otelcol_receiver_refused_spans_total{job=\"nktp-nodeless-metrics-sidecar\"}[5m])) or 0 * sum(rate(otelcol_receiver_accepted_spans_total{job=\"nktp-nodeless-metrics-sidecar\"}[5m]))",
+          "legendFormat": "traces",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 29,
+      "type": "timeseries",
+      "title": "Sidecar traces kept and dropped /s",
+      "description": "Tail sampling decisions. A trace is kept when a span has an error or lasts longer than 1 second.",
+      "gridPos": {
+        "x": 12,
+        "y": 77,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(otelcol_processor_tail_sampling_global_count_traces_sampled_total{job=\"nktp-nodeless-metrics-sidecar\",sampled=\"true\"}[5m])) or 0 * sum(rate(otelcol_processor_tail_sampling_global_count_traces_sampled_total{job=\"nktp-nodeless-metrics-sidecar\",sampled=\"false\"}[5m]))",
+          "legendFormat": "kept",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(otelcol_processor_tail_sampling_global_count_traces_sampled_total{job=\"nktp-nodeless-metrics-sidecar\",sampled=\"false\"}[5m]))",
+          "legendFormat": "dropped",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "type": "timeseries",
+      "title": "Sidecar CPU cores, highest Pod",
+      "gridPos": {
+        "x": 0,
+        "y": 84,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "cores"
+        }
+      },
+      "targets": [
+        {
+          "expr": "max(rate(otelcol_process_cpu_seconds_total{job=\"nktp-nodeless-metrics-sidecar\"}[5m]))",
+          "legendFormat": "highest Pod",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "Sidecar memory (RSS), highest Pod",
+      "gridPos": {
+        "x": 12,
+        "y": 84,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "targets": [
+        {
+          "expr": "max(otelcol_process_memory_rss_bytes{job=\"nktp-nodeless-metrics-sidecar\"})",
+          "legendFormat": "highest Pod",
+          "refId": "A"
+        }
+      ],
+      "description": "Memory of the sidecar that uses the most. Compare it with the sidecar's memory limit."
+    }
+  ]
+}
