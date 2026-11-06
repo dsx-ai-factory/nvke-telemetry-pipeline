@@ -73,10 +73,49 @@ targetallocator_image:
   repository: open-telemetry/opentelemetry-operator/target-allocator
   tag: 0.161.0
 
+# Blueprint definitions available to every NKTP Collector configuration. A
+# definition in a configuration's own blueprints section takes precedence over
+# one here with the same kind and type.
+# DO NOT EDIT the default blueprints between the markers. They are packaged
+# automatically from blueprints/ by `task blueprints`.
+# BEGIN DEFAULT BLUEPRINTS
+blueprints:
+  exporters:
+    otlp_backend:
+      version: 0.1.0
+      description: |
+        Sends a copy of a pipeline's telemetry to an OTLP gRPC backend.
+        Parameters:
+          endpoint (required): the backend's host:port.
+          signal (required): logs, metrics, or traces, matching the pipeline that uses it.
+          headers (optional): request headers, such as {authorization: "Bearer ${env:TOKEN}"}.
+          tls, retry_on_failure, sending_queue (optional): passed to the exporter unchanged.
+      template: |
+        exporters:
+          otlp:
+            endpoint: {{ required "otlp_backend: endpoint is required" .values.endpoint | quote }}
+            {{- with .values.headers }}
+            headers: {{ toJson . }}
+            {{- end }}
+            {{- with .values.tls }}
+            tls: {{ toJson . }}
+            {{- end }}
+            {{- with .values.retry_on_failure }}
+            retry_on_failure: {{ toJson . }}
+            {{- end }}
+            {{- with .values.sending_queue }}
+            sending_queue: {{ toJson . }}
+            {{- end }}
+        pipelines:
+          {{ required "otlp_backend: signal is required" .values.signal }}:
+            receivers: [{{ .forward }}]
+            exporters: [otlp]
+# END DEFAULT BLUEPRINTS
+
 # OTel workloads. Each workload uses the same structure:
 #   kubernetes:     Standard Kubernetes settings (resources, affinity, selectors, labels, ...).
 #   otelcol.image:  Set a custom image for this workload only, as a {registry, repository, tag} map.
-#   otelcol.config: Native OTel collector configuration as a YAML map.
+#   otelcol.config: OTel collector configuration as a YAML map.
 
 # Receives internal telemetry from all NKTP collectors.
 # Sends received telemetry and its own telemetry to the default backend.
@@ -308,7 +347,7 @@ watchdog:
               statements:
                 - 'set(attributes["k8s.cluster.name"], "${env:K8S_CLUSTER_NAME:-unknown}") where attributes["k8s.cluster.name"] == nil'
       exporters:
-        otlp:
+        otlp_grpc:
           endpoint: lgtm:4317
           tls:
             insecure: true
@@ -359,15 +398,15 @@ watchdog:
           metrics:
             receivers: [otlp/insecure, otlp/secure, prometheus]
             processors: [memory_limiter, redaction/basic_v1, transform/cluster]
-            exporters: [otlp]
+            exporters: [otlp_grpc]
           logs:
             receivers: [otlp/secure]
             processors: [memory_limiter, redaction/basic_v1, transform/cluster]
-            exporters: [otlp]
+            exporters: [otlp_grpc]
           traces:
             receivers: [otlp/secure]
             processors: [memory_limiter, redaction/basic_v1, transform/cluster]
-            exporters: [otlp]
+            exporters: [otlp_grpc]
   # Native sidecar for this workload's own telemetry. It buffers through outages,
   # keeps only error and slow traces, and exports over plaintext gRPC to lgtm:4317.
   sidecar:
@@ -466,7 +505,7 @@ watchdog:
                   span:
                     - end_time_unix_nano - start_time_unix_nano > 1000000000
         exporters:
-          otlp:
+          otlp_grpc:
             endpoint: lgtm:4317
             tls:
               insecure: true
@@ -509,15 +548,15 @@ watchdog:
             metrics:
               receivers: [otlp]
               processors: [memory_limiter, redaction/basic_v1, transform/cluster]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
             logs:
               receivers: [otlp]
               processors: [memory_limiter, redaction/basic_v1, transform/cluster]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
             traces:
               receivers: [otlp]
               processors: [memory_limiter, tail_sampling, redaction/basic_v1, transform/cluster]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
 
 # Log gateway. Exports all logs from the cluster.
 gateway_logs:
@@ -671,7 +710,7 @@ gateway_logs:
               statements:
                 - 'set(attributes["k8s.cluster.name"], "${env:K8S_CLUSTER_NAME:-unknown}") where attributes["k8s.cluster.name"] == nil'
       exporters:
-        otlp:
+        otlp_grpc:
           endpoint: lgtm:4317
           tls:
             insecure: true
@@ -722,7 +761,7 @@ gateway_logs:
           logs:
             receivers: [otlp]
             processors: [memory_limiter, redaction/basic_v1, transform/cluster]
-            exporters: [otlp]
+            exporters: [otlp_grpc]
   # Native sidecar for this workload's own telemetry. It buffers through outages,
   # keeps only error and slow traces, and exports over gRPC to nktp-watchdog-collector:4317.
   sidecar:
@@ -800,7 +839,7 @@ gateway_logs:
                   span:
                     - end_time_unix_nano - start_time_unix_nano > 1000000000
         exporters:
-          otlp:
+          otlp_grpc:
             endpoint: nktp-watchdog-collector:4317
             tls:
               cert_file: /etc/nktp/internal-tls/client/tls.crt
@@ -846,15 +885,15 @@ gateway_logs:
             metrics:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
             logs:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
             traces:
               receivers: [otlp]
               processors: [memory_limiter, tail_sampling]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
 
 # Metric gateway. Exports all metrics from the cluster.
 gateway_metrics:
@@ -1008,7 +1047,7 @@ gateway_metrics:
               statements:
                 - 'set(attributes["k8s.cluster.name"], "${env:K8S_CLUSTER_NAME:-unknown}") where attributes["k8s.cluster.name"] == nil'
       exporters:
-        otlp:
+        otlp_grpc:
           endpoint: lgtm:4317
           tls:
             insecure: true
@@ -1059,7 +1098,7 @@ gateway_metrics:
           metrics:
             receivers: [otlp]
             processors: [memory_limiter, redaction/basic_v1, transform/cluster]
-            exporters: [otlp]
+            exporters: [otlp_grpc]
   # Native sidecar for this workload's own telemetry. It buffers through outages,
   # keeps only error and slow traces, and exports over gRPC to nktp-watchdog-collector:4317.
   sidecar:
@@ -1137,7 +1176,7 @@ gateway_metrics:
                   span:
                     - end_time_unix_nano - start_time_unix_nano > 1000000000
         exporters:
-          otlp:
+          otlp_grpc:
             endpoint: nktp-watchdog-collector:4317
             tls:
               cert_file: /etc/nktp/internal-tls/client/tls.crt
@@ -1183,15 +1222,15 @@ gateway_metrics:
             metrics:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
             logs:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
             traces:
               receivers: [otlp]
               processors: [memory_limiter, tail_sampling]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
 
 # Trace gateway. Exports all traces from the cluster.
 gateway_traces:
@@ -1345,7 +1384,7 @@ gateway_traces:
               statements:
                 - 'set(attributes["k8s.cluster.name"], "${env:K8S_CLUSTER_NAME:-unknown}") where attributes["k8s.cluster.name"] == nil'
       exporters:
-        otlp:
+        otlp_grpc:
           endpoint: lgtm:4317
           tls:
             insecure: true
@@ -1396,7 +1435,7 @@ gateway_traces:
           traces:
             receivers: [otlp]
             processors: [memory_limiter, redaction/basic_v1, transform/cluster]
-            exporters: [otlp]
+            exporters: [otlp_grpc]
   # Native sidecar for this workload's own telemetry. It buffers through outages,
   # keeps only error and slow traces, and exports over gRPC to nktp-watchdog-collector:4317.
   sidecar:
@@ -1474,7 +1513,7 @@ gateway_traces:
                   span:
                     - end_time_unix_nano - start_time_unix_nano > 1000000000
         exporters:
-          otlp:
+          otlp_grpc:
             endpoint: nktp-watchdog-collector:4317
             tls:
               cert_file: /etc/nktp/internal-tls/client/tls.crt
@@ -1520,15 +1559,15 @@ gateway_traces:
             metrics:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
             logs:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
             traces:
               receivers: [otlp]
               processors: [memory_limiter, tail_sampling]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
 
 # Node-level collector. Collects local telemetry and forwards received OTLP signals.
 daemonset:
@@ -1775,12 +1814,12 @@ daemonset:
               if: 'body.SYSLOG_IDENTIFIER == "sshd" || body.SYSLOG_IDENTIFIER == "sudo"'
               field: resource["nvidia.telemetry.class"]
               value: system.auth
-        filelog:
+        file_log:
           include: [/var/log/pods/*/*/*.log]
           exclude:
             - "/var/log/pods/${env:POD_NAMESPACE}_nktp-*-collector-*_*/*/*.log" # Avoid duplicate logs already exported over OTLP.
-            - "/var/log/pods/${env:POD_NAMESPACE}_nktp-*-targetallocator-*_*/ta-container/*.log" # Collected separately by filelog/targetallocator.
-            - "/var/log/pods/${env:POD_NAMESPACE}_nktp-operator-*_*/manager/*.log" # Collected separately by filelog/operator.
+            - "/var/log/pods/${env:POD_NAMESPACE}_nktp-*-targetallocator-*_*/ta-container/*.log" # Collected separately by file_log/targetallocator.
+            - "/var/log/pods/${env:POD_NAMESPACE}_nktp-operator-*_*/manager/*.log" # Collected separately by file_log/operator.
           start_at: end
           include_file_path: true
           retry_on_failure:
@@ -1800,7 +1839,7 @@ daemonset:
                 (resource["k8s.container.name"] == "etcd" && resource["k8s.pod.name"] matches "^etcd-"))
               field: resource["nvidia.telemetry.class"]
               value: k8s.control_plane
-        filelog/host-auth:
+        file_log/host-auth:
           include: [/hostfs/var/log/auth.log, /hostfs/var/log/secure]
           start_at: end
           include_file_path: true
@@ -1808,7 +1847,7 @@ daemonset:
           resource:
             nvidia.telemetry.class: system.auth
             service.name: auth
-        filelog/host-audit:
+        file_log/host-audit:
           include: [/hostfs/var/log/audit/audit.log]
           start_at: end
           include_file_path: true
@@ -1816,7 +1855,7 @@ daemonset:
           resource:
             nvidia.telemetry.class: system.audit
             service.name: auditd
-        filelog/kube-api-audit:
+        file_log/kube-api-audit:
           # Must match the API server's audit-log-path on the node.
           include: [/hostfs/var/log/kubernetes/audit/audit.log]
           start_at: end
@@ -1825,7 +1864,7 @@ daemonset:
           resource:
             nvidia.telemetry.class: k8s.api.audit
             service.name: kube-apiserver
-        filelog/targetallocator:
+        file_log/targetallocator:
           include: ["/var/log/pods/${env:POD_NAMESPACE}_nktp-*-targetallocator-*_*/ta-container/*.log"]
           start_at: beginning # Include allocator startup diagnostics.
           include_file_path: true
@@ -1834,7 +1873,7 @@ daemonset:
             max_elapsed_time: 0
           operators:
             - type: container
-        filelog/operator:
+        file_log/operator:
           include: ["/var/log/pods/${env:POD_NAMESPACE}_nktp-operator-*_*/manager/*.log"]
           start_at: beginning # Include operator startup diagnostics.
           include_file_path: true
@@ -1978,7 +2017,7 @@ daemonset:
                 - set(attributes["service.name"], "nktp-operator")
                 - set(attributes["service.instance.id"], attributes["k8s.pod.name"])
       exporters:
-        otlp/logs:
+        otlp_grpc/logs:
           endpoint: nktp-gateway-logs-collector:4317
           tls:
             ca_file: /etc/nktp/internal-tls/client/ca.crt
@@ -1997,7 +2036,7 @@ daemonset:
               min_size: 1048576 # Batch at 1MiB to amortize export overhead.
               max_size: 2097152 # Split above 2MiB serialized. Decoded heap can be larger.
               flush_timeout: 1s # Flush partial batches to limit low-volume buffering time.
-        otlp/metrics:
+        otlp_grpc/metrics:
           endpoint: nktp-gateway-metrics-collector:4317
           tls:
             ca_file: /etc/nktp/internal-tls/client/ca.crt
@@ -2016,7 +2055,7 @@ daemonset:
               min_size: 1048576
               max_size: 2097152
               flush_timeout: 1s
-        otlp/traces:
+        otlp_grpc/traces:
           endpoint: nktp-gateway-traces-collector:4317
           tls:
             ca_file: /etc/nktp/internal-tls/client/ca.crt
@@ -2035,7 +2074,7 @@ daemonset:
               min_size: 1048576
               max_size: 2097152
               flush_timeout: 1s
-        otlp/watchdog:
+        otlp_grpc/watchdog:
           endpoint: nktp-watchdog-collector:4317
           tls:
             ca_file: /etc/nktp/internal-tls/client/ca.crt
@@ -2086,25 +2125,25 @@ daemonset:
                       endpoint: http://127.0.0.1:4319
         pipelines:
           logs:
-            receivers: [filelog, journald, otlp, filelog/host-auth, filelog/host-audit, filelog/kube-api-audit]
+            receivers: [file_log, journald, otlp, file_log/host-auth, file_log/host-audit, file_log/kube-api-audit]
             processors: [memory_limiter, resource/node, redaction/basic_v1]
-            exporters: [otlp/logs]
+            exporters: [otlp_grpc/logs]
           logs/targetallocator:
-            receivers: [filelog/targetallocator]
+            receivers: [file_log/targetallocator]
             processors: [memory_limiter, resource/node, transform/targetallocator, redaction/basic_v1]
-            exporters: [otlp/watchdog]
+            exporters: [otlp_grpc/watchdog]
           logs/operator:
-            receivers: [filelog/operator]
+            receivers: [file_log/operator]
             processors: [memory_limiter, resource/node, transform/operator, redaction/basic_v1]
-            exporters: [otlp/watchdog]
+            exporters: [otlp_grpc/watchdog]
           metrics:
             receivers: [prometheus, prometheus/kubelet, otlp]
             processors: [memory_limiter, resource/node, redaction/basic_v1]
-            exporters: [otlp/metrics]
+            exporters: [otlp_grpc/metrics]
           traces:
             receivers: [otlp]
             processors: [memory_limiter, resource/node, redaction/basic_v1]
-            exporters: [otlp/traces]
+            exporters: [otlp_grpc/traces]
   # Native sidecar for this workload's own telemetry. It buffers through outages,
   # keeps only error and slow traces, and exports over gRPC to nktp-watchdog-collector:4317.
   sidecar:
@@ -2186,7 +2225,7 @@ daemonset:
                   span:
                     - end_time_unix_nano - start_time_unix_nano > 1000000000
         exporters:
-          otlp:
+          otlp_grpc:
             endpoint: nktp-watchdog-collector:4317
             tls:
               cert_file: /etc/nktp/internal-tls/client/tls.crt
@@ -2233,15 +2272,15 @@ daemonset:
             metrics:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
             logs:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
             traces:
               receivers: [otlp]
               processors: [memory_limiter, tail_sampling]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
 
 # Scrapes monitoring CRs labeled nktp.nvidia.io/large-target: "true".
 large_target_metrics:
@@ -2426,7 +2465,7 @@ large_target_metrics:
           send_batch_size: 8192
           send_batch_max_size: 8192 # Split whole scrapes before admission to the exporter queue.
       exporters:
-        otlp:
+        otlp_grpc:
           endpoint: nktp-gateway-metrics-collector:4317
           tls:
             ca_file: /etc/nktp/internal-tls/client/ca.crt
@@ -2478,7 +2517,7 @@ large_target_metrics:
           metrics:
             receivers: [prometheus]
             processors: [memory_limiter, redaction/basic_v1, batch]
-            exporters: [otlp]
+            exporters: [otlp_grpc]
   # Native sidecar for this workload's own telemetry. It buffers through outages,
   # keeps only error and slow traces, and exports over gRPC to nktp-watchdog-collector:4317.
   sidecar:
@@ -2556,7 +2595,7 @@ large_target_metrics:
                   span:
                     - end_time_unix_nano - start_time_unix_nano > 1000000000
         exporters:
-          otlp:
+          otlp_grpc:
             endpoint: nktp-watchdog-collector:4317
             tls:
               cert_file: /etc/nktp/internal-tls/client/tls.crt
@@ -2602,15 +2641,15 @@ large_target_metrics:
             metrics:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
             logs:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
             traces:
               receivers: [otlp]
               processors: [memory_limiter, tail_sampling]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
 
 # Scrapes the targets that have no node for a daemonset Collector to own, such
 # as Probes and static ScrapeConfigs. It selects the same monitoring CRs as the
@@ -2791,7 +2830,7 @@ nodeless_metrics:
           limit_percentage: 80 # Hard heap threshold, 819.2Mi. Leaves room below the container cap.
           spike_limit_percentage: 25 # Subtract from hard threshold for soft refusal at 55% (563.2Mi).
       exporters:
-        otlp:
+        otlp_grpc:
           endpoint: nktp-gateway-metrics-collector:4317
           tls:
             ca_file: /etc/nktp/internal-tls/client/ca.crt
@@ -2843,7 +2882,7 @@ nodeless_metrics:
           metrics:
             receivers: [prometheus]
             processors: [memory_limiter, redaction/basic_v1]
-            exporters: [otlp]
+            exporters: [otlp_grpc]
   # Native sidecar for this workload's own telemetry. It buffers through outages,
   # keeps only error and slow traces, and exports over gRPC to nktp-watchdog-collector:4317.
   sidecar:
@@ -2921,7 +2960,7 @@ nodeless_metrics:
                   span:
                     - end_time_unix_nano - start_time_unix_nano > 1000000000
         exporters:
-          otlp:
+          otlp_grpc:
             endpoint: nktp-watchdog-collector:4317
             tls:
               cert_file: /etc/nktp/internal-tls/client/tls.crt
@@ -2967,15 +3006,15 @@ nodeless_metrics:
             metrics:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
             logs:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
             traces:
               receivers: [otlp]
               processors: [memory_limiter, tail_sampling]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
 
 # Cluster event reader. One elected replica watches Kubernetes Events.
 cluster_events:
@@ -3076,7 +3115,7 @@ cluster_events:
           limit_percentage: 80 # Hard heap threshold, 409.6Mi. Leaves room below the container cap.
           spike_limit_percentage: 25 # Subtract from hard threshold for soft refusal at 55% (281.6Mi).
       exporters:
-        otlp:
+        otlp_grpc:
           endpoint: nktp-gateway-logs-collector:4317
           tls:
             ca_file: /etc/nktp/internal-tls/client/ca.crt
@@ -3128,7 +3167,7 @@ cluster_events:
           logs:
             receivers: [k8s_events]
             processors: [memory_limiter, transform/event_service, redaction/basic_v1]
-            exporters: [otlp]
+            exporters: [otlp_grpc]
   # Native sidecar for this workload's own telemetry. It buffers through outages,
   # keeps only error and slow traces, and exports over gRPC to nktp-watchdog-collector:4317.
   sidecar:
@@ -3206,7 +3245,7 @@ cluster_events:
                   span:
                     - end_time_unix_nano - start_time_unix_nano > 1000000000
         exporters:
-          otlp:
+          otlp_grpc:
             endpoint: nktp-watchdog-collector:4317
             tls:
               cert_file: /etc/nktp/internal-tls/client/tls.crt
@@ -3252,15 +3291,15 @@ cluster_events:
             metrics:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
             logs:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
             traces:
               receivers: [otlp]
               processors: [memory_limiter, tail_sampling]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
 
 # Default in-cluster backend. MUST be disabled for production use.
 otel-lgtm:

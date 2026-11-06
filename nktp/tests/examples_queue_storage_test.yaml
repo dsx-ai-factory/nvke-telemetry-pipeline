@@ -24,7 +24,7 @@ tests:
       - notExists:
           path: spec.persistentVolumeClaimRetentionPolicy
       - notExists:
-          path: spec.config.exporters.otlp.sending_queue.storage
+          path: spec.config.exporters.otlp_grpc.sending_queue.storage
       - notExists:
           path: spec.config.extensions["file_storage/queue"]
       - equal:
@@ -48,7 +48,7 @@ tests:
       - notExists:
           path: spec.persistentVolumeClaimRetentionPolicy
       - notExists:
-          path: spec.config.exporters.otlp.sending_queue.storage
+          path: spec.config.exporters.otlp_grpc.sending_queue.storage
       - notExists:
           path: spec.config.extensions["file_storage/queue"]
       - equal:
@@ -72,7 +72,7 @@ tests:
       - notExists:
           path: spec.persistentVolumeClaimRetentionPolicy
       - notExists:
-          path: spec.config.exporters.otlp.sending_queue.storage
+          path: spec.config.exporters.otlp_grpc.sending_queue.storage
       - notExists:
           path: spec.config.extensions["file_storage/queue"]
       - equal:
@@ -99,12 +99,12 @@ tests:
       - notExists:
           path: spec.persistentVolumeClaimRetentionPolicy
       - notExists:
-          path: spec.config.exporters.otlp.sending_queue.storage
+          path: spec.config.exporters.otlp_grpc.sending_queue.storage
       - notExists:
           path: spec.config.extensions["file_storage/queue"]
       - equal:
           path: spec.config.service.extensions
           value: [health_check]
       - equal:
-          path: spec.config.exporters.otlp.sending_queue.queue_size
+          path: spec.config.exporters.otlp_grpc.sending_queue.queue_size
           value: 85899346

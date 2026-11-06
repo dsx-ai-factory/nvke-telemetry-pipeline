@@ -9,6 +9,7 @@ on:
       - main
     paths:
       - 'tests/**'
+      - 'tools/**'
       - 'Taskfile.yml'
       - '.github/workflows/go-lint.yaml'
 
@@ -37,9 +38,13 @@ jobs:
           cache-dependency-path: |
             tests/go.sum
             tests/.custom-gcl.yml
+            tools/go.sum
 
       - name: Install Task
         run: go install github.com/go-task/task/v3/cmd/task@v3.45.4
 
       - name: Lint
         run: task tests:lint
+
+      - name: Lint tools
+        run: task tools:lint

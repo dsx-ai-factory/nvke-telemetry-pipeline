@@ -13,7 +13,7 @@ data:
           http:
             endpoint: 0.0.0.0:4318
     exporters:
-      otlp/metrics:
+      otlp_grpc/metrics:
         endpoint: nktp-gateway-metrics-collector:4317
         tls:
           ca_file: /etc/nktp/internal-tls/client/ca.crt
@@ -25,7 +25,7 @@ data:
           enabled: false
         retry_on_failure:
           enabled: false
-      otlp/logs:
+      otlp_grpc/logs:
         endpoint: nktp-gateway-logs-collector:4317
         tls:
           ca_file: /etc/nktp/internal-tls/client/ca.crt
@@ -37,7 +37,7 @@ data:
           enabled: false
         retry_on_failure:
           enabled: false
-      otlp/traces:
+      otlp_grpc/traces:
         endpoint: nktp-gateway-traces-collector:4317
         tls:
           ca_file: /etc/nktp/internal-tls/client/ca.crt
@@ -53,10 +53,10 @@ data:
       pipelines:
         metrics:
           receivers: [otlp]
-          exporters: [otlp/metrics]
+          exporters: [otlp_grpc/metrics]
         logs:
           receivers: [otlp]
-          exporters: [otlp/logs]
+          exporters: [otlp_grpc/logs]
         traces:
           receivers: [otlp]
-          exporters: [otlp/traces]
+          exporters: [otlp_grpc/traces]

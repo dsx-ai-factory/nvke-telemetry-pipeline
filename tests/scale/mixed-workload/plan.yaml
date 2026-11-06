@@ -965,33 +965,58 @@ stages:
                 nktp_scale_otlp_source_up{test_run_id="{{ .Args.runId }}"} == 1
                 and (time() - timestamp(nktp_scale_otlp_source_up{test_run_id="{{ .Args.runId }}"}) < 90)
               )
-          - name: generated_events_received
+          # Cluster-wide diagnostic with background Events and no run ID.
+          # Matching the PATCH rate does not prove receipt of this run's Events.
+          - name: event_records_accepted
             units: records/s
             query: >-
-              sum by (scale_node) (
-                rate(nktp_scale_events_accepted_total{test_run_id="{{ .Args.runId }}"}[5m])
-                and (time() - timestamp(nktp_scale_events_accepted_total{test_run_id="{{ .Args.runId }}"}) < 90)
+              sum (
+                rate(otelcol_receiver_accepted_log_records_total{job="nktp-cluster-events",receiver="k8s_events"}[5m])
+                and (time() - timestamp(otelcol_receiver_accepted_log_records_total{job="nktp-cluster-events",receiver="k8s_events"}) < 90)
               )
           - name: event_patches_succeeded
             units: requests/s
             query: >-
               sum by (scale_node) (
-                rate(k6_event_patch_success_total{test_run_id="{{ .Args.runId }}"}[5m])
-                and (time() - timestamp(k6_event_patch_success_total{test_run_id="{{ .Args.runId }}"}) < 90)
+                rate(k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status="200"}[5m])
+                and (time() - timestamp(k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status="200"}) < 90)
               )
+          - name: event_producers_reporting
+            units: producers
+            query: >-
+              count by (scale_node) (
+                max by (scale_node,producer_id) (
+                  k6_iterations_total{test_run_id="{{ .Args.runId }}"}
+                  and (time() - timestamp(k6_iterations_total{test_run_id="{{ .Args.runId }}"}) < 90)
+                )
+              )
+          # Keep sparse counts for the 115m plan ceiling even after a producer stops.
+          # Only fresh producers without a recorded count get a zero fallback.
           - name: event_patches_failed
-            units: requests/s
+            units: requests
             query: >-
               sum by (scale_node) (
-                rate(k6_event_patch_failures_total{test_run_id="{{ .Args.runId }}"}[5m])
-                and (time() - timestamp(k6_event_patch_failures_total{test_run_id="{{ .Args.runId }}"}) < 90)
+                sum by (scale_node,producer_id) (
+                  last_over_time(k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status!="200"}[115m])
+                )
+                or
+                0 * max by (scale_node,producer_id) (
+                  k6_iterations_total{test_run_id="{{ .Args.runId }}"}
+                  and (time() - timestamp(k6_iterations_total{test_run_id="{{ .Args.runId }}"}) < 90)
+                )
               )
           - name: event_iterations_dropped
             units: iterations
             query: >-
               sum by (scale_node) (
-                k6_dropped_iterations_total{test_run_id="{{ .Args.runId }}"}
-                and (time() - timestamp(k6_dropped_iterations_total{test_run_id="{{ .Args.runId }}"}) < 90)
+                sum by (scale_node,producer_id) (
+                  last_over_time(k6_dropped_iterations_total{test_run_id="{{ .Args.runId }}"}[115m])
+                )
+                or
+                0 * max by (scale_node,producer_id) (
+                  k6_iterations_total{test_run_id="{{ .Args.runId }}"}
+                  and (time() - timestamp(k6_iterations_total{test_run_id="{{ .Args.runId }}"}) < 90)
+                )
               )
           # Shared selectors preserve each component, Pod and container in result labels.
           - name: component_cpu

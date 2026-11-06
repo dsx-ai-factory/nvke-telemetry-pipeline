@@ -22,7 +22,7 @@ to collectors on the same node. Metrics go to
 Per-process host metrics are not collected by default. Node exporter provides
 host metrics, and the kubelet cAdvisor scrape provides per-container resource
 use. See [Enable host process metrics](../guides/enable_host_process_metrics.md)
-to enable the `hostmetrics` process scraper.
+to enable the `host_metrics` process scraper.
 
 Each DaemonSet collector also scrapes the kubelet `/metrics` and
 `/metrics/cadvisor` endpoints on its own node. See

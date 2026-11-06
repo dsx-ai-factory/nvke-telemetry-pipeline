@@ -32,7 +32,7 @@ gateway_metrics:
       service:
         telemetry: *loadTelemetry
       exporters:
-        otlp:
+        otlp_grpc:
           endpoint: nktp-mixed-workload-blackhole-collector:4317
 
 gateway_logs:
@@ -44,7 +44,7 @@ gateway_logs:
       service:
         telemetry: *loadTelemetry
       exporters:
-        otlp:
+        otlp_grpc:
           endpoint: nktp-mixed-workload-blackhole-collector:4317
 
 gateway_traces:
@@ -56,7 +56,7 @@ gateway_traces:
       service:
         telemetry: *loadTelemetry
       exporters:
-        otlp:
+        otlp_grpc:
           endpoint: nktp-mixed-workload-blackhole-collector:4317
 
 large_target_metrics:
@@ -75,54 +75,7 @@ cluster_events:
     tolerations: *systemTolerations
   otelcol:
     config:
-      connectors:
-        count/scale_events:
-          logs:
-            nktp_scale_events_accepted:
-              conditions:
-                - attributes["k8s.event.reason"] == "NKTPScaleTest" and attributes["test_run_id"] != nil
-              attributes: [{key: test_run_id}, {key: scale_node}]
-      processors:
-        transform/scale_events:
-          error_mode: propagate
-          log_statements:
-            - context: log
-              conditions:
-                - attributes["k8s.event.reporting_controller"] == "nktp.nvidia.io/scale-test"
-              statements:
-                - set(attributes["test_run_id"], attributes["k8s.event.reporting_instance"])
-                - set(attributes["scale_node"], resource.attributes["k8s.node.name"])
-        batch/scale_events: {timeout: 1s, send_batch_size: 8192, send_batch_max_size: 8192}
-        transform/scale_events_time:
-          error_mode: propagate
-          metric_statements:
-            - context: datapoint
-              statements:
-                - set(time_unix_nano, UnixNano(Now()))
-                - set(start_time_unix_nano, time_unix_nano)
-        deltatocumulative/scale_events: {max_stale: 5m, max_streams: 1024}
-        interval/scale_events: {interval: 15s}
-      exporters:
-        otlp/scale_events:
-          endpoint: nktp-watchdog-collector:4317
-          tls:
-            ca_file: /etc/nktp/internal-tls/client/ca.crt
-            cert_file: /etc/nktp/internal-tls/client/tls.crt
-            key_file: /etc/nktp/internal-tls/client/tls.key
-            reload_interval: 1h
-          sending_queue:
-            sizer: bytes
-            queue_size: 8388608
-            num_consumers: 1
       service:
-        pipelines:
-          logs:
-            processors: [memory_limiter, transform/event_service, transform/scale_events, redaction/basic_v1]
-            exporters: [otlp, count/scale_events]
-          metrics/scale_events:
-            receivers: [count/scale_events]
-            processors: [batch/scale_events, transform/scale_events_time, deltatocumulative/scale_events, interval/scale_events]
-            exporters: [otlp/scale_events]
         telemetry: *loadTelemetry
 
 kube-state-metrics:
@@ -256,7 +209,7 @@ opentelemetry-kube-stack:
               spike_limit_percentage: 25
           exporters:
             nop: {}
-            otlp/observations:
+            otlp_grpc/observations:
               endpoint: lgtm:4317
               tls:
                 insecure: true
@@ -311,7 +264,7 @@ opentelemetry-kube-stack:
                 exporters: [nop]
               metrics/observations:
                 receivers: [routing/observations]
-                exporters: [otlp/observations]
+                exporters: [otlp_grpc/observations]
               logs:
                 receivers: [otlp]
                 processors: [memory_limiter]
@@ -389,16 +342,11 @@ opentelemetry-kube-stack:
           import http from 'k6/http';
           import exec from 'k6/execution';
           import { sleep } from 'k6';
-          import { Counter } from 'k6/metrics';
 
           const count = 100; // 100 Events × 100 producers = 10,000 retained objects.
           const api = 'https://kubernetes.default.svc/api/v1/namespaces/' + __ENV.POD_NAMESPACE + '/events';
           const token = open('/var/run/secrets/kubernetes.io/serviceaccount/token').trim();
           const owner = { apiVersion: 'v1', kind: 'Pod', name: __ENV.POD_NAME, uid: __ENV.POD_UID };
-          const successes = new Counter('event_patch_success');
-          const failures = new Counter('event_patch_failures');
-          // Zero samples keep the built-in dropped-iteration counter observable even without drops.
-          const dropped = new Counter('dropped_iterations');
 
           export const options = {
             scenarios: {
@@ -465,10 +413,7 @@ opentelemetry-kube-stack:
             const iteration = exec.scenario.iterationInTest;
             // Cycle through 100 names, touching each once per 10s and advancing its count.
             const patch = { count: Math.floor(iteration / count) + 2, lastTimestamp: new Date().toISOString() };
-            const response = http.patch(api + '/' + name(iteration % count), JSON.stringify(patch), patchParams);
-            successes.add(response.status === 200 ? 1 : 0);
-            failures.add(response.status === 200 ? 0 : 1);
-            dropped.add(0);
+            http.patch(api + '/' + name(iteration % count), JSON.stringify(patch), patchParams)
           }
 
           export function teardown(created) {
@@ -621,7 +566,7 @@ opentelemetry-kube-stack:
                   value: ${env:POD_UID}
                   action: upsert
           exporters:
-            otlp:
+            otlp_grpc:
               endpoint: nktp-mixed-workload-local.nktp.svc:4317
               tls:
                 insecure: true
@@ -629,7 +574,7 @@ opentelemetry-kube-stack:
                 max_elapsed_time: 30s
               sending_queue:
                 enabled: false
-            otlp/observations:
+            otlp_grpc/observations:
               endpoint: lgtm:4317
               tls:
                 insecure: true
@@ -654,8 +599,8 @@ opentelemetry-kube-stack:
               metrics/load:
                 receivers: [prometheus]
                 processors: [filter/load, resource/source]
-                exporters: [otlp]
+                exporters: [otlp_grpc]
               metrics/observations:
                 receivers: [prometheus]
                 processors: [filter/observations, transform/observations, resource/source]
-                exporters: [otlp/observations]
+                exporters: [otlp_grpc/observations]

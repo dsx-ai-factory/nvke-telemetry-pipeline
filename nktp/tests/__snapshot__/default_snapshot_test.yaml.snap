@@ -335,7 +335,7 @@ matches the snapshot with default values:
     spec:
       config:
         exporters:
-          otlp:
+          otlp_grpc:
             endpoint: nktp-gateway-logs-collector:4317
             retry_on_failure:
               max_elapsed_time: 30m
@@ -394,7 +394,7 @@ matches the snapshot with default values:
           pipelines:
             logs:
               exporters:
-                - otlp
+                - otlp_grpc
               processors:
                 - memory_limiter
                 - transform/event_service
@@ -440,7 +440,7 @@ matches the snapshot with default values:
       image: otel/opentelemetry-collector-k8s:0.164.0
       initContainers:
         - args:
-            - --config=yaml:{"exporters":{"otlp":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":4194304,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":10000},"decision_wait":"5s","num_traces":1000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-cluster-events-sidecar"},"traces":{"level":"none"}}}}
+            - --config=yaml:{"exporters":{"otlp_grpc":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":4194304,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":10000},"decision_wait":"5s","num_traces":1000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp_grpc"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-cluster-events-sidecar"},"traces":{"level":"none"}}}}
           env:
             - name: POD_NAME
               valueFrom:
@@ -618,7 +618,7 @@ matches the snapshot with default values:
     spec:
       config:
         exporters:
-          otlp/logs:
+          otlp_grpc/logs:
             endpoint: nktp-gateway-logs-collector:4317
             retry_on_failure:
               max_elapsed_time: 30m
@@ -637,7 +637,7 @@ matches the snapshot with default values:
               cert_file: /etc/nktp/internal-tls/client/tls.crt
               key_file: /etc/nktp/internal-tls/client/tls.key
               reload_interval: 1h
-          otlp/metrics:
+          otlp_grpc/metrics:
             endpoint: nktp-gateway-metrics-collector:4317
             retry_on_failure:
               max_elapsed_time: 30m
@@ -656,7 +656,7 @@ matches the snapshot with default values:
               cert_file: /etc/nktp/internal-tls/client/tls.crt
               key_file: /etc/nktp/internal-tls/client/tls.key
               reload_interval: 1h
-          otlp/traces:
+          otlp_grpc/traces:
             endpoint: nktp-gateway-traces-collector:4317
             retry_on_failure:
               max_elapsed_time: 30m
@@ -675,7 +675,7 @@ matches the snapshot with default values:
               cert_file: /etc/nktp/internal-tls/client/tls.crt
               key_file: /etc/nktp/internal-tls/client/tls.key
               reload_interval: 1h
-          otlp/watchdog:
+          otlp_grpc/watchdog:
             endpoint: nktp-watchdog-collector:4317
             retry_on_failure:
               max_elapsed_time: 30m
@@ -732,7 +732,7 @@ matches the snapshot with default values:
                   - set(attributes["service.name"], "nktp-large-target-metrics-targetallocator") where IsMatch(attributes["k8s.pod.name"], "^nktp-large-target-metrics-targetallocator-")
                   - set(attributes["service.name"], "nktp-nodeless-metrics-targetallocator") where IsMatch(attributes["k8s.pod.name"], "^nktp-nodeless-metrics-targetallocator-")
         receivers:
-          filelog:
+          file_log:
             exclude:
               - /var/log/pods/${env:POD_NAMESPACE}_nktp-*-collector-*_*/*/*.log
               - /var/log/pods/${env:POD_NAMESPACE}_nktp-*-targetallocator-*_*/ta-container/*.log
@@ -751,7 +751,7 @@ matches the snapshot with default values:
               enabled: true
               max_elapsed_time: 0
             start_at: end
-          filelog/host-audit:
+          file_log/host-audit:
             include:
               - /hostfs/var/log/audit/audit.log
             include_file_path: true
@@ -762,7 +762,7 @@ matches the snapshot with default values:
               enabled: true
               max_elapsed_time: 0
             start_at: end
-          filelog/host-auth:
+          file_log/host-auth:
             include:
               - /hostfs/var/log/auth.log
               - /hostfs/var/log/secure
@@ -774,7 +774,7 @@ matches the snapshot with default values:
               enabled: true
               max_elapsed_time: 0
             start_at: end
-          filelog/kube-api-audit:
+          file_log/kube-api-audit:
             include:
               - /hostfs/var/log/kubernetes/audit/audit.log
             include_file_path: true
@@ -785,7 +785,7 @@ matches the snapshot with default values:
               enabled: true
               max_elapsed_time: 0
             start_at: end
-          filelog/operator:
+          file_log/operator:
             include:
               - /var/log/pods/${env:POD_NAMESPACE}_nktp-operator-*_*/manager/*.log
             include_file_path: true
@@ -795,7 +795,7 @@ matches the snapshot with default values:
               enabled: true
               max_elapsed_time: 0
             start_at: beginning
-          filelog/targetallocator:
+          file_log/targetallocator:
             include:
               - /var/log/pods/${env:POD_NAMESPACE}_nktp-*-targetallocator-*_*/ta-container/*.log
             include_file_path: true
@@ -942,41 +942,41 @@ matches the snapshot with default values:
           pipelines:
             logs:
               exporters:
-                - otlp/logs
+                - otlp_grpc/logs
               processors:
                 - memory_limiter
                 - resource/node
                 - redaction/basic_v1
               receivers:
-                - filelog
+                - file_log
                 - journald
                 - otlp
-                - filelog/host-auth
-                - filelog/host-audit
-                - filelog/kube-api-audit
+                - file_log/host-auth
+                - file_log/host-audit
+                - file_log/kube-api-audit
             logs/operator:
               exporters:
-                - otlp/watchdog
+                - otlp_grpc/watchdog
               processors:
                 - memory_limiter
                 - resource/node
                 - transform/operator
                 - redaction/basic_v1
               receivers:
-                - filelog/operator
+                - file_log/operator
             logs/targetallocator:
               exporters:
-                - otlp/watchdog
+                - otlp_grpc/watchdog
               processors:
                 - memory_limiter
                 - resource/node
                 - transform/targetallocator
                 - redaction/basic_v1
               receivers:
-                - filelog/targetallocator
+                - file_log/targetallocator
             metrics:
               exporters:
-                - otlp/metrics
+                - otlp_grpc/metrics
               processors:
                 - memory_limiter
                 - resource/node
@@ -987,7 +987,7 @@ matches the snapshot with default values:
                 - otlp
             traces:
               exporters:
-                - otlp/traces
+                - otlp_grpc/traces
               processors:
                 - memory_limiter
                 - resource/node
@@ -1042,7 +1042,7 @@ matches the snapshot with default values:
       image: otel/opentelemetry-collector-k8s:0.164.0
       initContainers:
         - args:
-            - --config=yaml:{"exporters":{"otlp":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":4194304,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":10000},"decision_wait":"5s","num_traces":1000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"k8s.node.name":"${env:NODE_NAME}","service.instance.id":"${env:POD_NAME}","service.name":"nktp-daemonset-sidecar"},"traces":{"level":"none"}}}}
+            - --config=yaml:{"exporters":{"otlp_grpc":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":4194304,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":10000},"decision_wait":"5s","num_traces":1000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp_grpc"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"k8s.node.name":"${env:NODE_NAME}","service.instance.id":"${env:POD_NAME}","service.name":"nktp-daemonset-sidecar"},"traces":{"level":"none"}}}}
           env:
             - name: POD_NAME
               valueFrom:
@@ -1305,7 +1305,7 @@ matches the snapshot with default values:
         targetMemoryUtilization: 100
       config:
         exporters:
-          otlp:
+          otlp_grpc:
             endpoint: lgtm:4317
             retry_on_failure:
               max_elapsed_time: 30m
@@ -1370,7 +1370,7 @@ matches the snapshot with default values:
           pipelines:
             logs:
               exporters:
-                - otlp
+                - otlp_grpc
               processors:
                 - memory_limiter
                 - redaction/basic_v1
@@ -1412,7 +1412,7 @@ matches the snapshot with default values:
       image: otel/opentelemetry-collector-k8s:0.164.0
       initContainers:
         - args:
-            - --config=yaml:{"exporters":{"otlp":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":16777216,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":50000},"decision_wait":"5s","num_traces":5000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-gateway-logs-sidecar"},"traces":{"level":"none"}}}}
+            - --config=yaml:{"exporters":{"otlp_grpc":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":16777216,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":50000},"decision_wait":"5s","num_traces":5000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp_grpc"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-gateway-logs-sidecar"},"traces":{"level":"none"}}}}
           env:
             - name: POD_NAME
               valueFrom:
@@ -1557,7 +1557,7 @@ matches the snapshot with default values:
         targetMemoryUtilization: 100
       config:
         exporters:
-          otlp:
+          otlp_grpc:
             endpoint: lgtm:4317
             retry_on_failure:
               max_elapsed_time: 30m
@@ -1622,7 +1622,7 @@ matches the snapshot with default values:
           pipelines:
             metrics:
               exporters:
-                - otlp
+                - otlp_grpc
               processors:
                 - memory_limiter
                 - redaction/basic_v1
@@ -1664,7 +1664,7 @@ matches the snapshot with default values:
       image: otel/opentelemetry-collector-k8s:0.164.0
       initContainers:
         - args:
-            - --config=yaml:{"exporters":{"otlp":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":16777216,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":50000},"decision_wait":"5s","num_traces":5000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-gateway-metrics-sidecar"},"traces":{"level":"none"}}}}
+            - --config=yaml:{"exporters":{"otlp_grpc":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":16777216,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":50000},"decision_wait":"5s","num_traces":5000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp_grpc"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-gateway-metrics-sidecar"},"traces":{"level":"none"}}}}
           env:
             - name: POD_NAME
               valueFrom:
@@ -1809,7 +1809,7 @@ matches the snapshot with default values:
         targetMemoryUtilization: 100
       config:
         exporters:
-          otlp:
+          otlp_grpc:
             endpoint: lgtm:4317
             retry_on_failure:
               max_elapsed_time: 30m
@@ -1874,7 +1874,7 @@ matches the snapshot with default values:
           pipelines:
             traces:
               exporters:
-                - otlp
+                - otlp_grpc
               processors:
                 - memory_limiter
                 - redaction/basic_v1
@@ -1916,7 +1916,7 @@ matches the snapshot with default values:
       image: otel/opentelemetry-collector-k8s:0.164.0
       initContainers:
         - args:
-            - --config=yaml:{"exporters":{"otlp":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":16777216,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":50000},"decision_wait":"5s","num_traces":5000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-gateway-traces-sidecar"},"traces":{"level":"none"}}}}
+            - --config=yaml:{"exporters":{"otlp_grpc":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":16777216,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":50000},"decision_wait":"5s","num_traces":5000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp_grpc"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-gateway-traces-sidecar"},"traces":{"level":"none"}}}}
           env:
             - name: POD_NAME
               valueFrom:
@@ -3279,7 +3279,7 @@ matches the snapshot with default values:
         targetMemoryUtilization: 100
       config:
         exporters:
-          otlp:
+          otlp_grpc:
             endpoint: nktp-gateway-metrics-collector:4317
             retry_on_failure:
               max_elapsed_time: 30m
@@ -3337,7 +3337,7 @@ matches the snapshot with default values:
           pipelines:
             metrics:
               exporters:
-                - otlp
+                - otlp_grpc
               processors:
                 - memory_limiter
                 - redaction/basic_v1
@@ -3379,7 +3379,7 @@ matches the snapshot with default values:
       image: otel/opentelemetry-collector-k8s:0.164.0
       initContainers:
         - args:
-            - --config=yaml:{"exporters":{"otlp":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":4194304,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":10000},"decision_wait":"5s","num_traces":1000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-large-target-metrics-sidecar"},"traces":{"level":"none"}}}}
+            - --config=yaml:{"exporters":{"otlp_grpc":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":4194304,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":10000},"decision_wait":"5s","num_traces":1000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp_grpc"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-large-target-metrics-sidecar"},"traces":{"level":"none"}}}}
           env:
             - name: POD_NAME
               valueFrom:
@@ -3616,7 +3616,7 @@ matches the snapshot with default values:
     spec:
       config:
         exporters:
-          otlp:
+          otlp_grpc:
             endpoint: nktp-gateway-metrics-collector:4317
             retry_on_failure:
               max_elapsed_time: 30m
@@ -3665,7 +3665,7 @@ matches the snapshot with default values:
           pipelines:
             metrics:
               exporters:
-                - otlp
+                - otlp_grpc
               processors:
                 - memory_limiter
                 - redaction/basic_v1
@@ -3706,7 +3706,7 @@ matches the snapshot with default values:
       image: otel/opentelemetry-collector-k8s:0.164.0
       initContainers:
         - args:
-            - --config=yaml:{"exporters":{"otlp":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":4194304,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":10000},"decision_wait":"5s","num_traces":1000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-nodeless-metrics-sidecar"},"traces":{"level":"none"}}}}
+            - --config=yaml:{"exporters":{"otlp_grpc":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":4194304,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":10000},"decision_wait":"5s","num_traces":1000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp_grpc"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-nodeless-metrics-sidecar"},"traces":{"level":"none"}}}}
           env:
             - name: POD_NAME
               valueFrom:
@@ -10186,7 +10186,7 @@ matches the snapshot with default values:
                   },
                   "targets": [
                     {
-                      "expr": "sum by (receiver) (rate(otelcol_receiver_accepted_log_records_total{job=\"nktp-daemonset\",receiver=~\"filelog/(targetallocator|operator)\"}[$__rate_interval]))",
+                      "expr": "sum by (receiver) (rate(otelcol_receiver_accepted_log_records_total{job=\"nktp-daemonset\",receiver=~\"file_log/(targetallocator|operator)\"}[$__rate_interval]))",
                       "legendFormat": "{{receiver}}",
                       "refId": "A",
                       "range": true,
@@ -14487,7 +14487,7 @@ matches the snapshot with default values:
       template:
         metadata:
           annotations:
-            checksum/dashboards: c062a84da8a909e8d5f388bf6902e96a12ea01df0c324c9f759c3c054b60b5e5
+            checksum/dashboards: a6cb24238b80349b681e0b23eaf0f6a2ea01ee5cc442eb1d81c6016f92206f43
           labels:
             app: lgtm
         spec:
@@ -14637,7 +14637,7 @@ matches the snapshot with default values:
         targetMemoryUtilization: 75
       config:
         exporters:
-          otlp:
+          otlp_grpc:
             endpoint: lgtm:4317
             retry_on_failure:
               max_elapsed_time: 30m
@@ -14741,7 +14741,7 @@ matches the snapshot with default values:
           pipelines:
             logs:
               exporters:
-                - otlp
+                - otlp_grpc
               processors:
                 - memory_limiter
                 - redaction/basic_v1
@@ -14750,7 +14750,7 @@ matches the snapshot with default values:
                 - otlp/secure
             metrics:
               exporters:
-                - otlp
+                - otlp_grpc
               processors:
                 - memory_limiter
                 - redaction/basic_v1
@@ -14761,7 +14761,7 @@ matches the snapshot with default values:
                 - prometheus
             traces:
               exporters:
-                - otlp
+                - otlp_grpc
               processors:
                 - memory_limiter
                 - redaction/basic_v1
@@ -14803,7 +14803,7 @@ matches the snapshot with default values:
       image: otel/opentelemetry-collector-k8s:0.164.0
       initContainers:
         - args:
-            - --config=yaml:{"exporters":{"otlp":{"endpoint":"lgtm:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":16777216,"sizer":"bytes"},"tls":{"insecure":true}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"redaction/basic_v1":{"allow_all_keys":true,"blocked_key_patterns":["(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$"],"blocked_values":["(?i)\\bBearer\\s+[A-Za-z0-9._~+/-]+=*","(?i)\"?\\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))\"?\\s*[:=]\\s*(?:\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*'|(?:(?:Bearer|Basic)\\s+)?[^\\s,;\"]+)"],"redact_all_types":true,"summary":"silent"},"tail_sampling":{"decision_cache":{"sampled_cache_size":50000},"decision_wait":"5s","num_traces":5000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]},"transform/cluster":{"error_mode":"ignore","log_statements":[{"context":"resource","statements":["set(attributes[\"k8s.cluster.name\"], \"${env:K8S_CLUSTER_NAME:-unknown}\") where attributes[\"k8s.cluster.name\"] == nil"]}],"metric_statements":[{"context":"resource","statements":["set(attributes[\"k8s.cluster.name\"], \"${env:K8S_CLUSTER_NAME:-unknown}\") where attributes[\"k8s.cluster.name\"] == nil"]}],"trace_statements":[{"context":"resource","statements":["set(attributes[\"k8s.cluster.name\"], \"${env:K8S_CLUSTER_NAME:-unknown}\") where attributes[\"k8s.cluster.name\"] == nil"]}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp"],"processors":["memory_limiter","redaction/basic_v1","transform/cluster"],"receivers":["otlp"]},"metrics":{"exporters":["otlp"],"processors":["memory_limiter","redaction/basic_v1","transform/cluster"],"receivers":["otlp"]},"traces":{"exporters":["otlp"],"processors":["memory_limiter","tail_sampling","redaction/basic_v1","transform/cluster"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-watchdog-sidecar"},"traces":{"level":"none"}}}}
+            - --config=yaml:{"exporters":{"otlp_grpc":{"endpoint":"lgtm:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":16777216,"sizer":"bytes"},"tls":{"insecure":true}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"redaction/basic_v1":{"allow_all_keys":true,"blocked_key_patterns":["(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$"],"blocked_values":["(?i)\\bBearer\\s+[A-Za-z0-9._~+/-]+=*","(?i)\"?\\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))\"?\\s*[:=]\\s*(?:\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*'|(?:(?:Bearer|Basic)\\s+)?[^\\s,;\"]+)"],"redact_all_types":true,"summary":"silent"},"tail_sampling":{"decision_cache":{"sampled_cache_size":50000},"decision_wait":"5s","num_traces":5000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]},"transform/cluster":{"error_mode":"ignore","log_statements":[{"context":"resource","statements":["set(attributes[\"k8s.cluster.name\"], \"${env:K8S_CLUSTER_NAME:-unknown}\") where attributes[\"k8s.cluster.name\"] == nil"]}],"metric_statements":[{"context":"resource","statements":["set(attributes[\"k8s.cluster.name\"], \"${env:K8S_CLUSTER_NAME:-unknown}\") where attributes[\"k8s.cluster.name\"] == nil"]}],"trace_statements":[{"context":"resource","statements":["set(attributes[\"k8s.cluster.name\"], \"${env:K8S_CLUSTER_NAME:-unknown}\") where attributes[\"k8s.cluster.name\"] == nil"]}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp_grpc"],"processors":["memory_limiter","redaction/basic_v1","transform/cluster"],"receivers":["otlp"]},"metrics":{"exporters":["otlp_grpc"],"processors":["memory_limiter","redaction/basic_v1","transform/cluster"],"receivers":["otlp"]},"traces":{"exporters":["otlp_grpc"],"processors":["memory_limiter","tail_sampling","redaction/basic_v1","transform/cluster"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-watchdog-sidecar"},"traces":{"level":"none"}}}}
           env:
             - name: POD_NAME
               valueFrom:

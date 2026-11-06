@@ -60,7 +60,7 @@ histogram's sum to get serialized bytes/s per replica:
 
 ```promql
 sum by (instance) (
-  rate(otelcol_exporter_enqueue_size_bytes_sum{job="nktp-gateway-metrics", exporter="otlp"}[5m])
+  rate(otelcol_exporter_enqueue_size_bytes_sum{job="nktp-gateway-metrics", exporter="otlp_grpc"}[5m])
 )
 ```
 
@@ -133,7 +133,7 @@ starting volume request = round up (2 × sum of serialized queue capacities)
 ```
 
 Watchdog has separate logs, metrics, and traces queues: `queue_size` applies to
-each signal. Although its configuration defines `otlp` once, using that exporter
+each signal. Although its configuration defines `otlp_grpc` once, using that exporter
 in three pipelines creates three independent queues sharing the volume.
 The defaults apply the starting budget as follows:
 

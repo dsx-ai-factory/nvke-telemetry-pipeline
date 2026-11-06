@@ -60,6 +60,13 @@ tasks:
       - ./custom-gcl config verify
       - ./custom-gcl run {{.CLI_ARGS}} ./...
 
+  tools:lint:
+    desc: "Lint the Go tools with the test suites' lint rules (pass flags: task tools:lint -- --fix)"
+    dir: tools
+    deps: [tests:lint:build]
+    cmds:
+      - ../tests/custom-gcl run --config ../tests/.golangci.yml {{.CLI_ARGS}} ./...
+
   tests:lint:build:
     internal: true
     dir: tests
@@ -89,6 +96,18 @@ tasks:
       - helm unittest {{.CLI_ARGS}} nktp
       # CLI_ARGS go to the main run only, so a -o report is not overwritten by this run.
       - helm unittest --skip-schema-validation -f 'tests/skip-schema-validation/*_test.yaml' nktp
+
+  blueprints:
+    desc: Package blueprints/ as the default blueprints in nktp/values.yaml
+    dir: tools
+    cmds:
+      - go run ./package-blueprints
+
+  blueprints:check:
+    desc: Check that blueprints/ is valid and packaged in nktp/values.yaml
+    dir: tools
+    cmds:
+      - go run ./package-blueprints -check
 
   license:check:
     desc: Run the SPDX header and third-party notices checks that CI runs on every pull request

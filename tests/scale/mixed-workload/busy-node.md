@@ -7,7 +7,7 @@ It describes not only telemetry volumes, but also specific telemetry sources whi
 
 | Signal | Ingestion path | Load |
 | --- | --- | --- |
-| Logs | Container stdout, read by the `filelog` receiver | ~1 GiB/hour |
+| Logs | Container stdout, read by the `file_log` receiver | ~1 GiB/hour |
 | Metrics | 90% scraped through the per-node Target Allocator, 10% OTLP | 50,000 series at 30s |
 | Traces | OTLP to the node Collector | ~1 GiB/hour |
 
@@ -22,9 +22,9 @@ It describes not only telemetry volumes, but also specific telemetry sources whi
 | **Total** | | **~1 GiB/hour** |
 
 - Logs are sized in bytes, not records. Bytes are more representative of potential bottlenecks and typically more relevant to users.
-- Logs come from files. Container stdout is the dominant log path on a real node. The `filelog` receiver requires CPU and memory that generally exceed those of OTLP forwarding.
+- Logs come from files. Container stdout is the dominant log path on a real node. The `file_log` receiver requires CPU and memory that generally exceed those of OTLP forwarding.
   This is especially true when tracking large numbers of files and performing detailed log processing, as is typically done with Pod logs.
-- Large logs span several runtime lines. The runtime splits lines at 16 KiB, so `filelog` recombines each 64 KiB record from four partial lines.
+- Large logs span several runtime lines. The runtime splits lines at 16 KiB, so `file_log` recombines each 64 KiB record from four partial lines.
 
 ### Metrics
 

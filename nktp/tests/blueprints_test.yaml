@@ -1,0 +1,114 @@
+suite: blueprints
+release:
+  namespace: nktp
+templates:
+  - templates/watchdog.yaml
+  - templates/gateway-logs.yaml
+  - templates/gateway-metrics.yaml
+  - templates/gateway-traces.yaml
+  - templates/daemonset.yaml
+  - templates/large-target-metrics.yaml
+  - templates/nodeless-metrics.yaml
+  - templates/cluster-events.yaml
+tests:
+  - it: leaves default configurations without blueprint definitions or connectors
+    asserts:
+      - notExists:
+          path: spec.config.blueprints
+      - notExists:
+          path: spec.config.connectors["forward/exp/otlp_backend"]
+      - notMatchRegex:
+          path: spec.initContainers[0].args[0]
+          pattern: '"blueprints"|forward/exp/'
+
+  - it: expands otlp_backend into the same exporter as the logs gateway's default
+    template: templates/gateway-logs.yaml
+    set:
+      gateway_logs.otelcol.config.exporters.blueprint/otlp_backend:
+        signal: logs
+        endpoint: lgtm:4317
+        tls: &tls
+          insecure: true
+        retry_on_failure: &retry
+          max_elapsed_time: 30m
+        sending_queue: &queue
+          storage: file_storage/queue
+          block_on_overflow: true
+          sizer: bytes
+          queue_size: 515396076
+          num_consumers: 32
+          batch:
+            sizer: bytes
+            min_size: 1048576
+            max_size: 2097152
+            flush_timeout: 1s
+      gateway_logs.otelcol.config.service.pipelines.logs.exporters: [blueprint/otlp_backend]
+    asserts:
+      # The literal matches the default exporter, so this fails if the default changes.
+      - equal:
+          path: spec.config.exporters.otlp_grpc
+          value: &exporter
+            endpoint: lgtm:4317
+            tls: *tls
+            retry_on_failure: *retry
+            sending_queue: *queue
+      - equal:
+          path: spec.config.exporters["otlp/(exp/otlp_backend)"]
+          value: *exporter
+      - equal:
+          path: spec.config.service.pipelines.logs.exporters
+          value: [forward/exp/otlp_backend]
+      - equal:
+          path: spec.config.service.pipelines["logs/(exp/otlp_backend)"]
+          value:
+            receivers: [forward/exp/otlp_backend]
+            exporters: [otlp/(exp/otlp_backend)]
+
+  - it: expands a blueprint from the blueprints value in a sidecar
+    template: templates/gateway-logs.yaml
+    set:
+      gateway_logs.sidecar.otelcol.config.exporters.blueprint/otlp_backend:
+        endpoint: sidecar.example.com:4317
+        signal: traces
+      gateway_logs.sidecar.otelcol.config.service.pipelines.traces.exporters: [blueprint/otlp_backend]
+    asserts:
+      - matchRegex:
+          path: spec.initContainers[0].args[0]
+          pattern: '"otlp/\(exp/otlp_backend\)":\{"endpoint":"sidecar.example.com:4317"'
+      - matchRegex:
+          path: spec.initContainers[0].args[0]
+          pattern: '"traces":\{"exporters":\["forward/exp/otlp_backend"\]'
+
+  - it: uses a configuration's own definition over the blueprints value
+    template: templates/gateway-logs.yaml
+    set:
+      blueprints.exporters.shared.template: |
+        exporters:
+          debug:
+            verbosity: basic
+        pipelines:
+          logs:
+            receivers: [{{ .forward }}]
+            exporters: [debug]
+      gateway_logs.otelcol.config.blueprints.exporters.shared.template: |
+        exporters:
+          debug:
+            verbosity: detailed
+        pipelines:
+          logs:
+            receivers: [{{ .forward }}]
+            exporters: [debug]
+      gateway_logs.otelcol.config.exporters.blueprint/shared: {}
+      gateway_logs.otelcol.config.service.pipelines.logs.exporters: [otlp_grpc, blueprint/shared]
+    asserts:
+      - equal:
+          path: spec.config.exporters["debug/(exp/shared)"].verbosity
+          value: detailed
+
+  - it: passes a blueprints value that is not a map to NVCB, which rejects it
+    template: templates/watchdog.yaml
+    set:
+      blueprints: not-a-map
+    asserts:
+      - failedTemplate:
+          errorPattern: 'nvcb: blueprints must be a map'

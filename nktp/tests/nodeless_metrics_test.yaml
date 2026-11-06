@@ -46,10 +46,10 @@ tests:
               external_labels: {nktp_metrics_pool: nodeless}
             scrape_configs: []
       - equal:
-          path: spec.config.exporters.otlp.endpoint
+          path: spec.config.exporters.otlp_grpc.endpoint
           value: nktp-gateway-metrics-collector:4317
       - equal:
-          path: spec.config.exporters.otlp.tls
+          path: spec.config.exporters.otlp_grpc.tls
           value:
             ca_file: /etc/nktp/internal-tls/client/ca.crt
             cert_file: /etc/nktp/internal-tls/client/tls.crt
@@ -61,7 +61,7 @@ tests:
             metrics:
               receivers: [prometheus]
               processors: [memory_limiter, redaction/basic_v1]
-              exporters: [otlp]
+              exporters: [otlp_grpc]
       - equal:
           path: spec.config.service.telemetry.resource
           value:

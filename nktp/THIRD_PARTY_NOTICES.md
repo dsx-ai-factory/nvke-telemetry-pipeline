@@ -19,6 +19,7 @@ registries at install time and are not redistributed with this chart.
 | prometheus-node-exporter | 4.56.1 | Copyright The Prometheus Community Authors | Apache-2.0 | https://github.com/prometheus-community/helm-charts |
 | metrics-server | 3.13.1 | Copyright The Kubernetes Authors | Apache-2.0 | https://github.com/kubernetes-sigs/metrics-server |
 | prometheus-blackbox-exporter | 11.20.2 | Copyright The Prometheus Community Authors | Apache-2.0 | https://github.com/prometheus-community/helm-charts |
+| nvcb | 0.1.0 | Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES | Apache-2.0 | https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/tree/main/nvcb/chart |
 
 ## Upstream NOTICE files
 

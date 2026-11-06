@@ -62,7 +62,7 @@ func TestGatewayPersistence(t *testing.T) {
 				collector := &unstructured.Unstructured{}
 				collector.SetGroupVersionKind(schema.GroupVersionKind{Group: "opentelemetry.io", Version: "v1beta1", Kind: "OpenTelemetryCollector"})
 				require.NoError(t, c.Client().Resources(c.Namespace()).Get(setupCtx, name, c.Namespace(), collector))
-				storage, found, err := unstructured.NestedString(collector.Object, "spec", "config", "exporters", "otlp", "sending_queue", "storage")
+				storage, found, err := unstructured.NestedString(collector.Object, "spec", "config", "exporters", "otlp_grpc", "sending_queue", "storage")
 				require.NoError(t, err)
 				require.True(t, found && (storage == "file_storage" || strings.HasPrefix(storage, "file_storage/")), "%s requires persistent sending_queue storage", name)
 				directory, _, err := unstructured.NestedString(collector.Object, "spec", "config", "extensions", storage, "directory")

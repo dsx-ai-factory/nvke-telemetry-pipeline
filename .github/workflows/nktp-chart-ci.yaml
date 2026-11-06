@@ -9,6 +9,9 @@ on:
       - main
     paths:
       - 'nktp/**'
+      - 'nvcb/chart/**'
+      - 'blueprints/**'
+      - 'tools/**'
       - 'tests/e2e/**'
       - 'tests/integration/**'
       - 'tests/internal/**'
@@ -42,6 +45,30 @@ jobs:
 
       - name: Render templates
         run: helm template nktp nktp
+
+  blueprints:
+    name: Default Blueprints
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: tools/go.mod
+          cache-dependency-path: tools/go.sum
+
+      - name: Test the blueprint packager
+        working-directory: tools
+        run: go test ./...
+
+      - name: Check that nktp/values.yaml has the current blueprints
+        working-directory: tools
+        run: go run ./package-blueprints -check
 
   unit:
     name: Unit Tests

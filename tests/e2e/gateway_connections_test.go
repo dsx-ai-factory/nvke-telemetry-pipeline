@@ -216,7 +216,7 @@ func TestGatewayConnections(t *testing.T) {
 			// Fixed fixture components stay in native Collector YAML.
 			require.NoError(t, yaml.Unmarshal([]byte(`
 receivers:
-  filelog:
+  file_log:
     include: [/logs/input.log]
     start_at: beginning
     retry_on_failure: {enabled: true, max_elapsed_time: 0s}
@@ -243,8 +243,8 @@ service:
             exporter:
               prometheus: {host: '127.0.0.1', port: 8888}
 `), &clientConfig))
-			for signal, receiver := range map[string]string{"logs": "filelog", "metrics": "prometheus", "traces": "otlp"} {
-				exporterName := "otlp/" + signal
+			for signal, receiver := range map[string]string{"logs": "file_log", "metrics": "prometheus", "traces": "otlp"} {
+				exporterName := "otlp_grpc/" + signal
 				exporter, found := clientCollector.Config.Exporters[exporterName]
 				require.True(t, found, "the chart must configure %s", exporterName)
 				require.NotEmpty(t, exporter.Endpoint, "%s must have a destination", exporterName)
@@ -402,7 +402,7 @@ type collectorConfig struct {
 
 type collectorReceivers struct {
 	OTLP       *otlpReceiver   `json:"otlp,omitempty"`
-	Filelog    json.RawMessage `json:"filelog,omitempty"`
+	FileLog    json.RawMessage `json:"file_log,omitempty"`
 	Prometheus json.RawMessage `json:"prometheus,omitempty"`
 }
 

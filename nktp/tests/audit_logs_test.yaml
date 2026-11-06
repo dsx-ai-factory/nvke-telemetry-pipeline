@@ -9,7 +9,7 @@ tests:
     template: templates/daemonset.yaml
     asserts:
       - equal:
-          path: spec.config.receivers["filelog/host-auth"]
+          path: spec.config.receivers["file_log/host-auth"]
           value:
             include: [/hostfs/var/log/auth.log, /hostfs/var/log/secure]
             start_at: end
@@ -23,7 +23,7 @@ tests:
     template: templates/daemonset.yaml
     asserts:
       - equal:
-          path: spec.config.receivers["filelog/host-audit"]
+          path: spec.config.receivers["file_log/host-audit"]
           value:
             include: [/hostfs/var/log/audit/audit.log]
             start_at: end
@@ -39,7 +39,7 @@ tests:
     template: templates/daemonset.yaml
     asserts:
       - equal:
-          path: spec.config.receivers["filelog/kube-api-audit"]
+          path: spec.config.receivers["file_log/kube-api-audit"]
           value:
             include: [/hostfs/var/log/kubernetes/audit/audit.log]
             start_at: end
@@ -60,20 +60,20 @@ tests:
   - it: accepts site audit paths while retaining each source class
     template: templates/daemonset.yaml
     set:
-      daemonset.otelcol.config.receivers.filelog/host-audit.include: [/hostfs/var/log/site-audit/audit.log]
-      daemonset.otelcol.config.receivers.filelog/kube-api-audit.include: [/hostfs/var/log/site-kube-api-audit/audit.log]
+      daemonset.otelcol.config.receivers.file_log/host-audit.include: [/hostfs/var/log/site-audit/audit.log]
+      daemonset.otelcol.config.receivers.file_log/kube-api-audit.include: [/hostfs/var/log/site-kube-api-audit/audit.log]
     asserts:
       - equal:
-          path: spec.config.receivers["filelog/host-audit"].include
+          path: spec.config.receivers["file_log/host-audit"].include
           value: [/hostfs/var/log/site-audit/audit.log]
       - equal:
-          path: spec.config.receivers["filelog/host-audit"].resource
+          path: spec.config.receivers["file_log/host-audit"].resource
           value: {nvidia.telemetry.class: system.audit, service.name: auditd}
       - equal:
-          path: spec.config.receivers["filelog/kube-api-audit"].include
+          path: spec.config.receivers["file_log/kube-api-audit"].include
           value: [/hostfs/var/log/site-kube-api-audit/audit.log]
       - equal:
-          path: spec.config.receivers["filelog/kube-api-audit"].resource
+          path: spec.config.receivers["file_log/kube-api-audit"].resource
           value: {nvidia.telemetry.class: k8s.api.audit, service.name: kube-apiserver}
 
   - it: forwards classified sources through redaction and the existing logs gateway
@@ -82,18 +82,18 @@ tests:
       - equal:
           path: spec.config.service.pipelines.logs
           value:
-            receivers: [filelog, journald, otlp, filelog/host-auth, filelog/host-audit, filelog/kube-api-audit]
+            receivers: [file_log, journald, otlp, file_log/host-auth, file_log/host-audit, file_log/kube-api-audit]
             processors: [memory_limiter, resource/node, redaction/basic_v1]
-            exporters: [otlp/logs]
+            exporters: [otlp_grpc/logs]
       - equal:
-          path: spec.config.exporters["otlp/logs"].endpoint
+          path: spec.config.exporters["otlp_grpc/logs"].endpoint
           value: nktp-gateway-logs-collector:4317
       - equal:
           path: spec.config.service.pipelines.logs
           value:
             receivers: [otlp]
             processors: [memory_limiter, redaction/basic_v1, transform/cluster]
-            exporters: [otlp]
+            exporters: [otlp_grpc]
         template: templates/gateway-logs.yaml
       - equal:
           path: spec.config.processors.memory_limiter

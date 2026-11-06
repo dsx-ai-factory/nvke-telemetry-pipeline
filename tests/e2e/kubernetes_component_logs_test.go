@@ -107,14 +107,14 @@ func TestKubernetesComponentLogs(t *testing.T) {
 			var found bool
 			var queryErr error
 			err := wait.For(func(ctx context.Context) (bool, error) {
-				// Generate fresh audit events after filelog starts at EOF.
+				// Generate fresh audit events after file_log starts at EOF.
 				var ns corev1.Namespace
 				if err := r.Get(ctx, namespace, "", &ns); err != nil {
 					t.Logf("reading the component logs Namespace: %v", err)
 				}
 
 				// Retry stimuli at most every 30 seconds in case the first
-				// messages were written before filelog began reading.
+				// messages were written before file_log began reading.
 				switch name {
 				case "kube-scheduler-pod", "kube-controller-manager-pod":
 					if time.Since(lastRefresh) >= 30*time.Second {
@@ -218,7 +218,7 @@ func logComponentLogsDiagnostics(ctx context.Context, t *testing.T, client klien
 				if component == "" {
 					component = result.Metric["exporter"]
 				}
-				if component != "filelog" && component != "filelog/kube-api-audit" && component != "otlp" && component != "otlp_http" && component != "otlp_http/logs" {
+				if component != "file_log" && component != "file_log/kube-api-audit" && component != "otlp" && component != "otlp_grpc" && component != "otlp_http" && component != "otlp_http/logs" {
 					continue
 				}
 				name := strings.NewReplacer(
@@ -524,7 +524,7 @@ func createComponentLogsFixture(ctx context.Context, t *testing.T, client klient
 	}
 	// Use the existing Alpine fixture's BusyBox rather than another image.
 	// Kind's cluster domain is cluster.local. The trailing dot prevents DNS
-	// search-path expansion, and repeated queries cover filelog's EOF startup.
+	// search-path expansion, and repeated queries cover file_log's EOF startup.
 	fixture.Spec.Template.Spec.Containers[0].Command = []string{
 		"/bin/sh", "-ec",
 		`while true; do /bin/busybox nslookup "$FIXTURE_DNS_NAME" >/dev/null 2>&1 || true; sleep 5; done`,

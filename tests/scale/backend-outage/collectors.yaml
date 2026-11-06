@@ -41,7 +41,7 @@ spec:
               # Retries preserve original timestamps. Count each arrival using
               # fresh timestamps so cumulative conversion also counts retries.
               - set(time_unix_nano, UnixNano(Now()))
-      deltatocumulative/verification:
+      delta_to_cumulative/verification:
         max_stale: 30m
     connectors:
       count/verification:
@@ -76,5 +76,5 @@ spec:
           exporters: [nop, count/verification]
         metrics/verification:
           receivers: [count/verification]
-          processors: [deltatocumulative/verification]
+          processors: [delta_to_cumulative/verification]
           exporters: [prometheus]

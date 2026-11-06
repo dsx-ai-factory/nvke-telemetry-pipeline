@@ -150,12 +150,15 @@ Each Collector component has the same values structure:
 
 | Key | Contents |
 | --- | --- |
-| `<component>.otelcol.config` | The complete, native Collector configuration. |
+| `<component>.otelcol.config` | The complete Collector configuration. |
 | `<component>.otelcol.image` | An image override for this component only. |
 | `<component>.kubernetes` | `OpenTelemetryCollector` settings such as replicas, resources, env, volumes, autoscaler, and Target Allocator. |
 
-The chart renders each Collector configuration exactly as written. No other
-value changes it, so to change a pipeline, change its configuration.
+The chart renders each Collector configuration exactly as written, unless it
+contains NVCB blueprints. If it contains blueprints, these are expanded into
+native OTel configuration. To change a pipeline, change its configuration.
+See [Use blueprints](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/docs/guides/use_blueprints.md)
+for more details.
 
 Each gateway defaults to an approximately 0.48 GiB persistent sending queue
 measured in serialized bytes. Watchdog has three persistent queues of
@@ -169,7 +172,7 @@ default is 30 minutes. Memory budgets cover active requests, processing, and
 database caching. The extension uses `fsync: false`; enable it to synchronize each write
 when stronger protection against node or power failure is required.
 
-To use memory queues instead, remove `exporters.otlp.sending_queue.storage`
+To use memory queues instead, remove `exporters.otlp_grpc.sending_queue.storage`
 and the `file_storage/queue` extension from each affected native Collector
 configuration and from `service.extensions`. Replace `volumeClaimTemplates`
 with `[]`, remove the queue mount, and keep the TLS mount. With Helm overrides,
@@ -244,8 +247,8 @@ When `global.clusterName` is empty, the value is `unknown`.
 - **Disable the bundled LGTM backend.** It keeps data in memory, grants
   anonymous admin access to Grafana, and does not scale. Set
   `otel-lgtm.enabled: false`, then set your backend's endpoint in the
-  `otlp` exporter of each gateway, the watchdog, and the watchdog's sidecar.
-  Use `otlp` for gRPC or `otlp_http` for HTTP, matching your backend's supported
+  `otlp_grpc` exporter of each gateway, the watchdog, and the watchdog's sidecar.
+  Use `otlp_grpc` for gRPC or `otlp_http` for HTTP, matching your backend's supported
   ingestion protocol. When changing protocol, update each affected pipeline's
   `exporters` list too.
 - **Secure backend export.** The default LGTM backend uses plaintext OTLP for

@@ -7,7 +7,7 @@ This backend is intended only for local development. Configure TLS before
 sending logs, metrics and traces to a production backend.
 
 Choose the protocol and endpoint supported by your backend for each signal.
-The Collector's [`otlp` exporter](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/exporter/otlpexporter/README.md)
+The Collector's [`otlp_grpc` exporter](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/exporter/otlpexporter/README.md)
 uses gRPC; [`otlp_http`](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/exporter/otlphttpexporter/README.md)
 uses HTTP. Changing the port alone does not change the protocol.
 For example, direct ingestion into [Prometheus](https://prometheus.io/docs/guides/opentelemetry/)
@@ -104,7 +104,7 @@ gateway_logs:
   otelcol:
     config:
       exporters:
-        otlp:
+        otlp_grpc:
           endpoint: telemetry.example.com:4317
           tls:
             insecure: false
@@ -126,9 +126,9 @@ Helm retains nested defaults when merging overrides. Configure the watchdog
 and its sidecar's backend exporters too, if sending NKTP's own telemetry to
 this backend.
 
-For an HTTP backend, remove the default gRPC exporter with `otlp: null`, add
+For an HTTP backend, remove the default gRPC exporter with `otlp_grpc: null`, add
 `otlp_http` with an `https://` endpoint and the same certificate settings, and
-replace `otlp` with `otlp_http` in each affected pipeline's `exporters` list.
+replace `otlp_grpc` with `otlp_http` in each affected pipeline's `exporters` list.
 Preserve the queue and retry settings from the default exporter as needed.
 
 For server-authenticated TLS with a private CA but no client authentication,

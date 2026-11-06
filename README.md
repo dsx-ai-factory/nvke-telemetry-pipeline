@@ -11,6 +11,9 @@ for prerequisites and installation, or the
 a first look at your telemetry. The [documentation index](docs/README.md)
 covers components and configuration guides.
 
+To pass your own blueprints to NKTP, see
+[Add your own blueprints](docs/guides/use_blueprints.md#add-your-own-blueprints).
+
 See the [release process](RELEASING.md) for how chart changes are validated and released.
 
 To contribute, start with [CONTRIBUTING.md](CONTRIBUTING.md); see [GOVERNANCE.md](GOVERNANCE.md) for how decisions are made and [MAINTAINERS.md](MAINTAINERS.md) for who maintains the project. Report security issues through [SECURITY.md](SECURITY.md), not GitHub issues.

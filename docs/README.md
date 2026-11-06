@@ -24,6 +24,7 @@ each part in depth.
 - [Enable log checkpoints for the node Collector](guides/enable_daemonset_log_checkpoints.md)
 - [Enable auto-instrumentation](guides/enable_auto_instrumentation.md)
 - [Enable eBPF instrumentation](guides/enable_ebpf_instrumentation.md)
+- [Use blueprints](guides/use_blueprints.md)
 - [Dashboards](../nktp/dashboards/README.md)
 
 ### Components
@@ -55,3 +56,4 @@ Each page covers one top-level key in `nktp/values.yaml`.
 - [Monitor file-access restriction: rationale and compatibility](designs/monitor_file_access.md)
 - [Required target allocation](designs/target_allocation.md)
 - [kube-state-metrics](designs/kube_state_metrics.md)
+- [Blueprints in NKTP](designs/blueprints.md)

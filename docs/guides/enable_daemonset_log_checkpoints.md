@@ -1,6 +1,6 @@
 # Enable log checkpoints for the node Collector
 
-The node Collector's `filelog` and `journald` receivers start at the end of
+The node Collector's `file_log` and `journald` receivers start at the end of
 each file and journal, and keep their read positions in memory. When a
 Collector restarts or its Pod is replaced, for example during a chart upgrade,
 lines written while it was down are skipped. This guide stores the read
@@ -63,17 +63,17 @@ daemonset:
           create_directory: true
           timeout: 1s
       receivers:
-        filelog:
+        file_log:
           storage: file_storage/log-checkpoints
-        filelog/host-auth:
+        file_log/host-auth:
           storage: file_storage/log-checkpoints
-        filelog/host-audit:
+        file_log/host-audit:
           storage: file_storage/log-checkpoints
-        filelog/kube-api-audit:
+        file_log/kube-api-audit:
           storage: file_storage/log-checkpoints
-        filelog/targetallocator:
+        file_log/targetallocator:
           storage: file_storage/log-checkpoints
-        filelog/operator:
+        file_log/operator:
           storage: file_storage/log-checkpoints
         journald:
           storage: file_storage/log-checkpoints
