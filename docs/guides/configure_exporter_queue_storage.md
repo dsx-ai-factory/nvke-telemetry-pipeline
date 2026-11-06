@@ -209,8 +209,10 @@ Kubernetes does not allow changing the volume claim templates of a
 StatefulSet. When they are added or changed, the OpenTelemetry Operator deletes
 the StatefulSet and creates it again, so every replica of that Collector
 restarts at once. Senders retry while it is unavailable. `whenDeleted: Retain`
-keeps the claims, and the new replicas reuse them.
-With `Delete`, the queued data is deleted.
+keeps the claims; new replicas reuse them if the StatefulSet and claim
+template names remain unchanged. Changing the claim template name creates
+new claims that do not replay telemetry from the retained claims.
+With `Delete`, the claims are deleted.
 
 When switching from memory queues, use **Exporter queue use · top 20** in the
 component dashboards, such as
@@ -243,6 +245,11 @@ for collector in watchdog gateway-logs gateway-metrics gateway-traces; do
     --selector "app.kubernetes.io/instance=$NKTP_NAMESPACE.nktp-$collector"
 done
 ```
+
+Deleting a PVC does not erase backing data when the PV reclaim policy is
+`Retain`. Check the PV
+[reclaim policy](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#reclaiming)
+and clean up retained data according to your storage provider.
 
 ### Verify
 
@@ -328,4 +335,4 @@ Switching an existing installation to memory restarts the affected Collectors,
 as described in [Change the claim templates](#change-the-claim-templates).
 Telemetry stored in retained claims is replayed when the Collector uses those
 persistent queues. [Delete the claims](#delete-the-claims) explains how to
-remove the claims and their stored telemetry.
+remove the claims and handle retained backing data.
