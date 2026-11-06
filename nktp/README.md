@@ -65,7 +65,7 @@ Provide the following before installing NKTP.
 
 From a checkout, build the chart's dependencies first. Their archives aren't
 committed. Edit the release name and namespace below, and set `NKTP_VALUES_FILE`
-to your merged overrides file, or keep `nktp/values.yaml` for chart defaults.
+to your Helm values file, or keep `nktp/values.yaml` for chart defaults.
 If the namespace already exists, omit its creation command; ensure it has the
 privileged Pod Security label:
 
@@ -87,15 +87,50 @@ check their Pods as well.
 
 ### Upgrading
 
-Helm never upgrades CRDs it installed from a chart's `crds/` directory. The
-OpenTelemetry and Prometheus CRDs come from there, so a chart version that bumps
-the Operator leaves the old CRDs in place, and fields only the new version knows
-are silently dropped. Apply the new CRDs before `helm upgrade`.
+Review the upgrade notes for your target version, available through
+[More information](#more-information), and merge the required changes into
+your Helm values file before upgrading.
+
+If the target chart version updates the bundled OpenTelemetry or Prometheus
+CRDs, apply those updated CRDs before `helm upgrade`. Helm does not upgrade
+CRDs installed from a chart's `crds/` directory. Leaving outdated CRDs in place
+can cause fields introduced by the new version to be dropped.
 
 The Operator recreates watchdog and gateway StatefulSets when their volume
-claim templates change,
-restarting their Collectors. Queue claims are retained by default. Deleting
-a retained claim removes its stored telemetry.
+claim templates change, restarting their Collectors. Queue claims are retained
+by default.
+
+Use `--reset-values` for both cases below. It starts from the new chart
+version's defaults and applies the settings in your values file, if supplied,
+without carrying forward previously stored settings.
+
+From the repository root, configure the Helm repositories as shown above.
+Edit the release name and existing namespace, then build dependencies:
+
+```bash
+NKTP_RELEASE=nktp
+NKTP_NAMESPACE=nktp
+helm dependency build nktp
+```
+
+**If you use chart defaults**, upgrade with the new chart defaults:
+
+```bash
+helm upgrade "$NKTP_RELEASE" ./nktp --namespace "$NKTP_NAMESPACE" \
+  --reset-values --wait
+```
+
+**If you maintain a values file**, update it for the new version and supply
+it with `-f`. Include all custom settings you want to keep. Merge custom volume
+and mount entries into any example lists before applying them.
+
+Edit the values file path below, then upgrade:
+
+```bash
+NKTP_VALUES_FILE=/path/to/my-values.yaml
+helm upgrade "$NKTP_RELEASE" ./nktp --namespace "$NKTP_NAMESPACE" \
+  --reset-values -f "$NKTP_VALUES_FILE" --wait
+```
 
 ## Components
 
@@ -186,7 +221,7 @@ when stronger protection against node or power failure is required.
 To use memory queues instead, remove `exporters.otlp_grpc.sending_queue.storage`
 and the `file_storage/queue` extension from each affected native Collector
 configuration and from `service.extensions`. Replace `volumeClaimTemplates`
-with `[]`, remove the queue mount, and keep the TLS mount. With Helm overrides,
+with `[]`, remove the queue mount, and keep the TLS mount. In your values file,
 use `null` to remove inherited map entries. Decoded queued telemetry can occupy
 several times its serialized size in memory.
 
@@ -332,4 +367,5 @@ this software and the retrieved materials at your own risk.
 ## More information
 
 The [NKTP documentation](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/tree/main/docs)
-covers each component, configuration guides, operations, and design documents.
+covers each component, configuration guides, upgrade notes, operations, and
+design documents.

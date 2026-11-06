@@ -11,6 +11,7 @@ installation, components, and the configuration model. The pages here cover
 each part in depth.
 
 - [Getting started](getting-started.md)
+- [Upgrading](upgrading.md)
 - [Topology](architecture/topology.md)
 - [Backpressure](architecture/backpressure.md)
 - [Self-telemetry sidecars](architecture/self_telemetry.md)
