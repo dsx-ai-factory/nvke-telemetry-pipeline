@@ -320,6 +320,16 @@ func TestNodeLogCheckpoints(t *testing.T) {
 			writer.Spec.Containers[0].Image = passiveFixtureImage
 			writer, err = coreClient.Pods(c.Namespace()).Create(setupCtx, writer, metav1.CreateOptions{})
 			require.NoError(t, err)
+			// Setup failures skip feature teardown. Keep an idempotent fallback
+			// for that case and for failures during normal teardown.
+			t.Cleanup(func() {
+				cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+				defer cancel()
+				err := coreClient.Pods(c.Namespace()).Delete(cleanupCtx, writer.Name, metav1.DeleteOptions{})
+				if !apierrors.IsNotFound(err) {
+					assert.NoError(t, err, "removing writer in fallback cleanup")
+				}
+			})
 			require.NoError(t, wait.PollUntilContextCancel(setupCtx, time.Second, true, conditions.New(c.Client().Resources()).PodReady(writer)))
 			return ctx
 		}).
