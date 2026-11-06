@@ -22,11 +22,11 @@ gateway_logs:
       service:
         pipelines:
           logs:
-            exporters: [otlp, blueprint/otlp_backend]
+            exporters: [otlp_grpc, blueprint/otlp_backend]
 ```
 
 Helm replaces lists instead of merging them, so keep the pipeline's existing
-exporters, `otlp` here.
+exporters, `otlp_grpc` here.
 
 ## Add your own blueprints
 
