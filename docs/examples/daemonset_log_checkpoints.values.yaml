@@ -1,11 +1,9 @@
-# Persists the node Collector's log read positions in a host directory, so a
-# restarted or replaced Collector resumes where it stopped. Read
-# ../guides/enable_daemonset_log_checkpoints.md first: the Collector writes to
-# the node's filesystem.
+# Reference configuration for persistent node log checkpoints, enabled by default.
+# This illustrates the storage settings; applying it is optional.
+# See ../guides/configure_daemonset_log_checkpoints.md.
 daemonset:
   kubernetes:
-    # Helm replaces lists, so the chart's default volumes and mounts are restated
-    # with log-checkpoints added.
+    # Helm replaces lists; retain host-log and TLS mounts when customizing.
     volumes:
       - name: pod-logs
         hostPath:
@@ -90,6 +88,7 @@ daemonset:
           directory: /var/lib/otelcol/log-checkpoints
           create_directory: true
           timeout: 1s
+          fsync: false
       receivers:
         file_log:
           storage: file_storage/log-checkpoints

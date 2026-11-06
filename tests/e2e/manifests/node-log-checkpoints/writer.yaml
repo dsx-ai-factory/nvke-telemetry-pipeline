@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: v1
+kind: Pod
+metadata:
+  generateName: node-log-checkpoints-writer-
+spec:
+  automountServiceAccountToken: false
+  terminationGracePeriodSeconds: 1
+  tolerations:
+    - operator: Exists
+  securityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: writer
+      image: "" # Reuse the suite's pinned Alpine workload image.
+      command: [sh, -ec]
+      args:
+        - |
+          mkfifo /probe/input
+          while true; do cat /probe/input; done
+      securityContext:
+        runAsUser: 0
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
+      volumeMounts:
+        - name: probe
+          mountPath: /probe
+        - name: journal-socket
+          mountPath: /dev/log
+          readOnly: true
+  volumes:
+    - name: probe
+      emptyDir: {}
+    - name: journal-socket
+      hostPath:
+        path: /run/systemd/journal/dev-log
+        type: Socket

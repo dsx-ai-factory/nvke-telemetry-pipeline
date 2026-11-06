@@ -26,12 +26,11 @@ Provide the following before installing NKTP.
   Collector mTLS, the Operator's admission webhook, and
   Collector-to-Target-Allocator mTLS. Running without it requires replacing all
   three integrations. See [More information](#more-information) for the
-  documentation covering installation and configuration.
-- **SSD-backed persistent storage.** Each gateway replica requests a `1Gi`
-  volume and each watchdog replica a `1Gi` volume, using the default StorageClass
-  unless `storageClassName` is set in their `kubernetes.volumeClaimTemplates`.
-  At the minimum replica counts this requires eight volumes totaling 8Gi.
-  Set a suitable class before installation; unbound claims leave Collector Pods pending.
+  "Configure cert-manager" guide covering both options.
+- **SSD-backed persistent storage.** Required with default values for gateway
+  and watchdog exporter queues. If suitable storage is unavailable, configure
+  in-memory queues. See [More information](#more-information) for the
+  "Configure exporter queue storage" guide covering both options.
 - **Image registry access** to `docker.io`, `ghcr.io`, `quay.io` and
   `registry.k8s.io`, or mirrors of them. See [Image registry](#image-registry).
 - **Network access** between components. The Kubernetes API server must reach the
@@ -49,6 +48,10 @@ Provide the following before installing NKTP.
   mounts host paths for pod logs, journald and `/proc`. node-exporter uses the
   host network and PID namespaces, host paths, and host port 9100. The
   `baseline` and `restricted` Pod Security levels reject these Pods.
+- **Writable node hostPath storage for log checkpoints.** Required with default
+  values to persist node log read positions. If host writes are unavailable,
+  disable persistent checkpoints. See [More information](#more-information)
+  for the "Configure node log checkpoints" guide covering both options.
 - **Capacity.** The defaults are sized for large clusters: about 10 CPU and
   26 GiB of memory in requests for the cluster-wide components, plus about
   1.1 CPU and 2.2 GiB on every node for the per-node DaemonSets.

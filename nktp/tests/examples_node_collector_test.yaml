@@ -42,10 +42,10 @@ tests:
             appArmorProfile: {type: Unconfined}
       - lengthEqual:
           path: spec.volumes
-          count: 10
+          count: 11
       - lengthEqual:
           path: spec.volumeMounts
-          count: 11
+          count: 12
       - contains:
           path: spec.volumes
           content:
@@ -60,7 +60,7 @@ tests:
       - notExists:
           path: spec.hostPID
 
-  - it: stores log read positions on the node with the documented opt-in values
+  - it: illustrates persistent log checkpoints with the reference values
     values:
       - ../../docs/examples/daemonset_log_checkpoints.values.yaml
     asserts:
@@ -70,6 +70,7 @@ tests:
             directory: /var/lib/otelcol/log-checkpoints
             create_directory: true
             timeout: 1s
+            fsync: false
       - equal:
           path: spec.config.service.extensions
           value: [health_check, file_storage/log-checkpoints]
@@ -120,3 +121,33 @@ tests:
       - contains:
           path: spec.volumeMounts
           content: {name: pod-logs, mountPath: /var/log/pods, readOnly: true}
+
+  - it: keeps log read positions in memory without a writable host mount
+    values:
+      - ../../docs/examples/memory_log_checkpoints.values.yaml
+    asserts:
+      - notExists:
+          path: spec.config.extensions["file_storage/log-checkpoints"]
+      - equal:
+          path: spec.config.service.extensions
+          value: [health_check]
+      - lengthEqual:
+          path: spec.volumes
+          count: 9
+      - lengthEqual:
+          path: spec.volumeMounts
+          count: 10
+      - notExists:
+          path: spec.config.receivers["file_log"].storage
+      - notExists:
+          path: spec.config.receivers["file_log/host-auth"].storage
+      - notExists:
+          path: spec.config.receivers["file_log/host-audit"].storage
+      - notExists:
+          path: spec.config.receivers["file_log/kube-api-audit"].storage
+      - notExists:
+          path: spec.config.receivers["file_log/targetallocator"].storage
+      - notExists:
+          path: spec.config.receivers["file_log/operator"].storage
+      - notExists:
+          path: spec.config.receivers["journald"].storage
