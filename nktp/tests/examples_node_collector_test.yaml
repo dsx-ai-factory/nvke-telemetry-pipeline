@@ -42,10 +42,10 @@ tests:
             appArmorProfile: {type: Unconfined}
       - lengthEqual:
           path: spec.volumes
-          count: 9
+          count: 10
       - lengthEqual:
           path: spec.volumeMounts
-          count: 10
+          count: 11
       - contains:
           path: spec.volumes
           content:
