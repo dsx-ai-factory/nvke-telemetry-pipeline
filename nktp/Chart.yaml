@@ -7,7 +7,7 @@ version: 0.3.0
 dependencies:
   - name: opentelemetry-kube-stack
     repository: https://open-telemetry.github.io/opentelemetry-helm-charts
-    version: 0.25.1
+    version: 0.27.0
   - name: prometheus-node-exporter
     alias: node-exporter
     repository: https://prometheus-community.github.io/helm-charts
