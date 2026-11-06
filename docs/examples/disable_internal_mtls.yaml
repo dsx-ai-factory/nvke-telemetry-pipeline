@@ -135,6 +135,8 @@ daemonset:
         hostPath: {path: /etc/machine-id, type: File}
       - name: host-logs
         hostPath: {path: /var/log, type: Directory}
+      - name: log-checkpoints
+        hostPath: {path: /var/lib/nktp/log-checkpoints, type: DirectoryOrCreate}
     volumeMounts:
       - {name: pod-logs, mountPath: /var/log/pods, readOnly: true}
       - {name: host-proc, mountPath: /hostfs/proc, readOnly: true}
@@ -145,6 +147,7 @@ daemonset:
       - {name: host-usr-lib, mountPath: /hostfs/usr/lib, readOnly: true}
       - {name: host-machine-id, mountPath: /hostfs/etc/machine-id, readOnly: true}
       - {name: host-logs, mountPath: /hostfs/var/log, readOnly: true}
+      - {name: log-checkpoints, mountPath: /var/lib/otelcol/log-checkpoints}
   otelcol:
     config:
       exporters:
