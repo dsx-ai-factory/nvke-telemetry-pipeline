@@ -16,8 +16,8 @@ is replaced.
 ## With persistent checkpoints (default)
 
 No overrides are needed to enable checkpoints. The
-[persistent-checkpoint values example](../examples/daemonset_log_checkpoints.values.yaml)
-shows the default storage configuration.
+`daemonset` section in [chart defaults](../../nktp/values.yaml) defines the
+storage configuration.
 
 Each node must allow the Collector to write to `/var/lib/nktp/log-checkpoints`.
 SELinux policies, non-root users, or read-only node filesystems may require
@@ -27,13 +27,14 @@ unavailable, use the [configuration without persistent checkpoints](#without-per
 The host directory is mounted at `/var/lib/otelcol/log-checkpoints` inside the
 Collector. To change the host location, edit `hostPath.path` on the
 `log-checkpoints` entry in `daemonset.kubernetes.volumes`; the container mount
-and extension directory can remain unchanged.
+and extension directory can remain unchanged. Use a different host directory
+for each NKTP release running on the same node.
 
 Every `file_log` receiver and `journald` references
 `file_storage/log-checkpoints` through its `storage` setting. The extension is
 registered alongside `health_check` in
 `daemonset.otelcol.config.service.extensions`. Include a `storage` reference
-when adding a log reader, as shown in the values example.
+when adding a log reader, following the existing receivers in the chart defaults.
 
 Helm replaces `volumes` and `volumeMounts` lists in full. Preserve host-log,
 checkpoint, and TLS mounts when customizing these lists or combining examples.

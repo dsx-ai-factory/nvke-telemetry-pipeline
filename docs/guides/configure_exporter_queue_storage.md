@@ -155,8 +155,8 @@ can produce greater overhead. Storage providers may also require larger
 minimum volumes.
 
 The volume request is set in
-`kubernetes.volumeClaimTemplates[].spec.resources.requests.storage`, as shown
-in the [values example](../examples/persistent_queue.values.yaml).
+`kubernetes.volumeClaimTemplates[].spec.resources.requests.storage` for each
+component.
 Increasing the PVC alone leaves `queue_size` unchanged.
 
 Each replica that has run keeps its own claim. The watchdog autoscales between
@@ -175,18 +175,11 @@ uses `file_storage/queue` at `/var/lib/otelcol/queue/data`. Sidecars and
 Collectors running on each node keep their queues in memory.
 
 If the default StorageClass is SSD-backed, install with the chart defaults.
-To select another class, edit `your-ssd-class` in the
-[values example](../examples/persistent_queue.values.yaml) for all four
-Collectors. From the repository root, edit the release name and namespace
-below, then install or upgrade:
-
-```console
-NKTP_RELEASE=nktp
-NKTP_NAMESPACE=nktp
-helm dependency build nktp
-helm upgrade --install "$NKTP_RELEASE" ./nktp --namespace "$NKTP_NAMESPACE" \
-  --values docs/examples/persistent_queue.values.yaml
-```
+To select another class, set `spec.storageClassName` on each `queue` claim in
+`<component>.kubernetes.volumeClaimTemplates` in your values file, for
+`watchdog`, `gateway_logs`, `gateway_metrics`, and `gateway_traces`.
+Helm replaces these lists in full, so retain each complete claim template
+when overriding it.
 
 The default `file_storage.fsync: false` follows the extension's default.
 Queued data can survive a Collector process restart; an abrupt node or power

@@ -896,11 +896,62 @@ tests:
           path: spec.securityContext.readOnlyRootFilesystem
           value: true
 
-  - it: persists node log reader checkpoints on the dedicated host mount
+  - it: persists node log reader checkpoints on the dedicated host mount by default
     asserts:
       - equal:
           path: spec.config.extensions["file_storage/log-checkpoints"]
-          value: {directory: /var/lib/otelcol/log-checkpoints, create_directory: true, timeout: 1s, fsync: false}
+          value:
+            directory: /var/lib/otelcol/log-checkpoints
+            create_directory: true
+            timeout: 1s
+            fsync: false
       - equal:
           path: spec.config.service.extensions
           value: [health_check, file_storage/log-checkpoints]
+      - equal:
+          path: spec.config.receivers.journald.storage
+          value: file_storage/log-checkpoints
+      - equal:
+          path: spec.config.receivers.journald.start_at
+          value: end
+      - equal:
+          path: spec.config.receivers.file_log.storage
+          value: file_storage/log-checkpoints
+      - equal:
+          path: spec.config.receivers["file_log/host-auth"].storage
+          value: file_storage/log-checkpoints
+      - equal:
+          path: spec.config.receivers["file_log/host-audit"].storage
+          value: file_storage/log-checkpoints
+      - equal:
+          path: spec.config.receivers["file_log/kube-api-audit"].storage
+          value: file_storage/log-checkpoints
+      - equal:
+          path: spec.config.receivers["file_log/targetallocator"].storage
+          value: file_storage/log-checkpoints
+      - equal:
+          path: spec.config.receivers["file_log/operator"].storage
+          value: file_storage/log-checkpoints
+      - equal:
+          path: spec.securityContext.runAsUser
+          value: 0
+      - lengthEqual:
+          path: spec.volumes
+          count: 10
+      - lengthEqual:
+          path: spec.volumeMounts
+          count: 11
+      - contains:
+          path: spec.volumes
+          content:
+            name: log-checkpoints
+            hostPath: {path: /var/lib/nktp/log-checkpoints, type: DirectoryOrCreate}
+      - contains:
+          path: spec.volumeMounts
+          content: {name: log-checkpoints, mountPath: /var/lib/otelcol/log-checkpoints}
+      - contains:
+          path: spec.volumeMounts
+          content: {name: internal-tls-client, mountPath: /etc/nktp/internal-tls/client, readOnly: true}
+      - contains:
+          path: spec.volumeMounts
+          content: {name: pod-logs, mountPath: /var/log/pods, readOnly: true}
