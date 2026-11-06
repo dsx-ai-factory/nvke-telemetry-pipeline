@@ -1,7 +1,7 @@
 blueprints:
   exporters:
     otlp_backend:
-      version: 0.1.0
+      version: 0.2.0
       description: |
         Sends a copy of a pipeline's telemetry to an OTLP gRPC backend.
         Parameters:
@@ -11,7 +11,7 @@ blueprints:
           tls, retry_on_failure, sending_queue (optional): passed to the exporter unchanged.
       template: |
         exporters:
-          otlp:
+          otlp_grpc:
             endpoint: {{ required "otlp_backend: endpoint is required" .values.endpoint | quote }}
             {{- with .values.headers }}
             headers: {{ toJson . }}
@@ -28,4 +28,4 @@ blueprints:
         pipelines:
           {{ required "otlp_backend: signal is required" .values.signal }}:
             receivers: [{{ .forward }}]
-            exporters: [otlp]
+            exporters: [otlp_grpc]
