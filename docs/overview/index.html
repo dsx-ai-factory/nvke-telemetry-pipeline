@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>NKTP (NVKE telemetry pipeline)</title>
+<title>NKTP (NVKE Telemetry Pipeline)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 :root{--fg:#e8ece9;--mut:#7c8a83;--g:#76b900;--m:#38bdf8;--l:#fbbf24;--t:#c084fc;--r:#f87171;--self:#a3e635}
@@ -10,7 +10,7 @@ html,body{margin:0;height:100%;overflow:hidden;color:var(--fg);
   background:radial-gradient(ellipse at 50% 40%,#111a13 0%,#0a0d0b 60%,#070908 100%);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif}
 #stage{position:absolute;inset:0;width:100%;height:100%}
-[data-in],[data-out],[data-dim],[data-fade]{transition:opacity .6s ease}
+[data-in],[data-out],[data-dim],[data-fade],[data-halt]{transition:opacity .6s ease}
 .scene{opacity:0;visibility:hidden;transform-box:view-box;transform-origin:0 0;transition:opacity .6s ease,visibility 0s .6s}
 .scene.on{opacity:1;visibility:visible;transition:opacity .6s ease}
 .scene.zoom{opacity:1;visibility:visible;transition:none}
@@ -51,11 +51,13 @@ html,body{margin:0;height:100%;overflow:hidden;color:var(--fg);
 @keyframes flowl{to{stroke-dashoffset:-32}}
 @keyframes flow{to{stroke-dashoffset:-16}}
 .stress .flow{animation:stutter 2s ease-in-out infinite}
-.halt .flow{animation-play-state:paused}
+/* a halted line's dots fade out while nothing flows on it */
+.halt{opacity:0}
 .stress .flow.l{animation-duration:1.7s} .stress .flow.m{animation-duration:2.3s} .stress .flow.t{animation-duration:1.9s}
 .mix3 .flow{stroke-dasharray:1 29;animation:flow30 1.875s linear infinite}
+/* a node's lines out carry its pods' line onward: each dot leaves where that line (from x 216, 226 and 236) would have taken it */
+.onward .flow.l{animation-delay:-1.125s} .onward .flow.t{animation-delay:-1.75s} .onward .flow.m{animation-delay:-.5s}
 .stress .mix3 .flow{animation:stutter30 2s ease-in-out infinite}
-.halt .mix3 .flow{animation-play-state:paused}
 @keyframes flow30{to{stroke-dashoffset:-30}}
 .split .flow{stroke-dasharray:1 19;animation:flow20 1.25s linear infinite}
 @keyframes flow20{to{stroke-dashoffset:-20}}
@@ -196,6 +198,11 @@ a:focus{outline:none}
     <rect x="2" y="2" width="76" height="46" rx="10" fill="#241f0c" stroke="#fbbf24" stroke-width="3"/>
     <path d="M14 16 l10 9 -10 9 M33 25 h14 M56 16 l10 9 -10 9" stroke="#fbbf24" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
   </symbol>
+  <!-- the same collector, dead, in the red of the backend that's down -->
+  <symbol id="col-dead" viewBox="0 0 80 50">
+    <rect x="2" y="2" width="76" height="46" rx="10" fill="#1f1214" stroke="#f87171" stroke-width="3"/>
+    <path d="M14 16 l10 9 -10 9 M33 25 h14 M56 16 l10 9 -10 9" stroke="#f87171" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
   <symbol id="backend" viewBox="0 0 240 170">
     <g fill="#0f1d26" stroke="#5ea3c7" stroke-width="3">
       <path d="M14 46 V128 C14 146 110 146 110 128 V46"/>
@@ -269,8 +276,7 @@ a:focus{outline:none}
   <clipPath id="mem-big-b"><rect x="293" y="371" width="154" height="88" rx="16"/></clipPath>
   <clipPath id="mem-big-c"><rect x="293" y="491" width="154" height="88" rx="16"/></clipPath>
   <clipPath id="mem-pool"><rect x="345" y="690" width="154" height="88" rx="16"/></clipPath>
-  <filter id="lift" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity=".55"/></filter>
-  <clipPath id="rv-a"><rect x="-720" y="0" width="1150" height="900"/></clipPath>
+  <filter id="lift" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity=".55"/></filter>  <clipPath id="rv-a"><rect x="-720" y="0" width="1150" height="900"/></clipPath>
   <clipPath id="rv-g0"><rect x="430" y="0" width="10" height="900"/></clipPath>
   <clipPath id="rv-g1"><rect x="440" y="0" width="10" height="900"/></clipPath>
   <clipPath id="rv-g2"><rect x="450" y="0" width="10" height="900"/></clipPath>
@@ -286,7 +292,7 @@ a:focus{outline:none}
 <!-- ============ TITLE ============ -->
 <g class="scene" data-steps="title">
   <text class="h1" x="800" y="285" text-anchor="middle">NKTP</text>
-  <text class="sub" x="800" y="345" text-anchor="middle">(NVKE telemetry pipeline)</text>
+  <text class="sub" x="800" y="345" text-anchor="middle">(NVKE Telemetry Pipeline)</text>
   <!-- the way in: home -->
   <a class="cta" href="#home"><rect x="700" y="390" width="200" height="52" rx="26"/><text x="722.1" y="423.6">Learn more</text><g class="key"><rect x="846.3" y="403" width="30" height="26" rx="6"/><text x="861.1" y="421.6" text-anchor="middle">→</text></g></a>
   <!-- six streams merge in pairs, then into the river: every dot makes the whole trip, swelling a little at each merge -->
@@ -679,7 +685,7 @@ a:focus{outline:none}
   <text class="title" x="80" y="110">What's the Problem, Really?</text>
   <text class="lead" x="80" y="162">We need to talk about OpenTelemetry (OTel).</text>
   <text x="800" y="300" text-anchor="middle" font-size="40" font-weight="700">How well do you know OTel?</text>
-  <a class="choice" href="#otel/1"><rect x="350" y="380" width="430" height="250" rx="22"/><use href="#sl" x="380" y="420" width="40" height="30"/><use href="#sm" x="430" y="420" width="40" height="30"/><use href="#st" x="480" y="420" width="40" height="30"/><text class="choice-title" x="380" y="530">Give me the basics</text><text class="choice-sub" x="380" y="572">A quick tour</text><text class="choice-sub" x="380" y="600">that drops you back into the problem</text><g class="key"><rect x="716" y="574" width="40" height="32" rx="8" fill="#121814" stroke="#7c8a83" stroke-width="2"/><text x="735.8" y="597.1" text-anchor="middle" font-size="20">→</text></g></a>
+  <a class="choice" href="#otel/1"><rect x="350" y="380" width="430" height="250" rx="22"/><use href="#sl" x="380" y="420" width="40" height="30"/><use href="#sm" x="430" y="420" width="40" height="30"/><use href="#st" x="480" y="420" width="40" height="30"/><text class="choice-title" x="380" y="530">Give me the basics</text><text class="choice-sub" x="380" y="572">Two minute tour that gives you</text><text class="choice-sub" x="380" y="600">just enough context</text><g class="key"><rect x="716" y="574" width="40" height="32" rx="8" fill="#121814" stroke="#7c8a83" stroke-width="2"/><text x="735.8" y="597.1" text-anchor="middle" font-size="20">→</text></g></a>
   <a class="choice" href="#problem/4"><rect x="820" y="380" width="430" height="250" rx="22"/><use href="#col" x="850" y="410" width="80" height="50"/><text class="choice-title" x="850" y="530">Well enough</text><text class="choice-sub" x="850" y="572">Skip ahead to the real problem</text></a>
 </g>
 <!-- ============ A FEW BASICS ============ -->
@@ -1049,22 +1055,23 @@ a:focus{outline:none}
   </g>
 </g>
 <!-- ============ ARCHITECTURE ============ -->
-<g class="scene" data-steps="a-ds a-bp a-localq a-localq-no a-egress-out a-gw-load a-large a-large-wrong a-large-pool a-events a-events-loss a-events-pool a-stress a-sidecars" data-module="architecture">
+<g class="scene" data-steps="a-ds a-bp a-localq a-localq-no a-egress-out a-gw-hot a-gw-load a-large a-large-wrong a-large-pool a-events a-events-loss a-events-pool a-stress a-sidecars" data-module="architecture">
   <text class="title" x="80" y="110">Architecture</text>
-  <text class="lead" x="80" y="162" data-out="a-bp">A DaemonSet runs a Collector on every node to gather that node's telemetry.</text>
-  <text class="lead" x="80" y="162" data-in="a-bp" data-out="a-localq">When the backend slows down, every node's Collector backs up.</text>
-  <text class="lead" x="80" y="162" data-in="a-localq" data-out="a-localq-no">Queues on each node fill while the backend is slow, then drain once it recovers.</text>
-  <text class="lead" x="80" y="162" data-in="a-localq-no" data-out="a-egress-out">When a node dies, its queue dies with it, and the telemetry inside is lost.</text>
-  <text class="lead" x="80" y="162" data-in="a-egress-out" data-out="a-gw-load">A gateway buffers in a stable location, so a replacement pod can resume the same queue.</text>
-  <text class="lead" x="80" y="162" data-in="a-gw-load" data-out="a-large">The signals load the gateway unevenly, so each signal gets its own, scaled to its load.</text>
-  <text class="lead" x="80" y="162" data-in="a-large" data-out="a-large-wrong">A large target can run its node's Collector out of memory.</text>
-  <text class="lead" x="80" y="162" data-in="a-large-wrong" data-out="a-large-pool">Making every DaemonSet pod bigger wastes memory on every node.</text>
-  <text class="lead" x="80" y="162" data-in="a-large-pool" data-out="a-events">A small pool of large Collectors handles large targets instead.</text>
-  <text class="lead" x="80" y="162" data-in="a-events" data-out="a-events-loss">Cluster events should be read once, so one DaemonSet pod is elected to read them.</text>
-  <text class="lead" x="80" y="162" data-in="a-events-loss" data-out="a-events-pool">When the leader is lost, failover to a new leader may result in duplicate or skipped events.</text>
-  <text class="lead" x="80" y="162" data-in="a-events-pool" data-out="a-stress">A dedicated pool keeps the reader's state in a stable place, so a new leader resumes where the old one stopped.</text>
-  <text class="lead" x="80" y="162" data-in="a-stress" data-out="a-sidecars">When NKTP is degraded, its own health reports get stuck along with everything else.</text>
-  <text class="lead" x="80" y="162" data-in="a-sidecars">A watchdog reports NKTP's own health on a priority lane, so you can see when it struggles.</text>
+  <text class="lead" x="80" y="162" data-out="a-bp">NKTP's DaemonSet runs a Collector on every node to gather that node's telemetry.</text>
+  <text class="lead" x="80" y="162" data-in="a-bp" data-out="a-localq">If the connection to the backend is lost, every node's Collector backs up.</text>
+  <text class="lead" x="80" y="162" data-in="a-localq" data-out="a-localq-no">Each node can queue telemetry while the connection is down, then catch up once it's restored.</text>
+  <text class="lead" x="80" y="162" data-in="a-localq-no" data-out="a-egress-out">But when a node dies, its queue dies with it, and the telemetry it contains may be lost.</text>
+  <text class="lead" x="80" y="162" data-in="a-egress-out" data-out="a-gw-hot">NKTP's gateway buffers in a stable location, so a replacement pod can resume the same queue.</text>
+  <text class="lead" x="80" y="162" data-in="a-gw-hot" data-out="a-gw-load">A surge in one signal loads the gateway unevenly, so it may be slow to scale.</text>
+  <text class="lead" x="80" y="162" data-in="a-gw-load" data-out="a-large">NKTP runs one gateway per signal, so each one scales quickly with the signal it carries.</text>
+  <text class="lead" x="80" y="162" data-in="a-large" data-out="a-large-wrong">Scraping a large target can run its node's Collector out of memory.</text>
+  <text class="lead" x="80" y="162" data-in="a-large-wrong" data-out="a-large-pool">The DaemonSet can request more resources, but the extra is reserved on every node, needed or not.</text>
+  <text class="lead" x="80" y="162" data-in="a-large-pool" data-out="a-events">NKTP deploys a dedicated pool of Collectors to scrape large targets instead.</text>
+  <text class="lead" x="80" y="162" data-in="a-events" data-out="a-events-loss">Cluster events should be read once, so one DaemonSet pod can be elected to read them.</text>
+  <text class="lead" x="80" y="162" data-in="a-events-loss" data-out="a-events-pool">But when the leader is lost, failover to a new leader may result in duplicated or skipped events.</text>
+  <text class="lead" x="80" y="162" data-in="a-events-pool" data-out="a-stress">NKTP's dedicated pool keeps the reader's state in a stable place, so a new leader resumes where the old one stopped.</text>
+  <text class="lead" x="80" y="162" data-in="a-stress" data-out="a-sidecars">NKTP can send its own health reports through itself, but they get stuck along with everything else when it's degraded.</text>
+  <text class="lead" x="80" y="162" data-in="a-sidecars">Instead, a watchdog reports NKTP's own health on a priority lane, so you can see when it struggles.</text>
   <!-- lowered to clear the caption -->
   <g transform="translate(0 20)">
   <rect class="cluster" x="80" y="165" width="1110" height="660" rx="24"/>
@@ -1079,51 +1086,64 @@ a:focus{outline:none}
     <text class="lbl mut" x="131" y="273">node</text><text class="lbl mut" x="131" y="393">node</text><text class="lbl mut" x="131" y="513">node</text>
     <!-- pods to the node's collector: one line, the three signals interleaved; drawn under the pods and the collectors, so the dots start and end out of sight -->
     <g data-halt="a-bp" data-unhalt="a-localq" class="mix3">
-    <path class="flow l" d="M216 309 H370"/><path class="flow m" d="M236 309 H370"/><path class="flow t" d="M226 309 H370"/>
+    <g data-halt="a-events-loss" data-unhalt="a-events-pool"><path class="flow l" d="M216 309 H370"/><path class="flow m" d="M236 309 H370"/><path class="flow t" d="M226 309 H370"/></g>
     <g data-out="a-localq-no"><path class="flow l" d="M216 429 H370"/><path class="flow m" d="M236 429 H370"/><path class="flow t" d="M226 429 H370"/></g>
     <g data-in="a-egress-out"><path class="flow l" d="M216 429 H370"/><path class="flow m" d="M236 429 H370"/><path class="flow t" d="M226 429 H370"/></g>
     <g class="oom-off"><path class="flow l" d="M216 549 H370"/><path class="flow m" d="M236 549 H370"/><path class="flow t" d="M226 549 H370"/></g>
     </g>
+    <!-- while the connection is lost, nothing flows in -->
+    <g data-in="a-bp" data-out="a-localq" fill="none" stroke="#f87171" stroke-width="3" stroke-dasharray="6 8"><path d="M216 309 H370"/><path d="M216 429 H370"/><path d="M216 549 H370"/></g>
+    <!-- a noisy pod on each node floods its collector with logs, from under the pod -->
+    <g data-in="a-gw-hot" data-out="a-large"><path class="flow l dense" style="stroke-width:6;animation-duration:.25s" d="M226 271 H262 C 310 271, 330 300, 370 300"/><path class="flow l dense" style="stroke-width:6;animation-duration:.25s" d="M226 391 H262 C 310 391, 330 420, 370 420"/><path class="flow l dense" style="stroke-width:6;animation-duration:.25s" d="M226 511 H262 C 310 511, 330 540, 370 540"/></g>
     <use href="#pod" x="130" y="293" width="32" height="32"/><use href="#pod" x="170" y="293" width="32" height="32"/><use href="#pod" x="210" y="293" width="32" height="32"/>
     <use href="#pod" x="130" y="413" width="32" height="32"/><use href="#pod" x="170" y="413" width="32" height="32"/><use href="#pod" x="210" y="413" width="32" height="32"/>
     <use href="#pod" x="130" y="533" width="32" height="32"/><use href="#pod" x="170" y="533" width="32" height="32"/><use href="#pod" x="210" y="533" width="32" height="32"/>
+    <g data-in="a-gw-hot" data-out="a-large"><use href="#pod" x="210" y="255" width="32" height="32"/><use href="#pod" x="210" y="375" width="32" height="32"/><use href="#pod" x="210" y="495" width="32" height="32"/></g>
 
     <!-- every line out of a node collector is drawn before the collectors, so its dots start out of sight -->
     <!-- every node exports directly, all sharing one credential -->
-    <g data-out="a-bp">
-      <path class="flow g" d="M438 309 H454 C 800 309, 1000 419, 1296 419 H1322"/>
-      <path class="flow g" d="M438 429 H1322"/>
-      <path class="flow g" d="M438 549 H454 C 800 549, 1000 439, 1296 439 H1322"/>
+    <g data-out="a-bp" class="mix3 onward">
+      <path class="flow l" d="M438 309 H454 C 800 309, 1000 419, 1296 419 H1322"/><path class="flow t" d="M438 309 H454 C 800 309, 1000 419, 1296 419 H1322"/><path class="flow m" d="M438 309 H454 C 800 309, 1000 419, 1296 419 H1322"/>
+      <path class="flow l" d="M438 429 H1322"/><path class="flow t" d="M438 429 H1322"/><path class="flow m" d="M438 429 H1322"/>
+      <path class="flow l" d="M438 549 H454 C 800 549, 1000 439, 1296 439 H1322"/><path class="flow t" d="M438 549 H454 C 800 549, 1000 439, 1296 439 H1322"/><path class="flow m" d="M438 549 H454 C 800 549, 1000 439, 1296 439 H1322"/>
     </g>
     <!-- with local queues, the nodes export whenever the backend is up -->
-    <g data-in="a-localq" data-out="a-localq-no">
+    <g data-in="a-localq" data-out="a-localq-no" class="mix3 onward">
       <g class="q-green">
-        <path class="flow g" d="M438 309 H454 C 800 309, 1000 419, 1296 419 H1322"/>
-        <path class="flow g" d="M438 429 H1322"/>
-        <path class="flow g" d="M438 549 H454 C 800 549, 1000 439, 1296 439 H1322"/>
+        <path class="flow l" d="M438 309 H454 C 800 309, 1000 419, 1296 419 H1322"/><path class="flow t" d="M438 309 H454 C 800 309, 1000 419, 1296 419 H1322"/><path class="flow m" d="M438 309 H454 C 800 309, 1000 419, 1296 419 H1322"/>
+        <path class="flow l" d="M438 429 H1322"/><path class="flow t" d="M438 429 H1322"/><path class="flow m" d="M438 429 H1322"/>
+        <path class="flow l" d="M438 549 H454 C 800 549, 1000 439, 1296 439 H1322"/><path class="flow t" d="M438 549 H454 C 800 549, 1000 439, 1296 439 H1322"/><path class="flow m" d="M438 549 H454 C 800 549, 1000 439, 1296 439 H1322"/>
       </g>
     </g>
-    <g data-in="a-egress-out" data-out="a-gw-load">
-      <path class="flow g" d="M438 309 H454 C 700 309, 820 429, 956 429 H972"/>
-      <path class="flow g" d="M438 429 H972"/>
-      <path class="flow g" d="M438 549 H454 C 700 549, 820 429, 956 429 H972"/>
-      <g class="q-green"><path class="flow g" d="M1068 429 H1322"/></g>
+    <!-- a node dies: nothing goes in or out of it, while the others export as usual -->
+    <g data-in="a-localq-no" data-out="a-egress-out" class="mix3 onward">
+      <path class="flow l" d="M438 309 H454 C 800 309, 1000 419, 1296 419 H1322"/><path class="flow t" d="M438 309 H454 C 800 309, 1000 419, 1296 419 H1322"/><path class="flow m" d="M438 309 H454 C 800 309, 1000 419, 1296 419 H1322"/>
+      <path class="flow l" d="M438 549 H454 C 800 549, 1000 439, 1296 439 H1322"/><path class="flow t" d="M438 549 H454 C 800 549, 1000 439, 1296 439 H1322"/><path class="flow m" d="M438 549 H454 C 800 549, 1000 439, 1296 439 H1322"/>
     </g>
+    <g data-in="a-egress-out" data-out="a-gw-load" class="mix3 onward">
+      <path class="flow l" d="M438 309 H454 C 700 309, 820 429, 956 429 H972"/><path class="flow t" d="M438 309 H454 C 700 309, 820 429, 956 429 H972"/><path class="flow m" d="M438 309 H454 C 700 309, 820 429, 956 429 H972"/>
+      <path class="flow l" d="M438 429 H972"/><path class="flow t" d="M438 429 H972"/><path class="flow m" d="M438 429 H972"/>
+      <path class="flow l" d="M438 549 H454 C 700 549, 820 429, 956 429 H972"/><path class="flow t" d="M438 549 H454 C 700 549, 820 429, 956 429 H972"/><path class="flow m" d="M438 549 H454 C 700 549, 820 429, 956 429 H972"/>
+      <g data-out="a-gw-hot"><g class="q-green"><path class="flow l" d="M1068 429 H1322"/><path class="flow t" d="M1068 429 H1322"/><path class="flow m" d="M1068 429 H1322"/></g></g>
+      <g data-in="a-gw-hot"><path class="flow l" d="M1068 429 H1322"/><path class="flow t" d="M1068 429 H1322"/><path class="flow m" d="M1068 429 H1322"/></g>
+    </g>
+    <!-- a noisy source floods every node's line to the gateway, and the gateway's line out, with logs -->
+    <g data-in="a-gw-hot" data-out="a-gw-load"><path class="flow l dense" style="stroke-width:6;animation-duration:.25s" d="M438 309 H454 C 700 309, 820 429, 956 429 H972"/><path class="flow l dense" style="stroke-width:6;animation-duration:.25s" d="M438 429 H972"/><path class="flow l dense" style="stroke-width:6;animation-duration:.25s" d="M438 549 H454 C 700 549, 820 429, 956 429 H972"/><path class="flow l dense" style="stroke-width:6;animation-duration:.25s" d="M1068 429 H1322"/></g>
     <!-- faded together while the cluster events are explained, so lines stay hidden under the gateways, the target and the pool -->
     <g data-fade="a-events" data-unfade="a-events-pool">
     <!-- then: one gateway per signal -->
     <g data-in="a-gw-load">
       <text class="term" x="1020" y="200" text-anchor="middle">gateways</text>
       <!-- a third of a cycle apart, so each node's three lines leave its collector interleaved in the pods' line's order -->
-      <g data-out="a-stress" class="split"><path class="flow l" d="M438 309 H454 C 760 309, 800 309, 956 309 H972"/><path class="flow l" d="M438 429 H454 C 760 429, 800 309, 956 309 H972"/><g class="oom-off"><path class="flow l" d="M438 549 H454 C 760 549, 800 309, 956 309 H972"/></g><path class="flow m" d="M438 309 H454 C 760 309, 800 429, 956 429 H972" style="animation-delay:-.8333s"/><path class="flow m" d="M438 429 H454 C 760 429, 800 429, 956 429 H972" style="animation-delay:-.8333s"/><g class="oom-off"><path class="flow m" d="M438 549 H454 C 760 549, 800 429, 956 429 H972" style="animation-delay:-.8333s"/></g><path class="flow t" d="M438 309 H454 C 760 309, 800 549, 956 549 H972" style="animation-delay:-.4167s"/><path class="flow t" d="M438 429 H454 C 760 429, 800 549, 956 549 H972" style="animation-delay:-.4167s"/><g class="oom-off"><path class="flow t" d="M438 549 H454 C 760 549, 800 549, 956 549 H972" style="animation-delay:-.4167s"/></g></g>
+      <g data-out="a-stress" class="split"><g data-halt="a-events-loss" data-unhalt="a-events-pool"><path class="flow l" d="M438 309 H454 C 760 309, 800 309, 956 309 H972"/></g><path class="flow l" d="M438 429 H454 C 760 429, 800 309, 956 309 H972"/><g class="oom-off"><path class="flow l" d="M438 549 H454 C 760 549, 800 309, 956 309 H972"/></g><g data-halt="a-events-loss" data-unhalt="a-events-pool"><path class="flow m" d="M438 309 H454 C 760 309, 800 429, 956 429 H972" style="animation-delay:-.8333s"/></g><path class="flow m" d="M438 429 H454 C 760 429, 800 429, 956 429 H972" style="animation-delay:-.8333s"/><g class="oom-off"><path class="flow m" d="M438 549 H454 C 760 549, 800 429, 956 429 H972" style="animation-delay:-.8333s"/></g><g data-halt="a-events-loss" data-unhalt="a-events-pool"><path class="flow t" d="M438 309 H454 C 760 309, 800 549, 956 549 H972" style="animation-delay:-.4167s"/></g><path class="flow t" d="M438 429 H454 C 760 429, 800 549, 956 549 H972" style="animation-delay:-.4167s"/><g class="oom-off"><path class="flow t" d="M438 549 H454 C 760 549, 800 549, 956 549 H972" style="animation-delay:-.4167s"/></g></g>
       <g data-in="a-stress" class="split"><g class="mp"><path class="flow l" d="M438 309 H454 C 760 309, 800 309, 956 309 H972"/><path class="flow l" d="M438 429 H454 C 760 429, 800 309, 956 309 H972"/><path class="flow l" d="M438 549 H454 C 760 549, 800 309, 956 309 H972"/></g><g class="mp mp-m"><path class="flow m" d="M438 309 H454 C 760 309, 800 429, 956 429 H972"/><path class="flow m" d="M438 429 H454 C 760 429, 800 429, 956 429 H972"/><path class="flow m" d="M438 549 H454 C 760 549, 800 429, 956 429 H972"/></g><g class="mp mp-t"><path class="flow t" d="M438 309 H454 C 760 309, 800 549, 956 549 H972"/><path class="flow t" d="M438 429 H454 C 760 429, 800 549, 956 549 H972"/><path class="flow t" d="M438 549 H454 C 760 549, 800 549, 956 549 H972"/></g></g>
       <g data-in="a-gw-load" data-out="a-large"><path class="flow l dense" style="stroke-width:6;animation-duration:.25s" d="M438 309 H454 C 760 309, 800 309, 956 309 H972"/><path class="flow l dense" style="stroke-width:6;animation-duration:.25s" d="M438 429 H454 C 760 429, 800 309, 956 309 H972"/><path class="flow l dense" style="stroke-width:6;animation-duration:.25s" d="M438 549 H454 C 760 549, 800 309, 956 309 H972"/></g>
       <!-- the events reader feeds the logs gateway and the pool feeds the metrics gateway, both drawn under the gateways -->
       <g data-in="a-events-pool" data-out="a-stress"><path class="flow l" d="M844 233 H860 C 910 233, 910 299, 956 299 H970"/></g><g data-in="a-stress" class="mp"><path class="flow l" d="M844 233 H860 C 910 233, 910 299, 956 299 H970"/></g>
       <g data-in="a-large-pool"><g class="drain-flow"><path class="flow m" d="M498.6 738.3 L514 734 C 564 720, 600 520, 956 437 L971.6 433.4"/></g></g>
-      <g fill="none" stroke="#7c8a83" stroke-width="2"><rect x="1094" y="275" width="22" height="70" rx="4"/><rect x="1094" y="395" width="22" height="70" rx="4"/><rect x="1094" y="515" width="22" height="70" rx="4"/></g>
-      <g data-out="a-stress" fill="#fbbf24" opacity=".85"><rect x="1097" y="330" width="16" height="12" rx="2"/><rect x="1097" y="450" width="16" height="12" rx="2"/><rect x="1097" y="570" width="16" height="12" rx="2"/></g>
-      <g data-in="a-stress" fill="#fbbf24" opacity=".85"><rect class="gq" x="1097" y="278" width="16" height="64" rx="2"/><rect class="gq gq-m" x="1097" y="398" width="16" height="64" rx="2"/><rect class="gq gq-t" x="1097" y="518" width="16" height="64" rx="2"/></g>
+      <g fill="none" stroke="#7c8a83" stroke-width="2"><rect x="1094" y="275" width="16" height="70" rx="4"/><rect x="1094" y="395" width="16" height="70" rx="4"/><rect x="1094" y="515" width="16" height="70" rx="4"/></g>
+      <g data-out="a-stress" opacity=".85"><rect x="1097" y="330" width="10" height="12" rx="2" fill="#fbbf24"/><rect x="1097" y="450" width="10" height="12" rx="2" fill="#38bdf8"/><rect x="1097" y="570" width="10" height="12" rx="2" fill="#c084fc"/></g>
+      <g data-in="a-stress" opacity=".85"><rect class="gq" x="1097" y="278" width="10" height="64" rx="2" fill="#fbbf24"/><rect class="gq gq-m" x="1097" y="398" width="10" height="64" rx="2" fill="#38bdf8"/><rect class="gq gq-t" x="1097" y="518" width="10" height="64" rx="2" fill="#c084fc"/></g>
       <g data-in="a-gw-load" data-out="a-large"><path class="flow l dense" style="stroke-width:6;animation-duration:.25s" d="M1068 309 H1084 C 1200 309, 1220 419, 1296 419 H1322"/></g>
       <g data-out="a-stress"><path class="flow l" d="M1068 309 H1084 C 1200 309, 1220 419, 1296 419 H1322"/><path class="flow m" d="M1068 429 H1322"/><path class="flow t" d="M1068 549 H1084 C 1200 549, 1220 439, 1296 439 H1322"/></g>
       <!-- under stress: each line out to the backend breaks now and then -->
@@ -1158,8 +1178,8 @@ a:focus{outline:none}
           <path class="flow m" d="M232 734 H330"/>
         </g>
       </g>
-      <!-- until the pool takes it, the target is a close-up of one of the bottom node's pods: that pod turns blue and widens down into it -->
-      <g data-out="a-large-pool">
+      <!-- while the large target is the focus, it is a close-up of one of the bottom node's pods: that pod turns blue and widens down into it -->
+      <g data-out="a-events">
         <path d="M171.6 563.4 H200.4 L246 665 H126 Z" fill="#38bdf8" fill-opacity=".1"/>
         <rect x="171.6" y="534.6" width="28.8" height="28.8" rx="6.4" fill="#0d1a1d" stroke="#38bdf8" stroke-width="2"/>
       </g>
@@ -1175,9 +1195,13 @@ a:focus{outline:none}
     </g>
     </g>
     <use href="#col" x="360" y="281" width="90" height="56"/><use href="#col" x="360" y="401" width="90" height="56"/><use href="#col" x="360" y="521" width="90" height="56"/>
+    <!-- while the connection is lost, every node's collector is backed up -->
+    <g data-in="a-bp" data-out="a-localq"><use href="#col-warn" x="360" y="281" width="90" height="56"/><use href="#col-warn" x="360" y="401" width="90" height="56"/><use href="#col-warn" x="360" y="521" width="90" height="56"/></g>
+    <!-- with local queues, each collector is backed up only while the connection is down -->
+    <g data-in="a-localq" data-out="a-localq-no"><g class="q-red"><use href="#col-warn" x="360" y="281" width="90" height="56"/><use href="#col-warn" x="360" y="401" width="90" height="56"/><use href="#col-warn" x="360" y="521" width="90" height="56"/></g></g>
     <!-- under stress: a collector turns amber while a gateway it feeds pushes back on it -->
     <g data-in="a-stress"><use href="#col-warn" class="bp-warn" x="360" y="281" width="90" height="56"/><use href="#col-warn" class="bp-warn bp-m" style="animation-delay:-3.88s" x="360" y="281" width="90" height="56"/><use href="#col-warn" class="bp-warn" style="animation-delay:-4.25s" x="360" y="281" width="90" height="56"/><use href="#col-warn" class="bp-warn" x="360" y="401" width="90" height="56"/><use href="#col-warn" class="bp-warn bp-m" style="animation-delay:-3.88s" x="360" y="401" width="90" height="56"/><use href="#col-warn" class="bp-warn" style="animation-delay:-4.25s" x="360" y="401" width="90" height="56"/><use href="#col-warn" class="bp-warn" x="360" y="521" width="90" height="56"/><use href="#col-warn" class="bp-warn bp-m" style="animation-delay:-3.88s" x="360" y="521" width="90" height="56"/><use href="#col-warn" class="bp-warn" style="animation-delay:-4.25s" x="360" y="521" width="90" height="56"/></g>
-    <!-- the local queues absorb slowdowns: they fill while the backend is slow and drain once it recovers -->
+    <!-- the local queues absorb outages: they fill while the backend is unreachable and drain once it's back -->
     <g data-in="a-localq" data-out="a-localq-no">
       <g class="q-red">
         <g fill="none" stroke="#f87171" stroke-width="3" stroke-dasharray="6 8">
@@ -1192,7 +1216,7 @@ a:focus{outline:none}
       <use href="#key" x="410" y="253" width="40" height="20"/><use href="#key" x="410" y="373" width="40" height="20"/><use href="#key" x="410" y="493" width="40" height="20"/>
     </g>
 
-    <!-- the backend slows down -->
+    <!-- the connection to the backend is lost -->
     <g data-in="a-bp" data-out="a-localq">
       <g fill="none" stroke="#f87171" stroke-width="3" stroke-dasharray="6 8">
         <path d="M454 309 C 500 309, 544 311, 586 315"/>
@@ -1201,47 +1225,44 @@ a:focus{outline:none}
       </g>
       <use href="#brk" x="588" y="304" width="26" height="26"/><use href="#brk" x="588" y="416" width="26" height="26"/><use href="#brk" x="588" y="528" width="26" height="26"/>
     </g>
-    <!-- the backend is still down -->
-    <g data-in="a-localq-no" data-out="a-egress-out">
-      <g fill="none" stroke="#f87171" stroke-width="3" stroke-dasharray="6 8">
-        <path d="M454 309 C 500 309, 544 311, 586 315"/>
-        <path d="M454 429 H586"/>
-        <path d="M454 549 C 500 549, 544 547, 586 543"/>
-      </g>
-      <use href="#brk" x="588" y="304" width="26" height="26"/><use href="#brk" x="588" y="416" width="26" height="26"/><use href="#brk" x="588" y="528" width="26" height="26"/>
-    </g>
-
-    <!-- naive: queue locally on every node -->
+    <!-- each node can queue on its own -->
     <g data-in="a-localq" data-out="a-egress-out">
-      <g fill="none" stroke="#7c8a83" stroke-width="2"><rect x="478" y="255" width="22" height="80" rx="4"/><rect x="478" y="375" width="22" height="80" rx="4"/><rect x="478" y="495" width="22" height="80" rx="4"/></g>
+      <g fill="none" stroke="#7c8a83" stroke-width="2"><rect x="478" y="255" width="16" height="80" rx="4"/><rect x="478" y="375" width="16" height="80" rx="4"/><rect x="478" y="495" width="16" height="80" rx="4"/></g>
     </g>
-    <g data-in="a-localq" data-out="a-localq-no" fill="#fbbf24" opacity=".85">
-      <rect class="q-fill" x="481" y="258" width="16" height="74" rx="2"/><rect class="q-fill" x="481" y="378" width="16" height="74" rx="2"/><rect class="q-fill" x="481" y="498" width="16" height="74" rx="2"/>
+    <g data-in="a-localq" data-out="a-localq-no" fill="#76b900" opacity=".85">
+      <rect class="q-fill" x="481" y="258" width="10" height="74" rx="2"/><rect class="q-fill" x="481" y="378" width="10" height="74" rx="2"/><rect class="q-fill" x="481" y="498" width="10" height="74" rx="2"/>
     </g>
-    <g data-in="a-localq-no" data-out="a-egress-out" fill="#fbbf24" opacity=".85">
-      <rect x="481" y="265" width="16" height="67" rx="2"/><rect x="481" y="378" width="16" height="74" rx="2"/><rect x="481" y="505" width="16" height="67" rx="2"/>
+    <g data-in="a-localq-no" data-out="a-egress-out" fill="#76b900" opacity=".85">
+      <rect x="481" y="320" width="10" height="12" rx="2"/><rect x="481" y="378" width="10" height="74" rx="2" fill="#f87171"/><rect x="481" y="560" width="10" height="12" rx="2"/>
     </g>
     <!-- a node dies, and its queue goes with it -->
     <g data-in="a-localq-no" data-out="a-egress-out">
       <rect x="110" y="365" width="360" height="100" rx="14" fill="#f87171" fill-opacity=".12" stroke="#f87171" stroke-width="2"/>
-      <rect x="478" y="375" width="22" height="80" rx="4" fill="#f87171" fill-opacity=".45"/>
-      <use href="#cross" x="262" y="387" width="56" height="56"/>
+      <use href="#col-dead" x="360" y="401" width="90" height="56"/>
+      <rect x="478" y="375" width="16" height="80" rx="4" fill="none" stroke="#f87171" stroke-width="2"/>
     </g>
 
     <!-- walk it back: one dedicated egress that buffers -->
     <g data-in="a-egress-out" data-out="a-gw-load">
+      <!-- then a flood of logs: the gateway scales out, and a queue per signal shows the logs backing up while the rest stay low -->
+      <g data-in="a-gw-hot"><use href="#col" x="928" y="392" width="120" height="75"/><use href="#col" x="944" y="392" width="120" height="75"/></g>
       <use href="#col" x="960" y="392" width="120" height="75"/>
       <use href="#key" x="1041" y="360" width="40" height="20"/>
       <text class="term" x="1020" y="497" text-anchor="middle">gateway</text>
-      <rect x="1094" y="395" width="22" height="70" rx="4" fill="none" stroke="#7c8a83" stroke-width="2"/>
+      <rect data-out="a-gw-hot" x="1094" y="395" width="16" height="70" rx="4" fill="none" stroke="#7c8a83" stroke-width="2"/>
+      <g data-in="a-gw-hot">
+        <g fill="none" stroke="#7c8a83" stroke-width="2"><rect x="1094" y="395" width="16" height="70" rx="4"/><rect x="1114" y="395" width="16" height="70" rx="4"/><rect x="1134" y="395" width="16" height="70" rx="4"/></g>
+        <g opacity=".85"><rect x="1097" y="398" width="10" height="64" rx="2" fill="#fbbf24"/><rect x="1117" y="451" width="10" height="11" rx="2" fill="#38bdf8"/><rect x="1137" y="453" width="10" height="9" rx="2" fill="#c084fc"/></g>
+      </g>
     </g>
     <!-- the backend goes down: the gateway's queue absorbs it while every node keeps exporting -->
-    <g data-in="a-egress-out" data-out="a-gw-load">
+    <g data-in="a-egress-out" data-out="a-gw-hot">
       <g class="q-red">
         <path d="M1084 429 H1216" fill="none" stroke="#f87171" stroke-width="3" stroke-dasharray="6 8"/>
         <use href="#brk" x="1218" y="416" width="26" height="26"/>
+        <use href="#col-warn" x="960" y="392" width="120" height="75"/>
       </g>
-      <rect class="q-fill" x="1097" y="398" width="16" height="64" rx="2" fill="#fbbf24" opacity=".85"/>
+      <rect class="q-fill" x="1097" y="398" width="10" height="64" rx="2" fill="#76b900" opacity=".85"/>
     </g>
     <!-- opens on the OOM, then shows how it got there: the bottom node's Collector scrapes the target, the result streams in, memory fills, and the pod OOMs again -->
     <g class="oom-cycle" data-in="a-large" data-out="a-large-wrong" data-restart="a-large" data-at="5.5">
@@ -1275,7 +1296,7 @@ a:focus{outline:none}
     <!-- the leader's pod goes away (a rollout, a drain) and its state goes with it -->
     <g data-in="a-events-loss" data-out="a-events-pool">
       <rect x="110" y="245" width="360" height="100" rx="14" fill="#f87171" fill-opacity=".12" stroke="#f87171" stroke-width="2"/>
-      <rect x="362.44" y="283.24" width="85.12" height="51.52" rx="11.2" fill="none" stroke="#f87171" stroke-width="3.36"/>
+      <use href="#col-dead" x="360" y="281" width="90" height="56"/>
       <use href="#crown" x="389" y="247" width="32" height="24" opacity=".45" style="filter:grayscale(1)"/>
       <path d="M433 264 C 460 264, 480 251, 502 242" fill="none" stroke="#f87171" stroke-width="3" stroke-dasharray="6 8"/>
       <use href="#brk" x="503" y="224" width="26" height="26"/>
@@ -1319,8 +1340,7 @@ a:focus{outline:none}
   <text class="lbl" x="1420" y="549" text-anchor="middle">Backend</text>
   <g data-in="a-bp" data-out="a-localq"><use href="#backend-down" x="1300" y="344" width="240" height="170"/></g>
   <g data-in="a-localq" data-out="a-localq-no"><g class="q-red"><use href="#backend-down" x="1300" y="344" width="240" height="170"/></g></g>
-  <g data-in="a-localq-no" data-out="a-egress-out"><use href="#backend-down" x="1300" y="344" width="240" height="170"/></g>
-  <g data-in="a-egress-out" data-out="a-gw-load"><g class="q-red"><use href="#backend-down" x="1300" y="344" width="240" height="170"/></g></g>
+  <g data-in="a-egress-out" data-out="a-gw-hot"><g class="q-red"><use href="#backend-down" x="1300" y="344" width="240" height="170"/></g></g>
   <!-- under stress: the backend's data has gaps, and nobody can tell how NKTP itself is doing -->
   <g data-in="a-stress" data-out="a-sidecars" transform="translate(0 -51)">
     <rect x="1399" y="420" width="132" height="90" rx="8" fill="#0d1310"/>
@@ -1680,6 +1700,10 @@ a:focus{outline:none}
   // and hands back to the deeper problem
   const tour = ['problem', 'architecture', 'dependencies', 'owners', 'not'];
   const fork = `#problem/${modules.problem.indexOf('p-otel') + 1}`, deeper = `#problem/${modules.problem.indexOf('pa') + 1}`;
+  // whether the reader came to the step after the fork through OTel 101, so that Back from there retraces it
+  let toured = false;
+  // the section the reader was last in, so that Back from home reopens it at its last step
+  let recent = null;
   const keys = ['in', 'out', 'dim', 'undim', 'fade', 'unfade', 'stress', 'unstress', 'halt', 'unhalt'];
   const els = [...document.querySelectorAll('[data-in],[data-out],[data-dim],[data-fade],[data-stress],[data-halt]')];
   for (const e of els) {
@@ -1858,6 +1882,8 @@ a:focus{outline:none}
     clearTimeout(pressing);
     if (settle) settle();
     const r = parse(location.hash), from = was;
+    if (cued && r.screen !== 'landing') go();
+    if (from && key(r) === deeper && (from.m === 'otel' || key(from) === fork)) toured = from.m === 'otel';
     was = r;
     render(r);
     if (from) travel(from, r);
@@ -1865,7 +1891,7 @@ a:focus{outline:none}
   function render(r) {
     if (r.screen === 'landing') {
       // the landing page is a fresh start: nothing finished, and the river back at its own pace
-      visited.clear(); lastStop = null; flow(1 / pace);
+      visited.clear(); lastStop = null; recent = null; flow(1 / pace);
       back = null; next = '#home';
       show(at.title);
       vis(false, 'nav');
@@ -1874,7 +1900,7 @@ a:focus{outline:none}
     if (r.screen === 'home') {
       // the right arrow opens the first stop not yet visited; once every stop has been, the one after the last finished
       const up = tour.find(m => !visited.has(m)) || tour[(tour.indexOf(lastStop) + 1) % tour.length];
-      back = null; next = `#${up}/1`;
+      back = recent && `#${recent}/${modules[recent].length}`; next = `#${up}/1`;
       show(at.end);
       vis(false, 'nav');
       for (const d of document.querySelectorAll('.dest')) {
@@ -1884,10 +1910,12 @@ a:focus{outline:none}
       return;
     }
     const list = modules[r.m], i = r.i, last = i === list.length - 1, otel = r.m === 'otel';
+    recent = r.m;
     if (last) { visited.add(r.m); if (tour.includes(r.m)) lastStop = r.m; }
     show(at[list[i]]);
     vis(true, 'nav');
     back = i > 0 ? `#${r.m}/${i}` : otel ? fork : '#home';
+    if (key(r) === deeper && toured) back = `#otel/${modules.otel.length}`;
     next = list[i] === 'p-otel' ? '#otel/1' : !last ? `#${r.m}/${i + 2}` : otel ? deeper : '#home';
     $('nav-back').setAttribute('href', back);
     $('nav-next').setAttribute('href', next);
@@ -1897,12 +1925,20 @@ a:focus{outline:none}
     $('nav-fill').setAttribute('stroke-dasharray', `${n / of * 100} 100`);
   }
   addEventListener('hashchange', route);
+  const river = () => [...document.querySelectorAll('g[clip-path^="url(#rv-"]')];
+  // the backend, home's label for it, and Learn more: what waits out of sight for the river
+  const sleepers = () => ({
+    backend: [...new Set(river().map(g => g.parentNode))].flatMap(g => [...g.querySelectorAll(':scope > use[href="#backend"], :scope > .lbl')]),
+    cta: document.querySelector('.scene[data-steps="title"] .cta'),
+  });
+  // stops the fill under way, wherever it has got to; harmless once it is over
+  let filling = () => {};
   // the landing page opens on an empty river that fills from the left at the river's own pace: each stream is uncovered just ahead of
   // its leading dot, so no dot appears or vanishes on the way in, until every stream reaches its end. The backend waits out of sight and
   // comes alive as the first dots reach it. Both rivers share all of it, so the landing page and home still trade places unseen
   function fill() {
     const NS = 'http://www.w3.org/2000/svg', defs = stage.querySelector('defs');
-    const groups = [...document.querySelectorAll('g[clip-path^="url(#rv-"]')], streams = [...groups[0].children];
+    const groups = river(), streams = [...groups[0].children];
     const clock = streams[0].getAnimations()[0], t0 = clock.currentTime || 0, cycle = clock.effect.getComputedTiming().duration;
     const at = (s, x) => { let lo = 0, hi = s.getTotalLength(); for (let n = 0; n < 40; n++) { const m = (lo + hi) / 2; s.getPointAtLength(m).x < x ? lo = m : hi = m; } return lo; };
     // distances measured past x 820, where the three lanes meet; there a stream's dots sit 36 apart (.rv), set by its phase
@@ -1926,26 +1962,57 @@ a:focus{outline:none}
     for (const g of groups) [...g.children].forEach((path, k) => path.setAttribute('mask', `url(#fill-${k})`));
     // the backend, and home's label for it, stay out of sight until the first dot is about to reach it at x 1295; Learn more waits until
     // just after the backend has come alive, though the right arrow takes the reader on all along
-    const backend = [...new Set(groups.map(g => g.parentNode))].flatMap(g => [...g.querySelectorAll(':scope > use[href="#backend"], :scope > .lbl')]);
-    const cta = document.querySelector('.scene[data-steps="title"] .cta');
+    const { backend, cta } = sleepers();
     for (const b of [...backend, cta]) b.style.visibility = 'hidden';
     const first = Math.max(...fronts.map(f => f.lead));
-    let woke = false;
+    let woke = false, masked = true, frame = 0, later = 0;
+    const unmask = () => {
+      if (!masked) return;
+      masked = false;
+      for (const g of groups) for (const path of g.children) path.removeAttribute('mask');
+      for (const f of fronts) f.mask.remove();
+    };
     const step = () => {
       const run = ((clock.currentTime || 0) - t0) / cycle * 36;
       if (!woke && first + run >= 1295 - 820 - 20) {
         woke = true;
         for (const b of backend) { b.style.visibility = ''; b.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 900, easing: 'ease-in-out' }); }
-        setTimeout(() => { cta.style.visibility = ''; cta.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 600, easing: 'ease-out' }); }, 1100);
+        later = setTimeout(() => { cta.style.visibility = ''; cta.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 600, easing: 'ease-out' }); }, 1100);
       }
       let done = true;
       for (const f of fronts) { f.p.setAttribute('stroke-dashoffset', f.L - f.start - run); if (f.start + run < f.L) done = false; }
-      if (!done) return void requestAnimationFrame(step);
-      for (const g of groups) for (const path of g.children) path.removeAttribute('mask');
-      for (const f of fronts) f.mask.remove();
+      if (done) unmask(); else frame = requestAnimationFrame(step);
     };
+    // Learn more can still be on its way after the river is full, so stopping covers it too
+    filling = () => { cancelAnimationFrame(frame); clearTimeout(later); unmask(); };
     step();
   }
+  // for a demo: on the landing page Escape clears the river and holds it empty, with the backend and Learn more out of sight, just as the
+  // page opens; Escape again, the space bar, or leaving the page sets it filling from the left anew, at whatever pace the arrows last set
+  let cued = false, hush = null;
+  const cue = () => {
+    cued = true;
+    const { backend, cta } = sleepers(), all = [...river(), ...backend, cta];
+    for (const e of all) if (e.style.visibility !== 'hidden') e.animate([{ opacity: getComputedStyle(e).opacity }, { opacity: 0 }], { duration: 600, easing: 'ease-in', fill: 'forwards' });
+    const t = setTimeout(() => hush(), 600);
+    hush = () => {
+      hush = null;
+      clearTimeout(t);
+      filling();
+      for (const e of all) {
+        e.style.visibility = 'hidden';
+        for (const a of e.getAnimations()) if (!a.animationName && !a.transitionProperty) a.cancel();
+      }
+      for (const a of document.getAnimations()) if (a.animationName === 'rv') a.pause();
+    };
+  };
+  const go = () => {
+    hush?.();
+    cued = false;
+    for (const g of river()) g.style.visibility = '';
+    for (const a of document.getAnimations()) if (a.animationName === 'rv') a.play();
+    fill();
+  };
   // an easter egg on the landing page and home: up speeds the river's dots, down slows them, though never so far that they look stopped;
   // the slowest is four steps down, so stepping back up returns to the river's own pace
   let pace = 1;
@@ -1967,6 +2034,8 @@ a:focus{outline:none}
     if ((e.key === 'ArrowRight' || e.key === 'PageDown') && next) { press(next); e.preventDefault(); }
     else if ((e.key === 'ArrowLeft' || e.key === 'PageUp') && back) { location.hash = back; e.preventDefault(); }
     else if (e.key === 'Escape' && was?.screen !== 'landing') location.hash = was?.screen === 'home' ? '#' : '#home';
+    else if (e.key === 'Escape' && !calm.matches) cued ? go() : cue();
+    else if (e.key === ' ' && cued) { go(); e.preventDefault(); }
     else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && was?.screen) { flow(e.key === 'ArrowUp' ? 1.5 : 1 / 1.5); e.preventDefault(); }
   });
   route();

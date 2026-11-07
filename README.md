@@ -1,6 +1,6 @@
 # NVKE Telemetry Pipeline
 
-[![An interactive overview of NKTP](docs/overview/screenshot.png)](https://dsx-ai-factory.github.io/nvke-telemetry-pipeline/overview/)
+[![An interactive overview of NKTP](docs/overview/banner.svg)](https://dsx-ai-factory.github.io/nvke-telemetry-pipeline/overview)
 
 NVKE Telemetry Pipeline (NKTP) is a scalable, OpenTelemetry pipeline for collecting, processing, and exporting Kubernetes metrics, logs, and traces, with sensible defaults and flexible, shareable configuration.
 
