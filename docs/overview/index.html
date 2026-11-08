@@ -94,6 +94,16 @@ tspan.hid{fill-opacity:0}
 @keyframes qred{0%{opacity:0}3%,50%{opacity:1}53%,100%{opacity:0}}
 @keyframes qgreen{0%{opacity:1}3%,50%{opacity:0}53%,100%{opacity:1}}
 @keyframes qfill{0%,3%{transform:scaleY(.2)}44%,53%{transform:scaleY(.85)}94%,100%{transform:scaleY(.2)}}
+/* one gateway per signal: the logs gateway scales out to three replicas and back to one; while there are three its queue drains and its
+   egress runs dense, and while there's one it turns amber, its egress thins and its queue fills */
+.rep{animation:rep 8s ease-in-out infinite}
+.rep-q{transform-box:fill-box;transform-origin:50% 100%;animation:repq 8s ease-in-out infinite}
+.rep-out{animation:repout 8s ease-in-out infinite}
+.rep-warn{animation:repwarn 8s ease-in-out infinite}
+@keyframes rep{0%,8%{translate:var(--back) 0}14%,58%{translate:0 0}64%,100%{translate:var(--back) 0}}
+@keyframes repq{0%,14%{transform:scaleY(1)}50%,64%{transform:scaleY(.1875)}100%{transform:scaleY(1)}}
+@keyframes repout{0%,8%{opacity:0}14%,58%{opacity:1}64%,100%{opacity:0}}
+@keyframes repwarn{0%,8%{opacity:1}14%,58%{opacity:0}64%,100%{opacity:1}}
 .oom-flow{animation:oomflow 8s linear infinite}
 .oom-reach{stroke-dasharray:100;animation:oomreach 8s linear infinite}
 .oom-fill{transform-box:fill-box;transform-origin:50% 100%;animation:oomfill 8s linear infinite,oomcolor 8s linear infinite}
@@ -1160,9 +1170,9 @@ a:focus{outline:none}
       <g data-in="a-events-pool" data-out="a-stress"><path class="flow l" d="M844 233 H860 C 910 233, 910 299, 956 299 H970"/></g><g data-in="a-stress" class="mp"><path class="flow l" d="M844 233 H860 C 910 233, 910 299, 956 299 H970"/></g>
       <g data-in="a-large-pool"><g class="drain-flow"><path class="flow m" d="M498.6 738.3 L514 734 C 564 720, 600 520, 956 437 L971.6 433.4"/></g></g>
       <g fill="none" stroke="#7c8a83" stroke-width="2"><rect x="1094" y="275" width="16" height="70" rx="4"/><rect x="1094" y="395" width="16" height="70" rx="4"/><rect x="1094" y="515" width="16" height="70" rx="4"/></g>
-      <g data-out="a-stress" opacity=".85"><rect x="1097" y="330" width="10" height="12" rx="2" fill="#fbbf24"/><rect x="1097" y="450" width="10" height="12" rx="2" fill="#38bdf8"/><rect x="1097" y="570" width="10" height="12" rx="2" fill="#c084fc"/></g>
+      <g data-out="a-stress" opacity=".85"><rect class="rep-q" data-out="a-large" data-restart="a-gw-load" data-at="0" x="1097" y="278" width="10" height="64" rx="2" fill="#fbbf24"/><rect data-in="a-large" x="1097" y="330" width="10" height="12" rx="2" fill="#fbbf24"/><rect x="1097" y="450" width="10" height="12" rx="2" fill="#38bdf8"/><rect x="1097" y="570" width="10" height="12" rx="2" fill="#c084fc"/></g>
       <g data-in="a-stress" opacity=".85"><rect class="gq" x="1097" y="278" width="10" height="64" rx="2" fill="#fbbf24"/><rect class="gq gq-m" x="1097" y="398" width="10" height="64" rx="2" fill="#38bdf8"/><rect class="gq gq-t" x="1097" y="518" width="10" height="64" rx="2" fill="#c084fc"/></g>
-      <g data-in="a-gw-load" data-out="a-large"><path class="flow l dense" style="stroke-width:6;animation-duration:.25s" d="M1068 309 H1084 C 1200 309, 1220 419, 1296 419 H1322"/></g>
+      <g data-in="a-gw-load" data-out="a-large"><g class="rep-out" data-restart="a-gw-load" data-at="0"><path class="flow l dense" style="stroke-width:6;animation-duration:.25s" d="M1068 309 H1084 C 1200 309, 1220 419, 1296 419 H1322"/></g></g>
       <g data-out="a-stress"><path class="flow l" d="M1068 309 H1084 C 1200 309, 1220 419, 1296 419 H1322"/><path class="flow m" d="M1068 429 H1322"/><path class="flow t" d="M1068 549 H1084 C 1200 549, 1220 439, 1296 439 H1322"/></g>
       <!-- under stress: each line out to the backend breaks now and then -->
       <g data-in="a-stress">
@@ -1173,8 +1183,10 @@ a:focus{outline:none}
         <g class="lb-ok" style="animation-delay:-4.25s"><path class="flow t" d="M1068 549 H1084 C 1200 549, 1220 439, 1296 439 H1322"/></g>
         <g class="lb-break" style="animation-delay:-4.25s"><path d="M1084 549 C 1152 549, 1187 511, 1220 480" fill="none" stroke="#f87171" stroke-width="3" stroke-dasharray="6 8"/><use href="#brk" x="1218" y="456" width="26" height="26"/></g>
       </g>
-      <g data-in="a-gw-load" data-out="a-large"><use href="#col" x="928" y="272" width="120" height="75"/><use href="#col" x="944" y="272" width="120" height="75"/></g>
+      <!-- the logs gateway's extra replicas: retracted, each sits exactly behind the gateway, which is drawn over it -->
+      <g data-in="a-gw-load" data-out="a-large" data-restart="a-gw-load" data-at="0"><use class="rep" style="--back:32px" href="#col" x="928" y="272" width="120" height="75"/><use class="rep" style="--back:16px" href="#col" x="944" y="272" width="120" height="75"/></g>
       <use href="#col" x="960" y="272" width="120" height="75"/><use href="#col" x="960" y="392" width="120" height="75"/><use href="#col" x="960" y="512" width="120" height="75"/>
+      <g data-in="a-gw-load" data-out="a-large"><use href="#col-warn" class="rep-warn" data-restart="a-gw-load" data-at="0" x="960" y="272" width="120" height="75"/></g>
       <!-- under stress: a gateway turns amber while its egress is down and its queue fills -->
       <g data-in="a-stress"><use href="#col-warn" class="gw-warn" x="960" y="272" width="120" height="75"/><use href="#col-warn" class="gw-warn lb-m" style="animation-delay:-3.88s" x="960" y="392" width="120" height="75"/><use href="#col-warn" class="gw-warn" style="animation-delay:-4.25s" x="960" y="512" width="120" height="75"/></g>
       <text class="mut" x="1020" y="370" text-anchor="middle" font-size="18">logs</text>
@@ -1390,25 +1402,26 @@ a:focus{outline:none}
 
   <!-- the scrape lines, drawn first: from under the sources NKTP deploys into its Collectors -->
   <g data-out="d-ksm">
-    <path class="flow m" d="M508 255 H524 C 600 255, 640 365, 806 365 H822"/>
-    <path class="flow m" d="M508 395 H524 C 660 395, 690 410, 806 410 H822"/>
-    <path class="flow m" d="M508 590 H524 C 660 590, 690 455, 806 455 H822"/>
+    <path class="flow m" d="M508 285 H524 C 600 285, 660 384, 826 384 H842"/>
+    <path class="flow m" d="M508 445 H524 C 660 445, 710 429, 826 429 H842"/>
+    <path class="flow m" d="M508 665 H524 C 660 665, 710 474, 826 474 H842"/>
   </g>
+  <!-- the Collectors and gateways centre on the backend, so the gateways' lines run straight into it -->
   <g data-out="d-ksm">
-    <path d="M860 365 L934 386 M860 365 L934 434 M860 410 L934 386 M860 410 L934 434 M860 455 L934 386 M860 455 L934 434" stroke="#76b900" stroke-width="2" opacity=".45"/>
-    <use href="#col" x="812" y="350" width="48" height="30"/><use href="#col" x="812" y="395" width="48" height="30"/><use href="#col" x="812" y="440" width="48" height="30"/>
-    <path class="flow g" d="M982 386 H1312"/><path class="flow g" d="M982 434 H1312"/>
-    <use href="#col" x="934" y="366" width="64" height="40"/><use href="#col" x="934" y="414" width="64" height="40"/>
-    <use href="#backend" x="1290" y="325" width="240" height="170"/>
-    <text class="lbl" x="1410" y="530" text-anchor="middle">Backend</text>
+    <path d="M880 384 L954 405 M880 384 L954 453 M880 429 L954 405 M880 429 L954 453 M880 474 L954 405 M880 474 L954 453" stroke="#76b900" stroke-width="2" opacity=".45"/>
+    <use href="#col" x="832" y="369" width="48" height="30"/><use href="#col" x="832" y="414" width="48" height="30"/><use href="#col" x="832" y="459" width="48" height="30"/>
+    <path class="flow g" d="M1002 405 H1322"/><path class="flow g" d="M1002 453 H1322"/>
+    <use href="#col" x="954" y="385" width="64" height="40"/><use href="#col" x="954" y="433" width="64" height="40"/>
   </g>
 
-  <!-- NKTP deploys these along with its Collectors (inside the boundary) and uses them -->
+  <!-- NKTP deploys these along with its Collectors (inside the boundary) and uses them; the boundary takes the cluster's place
+       and size on the next step, so it holds still as one becomes the other -->
   <g data-out="d-ksm">
-    <rect x="80" y="150" width="1070" height="565" rx="24" fill="#76b900" fill-opacity=".04" stroke="#76b900" stroke-width="2" stroke-dasharray="6 8"/>
-    <text class="term" x="104" y="182">NKTP</text>
+    <rect x="80" y="165" width="1110" height="660" rx="24" fill="#76b900" fill-opacity=".04" stroke="#76b900" stroke-width="2" stroke-dasharray="6 8"/>
+    <text class="term" x="104" y="200">NKTP</text>
 
-    <rect x="100" y="200" width="420" height="110" rx="18" fill="#121814" stroke="#2a332d" stroke-width="2"/>
+    <rect x="100" y="225" width="420" height="120" rx="18" fill="#121814" stroke="#2a332d" stroke-width="2"/>
+    <g transform="translate(0 30)">
     <text class="lbl" x="130" y="264" font-weight="700">node-exporter</text>
     <!-- one node-exporter per node -->
     <g fill="none" stroke="#38bdf8" stroke-width="3" stroke-linecap="round">
@@ -1426,27 +1439,36 @@ a:focus{outline:none}
       <path d="M462 231 V238 M470 231 V238 M478 231 V238 M462 272 V279 M470 272 V279 M478 272 V279 M446 247 H453 M446 255 H453 M446 263 H453 M487 247 H494 M487 255 H494 M487 263 H494"/>
     </g>
     <rect x="463" y="248" width="14" height="14" rx="2" fill="#38bdf8" opacity=".55"/>
+    </g>
 
-    <rect x="100" y="340" width="420" height="110" rx="18" fill="#121814" stroke="#2a332d" stroke-width="2"/>
+    <rect x="100" y="385" width="420" height="120" rx="18" fill="#121814" stroke="#2a332d" stroke-width="2"/>
+    <g transform="translate(0 50)">
     <text class="lbl" x="130" y="404" font-weight="700">kube-state-metrics</text>
     <g fill="#142010" stroke="#38bdf8" stroke-width="2"><rect x="430" y="382" width="22" height="22" rx="5"/><rect x="458" y="382" width="22" height="22" rx="5"/><rect x="444" y="360" width="22" height="22" rx="5"/></g>
+    </g>
 
-    <rect x="100" y="480" width="420" height="220" rx="18" fill="#121814" stroke="#2a332d" stroke-width="2"/>
+    <rect x="100" y="545" width="420" height="240" rx="18" fill="#121814" stroke="#2a332d" stroke-width="2"/>
+    <g transform="translate(0 75)">
     <use href="#doc" x="130" y="502" width="40" height="50"/>
     <text class="lbl" x="186" y="537" font-weight="700">ServiceMonitors</text>
     <g class="chip"><rect x="130" y="562" width="170" height="34" rx="17"/><text x="215" y="585" text-anchor="middle" style="font-size:16px">API server</text><rect x="312" y="562" width="170" height="34" rx="17"/><text x="397" y="585" text-anchor="middle" style="font-size:16px">scheduler</text><rect x="130" y="606" width="170" height="34" rx="17"/><text x="215" y="629" text-anchor="middle" style="font-size:16px">controller manager</text><rect x="312" y="606" width="170" height="34" rx="17"/><text x="397" y="629" text-anchor="middle" style="font-size:16px">etcd</text><rect x="130" y="650" width="170" height="34" rx="17"/><text x="215" y="673" text-anchor="middle" style="font-size:16px">CoreDNS</text><rect x="312" y="650" width="170" height="34" rx="17"/><text x="397" y="673" text-anchor="middle" style="font-size:16px">kube-proxy</text></g>
+    </g>
 
+    <g transform="translate(20 19)">
     <use href="#doc" x="630" y="176" width="34" height="42"/><use href="#doc" x="644" y="186" width="34" height="42"/><use href="#doc" x="658" y="196" width="34" height="42"/>
     <text class="mut" x="661" y="262" text-anchor="middle" font-size="16">Collector CRs</text>
     <rect x="760" y="168" width="300" height="80" rx="18" fill="#121814" stroke="#5b6b60" stroke-width="2"/>
     <text class="lbl" x="910" y="202" text-anchor="middle" font-weight="700">OpenTelemetry Operator</text>
     <text class="mut" x="910" y="228" text-anchor="middle" font-size="17">CRDs · Target Allocators</text>
     <path d="M910 252 V339" fill="none" stroke="#7c8a83" stroke-width="3" marker-end="url(#arrm)"/>
+    </g>
 
+    <g transform="translate(20 105)">
     <rect x="810" y="600" width="200" height="80" rx="18" fill="#121814" stroke="#5b6b60" stroke-width="2"/>
     <text class="lbl" x="910" y="636" text-anchor="middle" font-weight="700">metrics-server</text>
     <text class="mut" x="910" y="662" text-anchor="middle" font-size="16">autoscaling</text>
-    <path d="M910 596 V481" fill="none" stroke="#7c8a83" stroke-width="3" marker-end="url(#arrm)"/>
+    </g>
+    <path d="M930 701 V500" fill="none" stroke="#7c8a83" stroke-width="3" marker-end="url(#arrm)"/>
 
   </g>
 
@@ -1480,8 +1502,6 @@ a:focus{outline:none}
     <path class="flow m" d="M1068 429 H1322"/>
     <use href="#col" x="960" y="392" width="120" height="75"/>
     <text class="mut" x="1020" y="490" text-anchor="middle" font-size="18">metrics</text>
-    <use href="#backend" x="1300" y="344" width="240" height="170"/>
-    <text class="lbl" x="1420" y="549" text-anchor="middle">Backend</text>
   </g>
   <!-- then the cluster-level instances, which belong to the large-target pool -->
   <g data-in="d-ksm-cluster">
@@ -1490,6 +1510,9 @@ a:focus{outline:none}
     <g fill="#142010" stroke="#38bdf8" stroke-width="2"><rect x="114" y="688" width="24" height="24" rx="6"/><rect x="114" y="720" width="24" height="24" rx="6"/><rect x="114" y="752" width="24" height="24" rx="6"/><rect x="344" y="688" width="24" height="24" rx="6"/><rect x="344" y="720" width="24" height="24" rx="6"/><rect x="344" y="752" width="24" height="24" rx="6"/></g>
     <g font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="15"><text x="146" y="705">ksm-unscheduled-pods</text><text x="146" y="737">ksm-workloads</text><text x="146" y="769">ksm-networking</text><text x="376" y="705">ksm-storage</text><text x="376" y="737">ksm-configuration</text><text x="376" y="769">ksm-cluster</text></g>
     </g>
+  <!-- one backend for every step, drawn over the lines into it, so it holds still while the rest changes around it -->
+  <use href="#backend" x="1300" y="344" width="240" height="170"/>
+  <text class="lbl" x="1420" y="549" text-anchor="middle">Backend</text>
   </g>
 </g>
 <!-- ============ WHAT IT ISN'T ============ -->
