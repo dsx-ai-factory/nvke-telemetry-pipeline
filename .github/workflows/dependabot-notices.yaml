@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-name: Update Dependabot Notices
+name: Update Dependabot Chart Lock and Notices
 
 # Run from the default branch, after the unprivileged PR checks. PR code is
 # never checked out, and checkout does not persist the job's credentials.
@@ -92,27 +92,27 @@ jobs:
               }
               fs.writeFileSync(file, Buffer.from(data.content, 'base64'));
             }
-            fs.copyFileSync('nktp/THIRD_PARTY_NOTICES.md', path.join(process.env.RUNNER_TEMP, 'notices-before.md'));
+            for (const file of ['nktp/Chart.lock', 'nktp/THIRD_PARTY_NOTICES.md']) {
+              fs.copyFileSync(file, path.join(process.env.RUNNER_TEMP, path.basename(file)));
+            }
             core.setOutput('number', pr.number);
             core.setOutput('head', pr.head.sha);
             core.setOutput('branch', pr.head.ref);
             core.setOutput('update', 'true');
 
-      - name: Build pinned chart dependencies
+      - name: Regenerate chart lock and build dependencies
         if: steps.pr.outputs.update == 'true'
         uses: ./.github/actions/setup-chart
+        with:
+          update-dependencies: 'true'
 
       - name: Update existing notices version rows
         if: steps.pr.outputs.update == 'true'
-        id: notices
         run: |
           .github/scripts/check-third-party-notices.sh --update
-          if ! cmp -s nktp/THIRD_PARTY_NOTICES.md "${RUNNER_TEMP}/notices-before.md"; then
-            echo 'changed=true' >> "${GITHUB_OUTPUT}"
-          fi
 
-      - name: Append notices commit to the Dependabot branch
-        if: steps.notices.outputs.changed == 'true'
+      - name: Append chart lock and notices commit to the Dependabot branch
+        if: steps.pr.outputs.update == 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           PR_NUMBER: ${{ steps.pr.outputs.number }}
@@ -123,12 +123,21 @@ jobs:
           github-token: ${{ github.token }}
           script: |
             const fs = require('node:fs');
+            const path = require('node:path');
+            const additions = ['nktp/Chart.lock', 'nktp/THIRD_PARTY_NOTICES.md']
+              .filter(file => !fs.readFileSync(file).equals(
+                fs.readFileSync(path.join(process.env.RUNNER_TEMP, path.basename(file)))))
+              .map(file => ({path: file, contents: fs.readFileSync(file).toString('base64')}));
+            if (!additions.length) {
+              core.info('Chart lock and notices are already current.');
+              return;
+            }
             const {data: pr} = await github.rest.pulls.get({
               ...context.repo, pull_number: Number(process.env.PR_NUMBER),
             });
             if (pr.state !== 'open' || pr.head.sha !== process.env.EXPECTED_HEAD ||
                 pr.head.ref !== process.env.PR_BRANCH) {
-              core.info('The PR changed while updating notices; leaving it untouched.');
+              core.info('The PR changed while updating chart lock and notices; leaving it untouched.');
               return;
             }
             const {data: user} = await github.rest.users.getByUsername({username: 'github-actions[bot]'});
@@ -146,12 +155,9 @@ jobs:
               },
               expectedHeadOid: process.env.EXPECTED_HEAD,
               message: {
-                headline: 'docs(nktp): update bundled chart notices',
+                headline: 'build(nktp): synchronize chart lock and notices',
                 body: `Signed-off-by: ${name} <${email}>`,
               },
-              fileChanges: {additions: [{
-                path: 'nktp/THIRD_PARTY_NOTICES.md',
-                contents: fs.readFileSync('nktp/THIRD_PARTY_NOTICES.md').toString('base64'),
-              }]},
+              fileChanges: {additions},
             }});
             core.info(`Created ${result.createCommitOnBranch.commit.url}`);

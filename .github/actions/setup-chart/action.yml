@@ -4,6 +4,12 @@
 name: Setup chart
 description: Build the NKTP chart dependencies.
 
+inputs:
+  update-dependencies:
+    description: Regenerate Chart.lock for a deliberate dependency update.
+    required: false
+    default: 'false'
+
 runs:
   using: composite
   steps:
@@ -14,8 +20,14 @@ runs:
 
     - name: Build chart dependencies
       shell: bash
+      env:
+        UPDATE_DEPENDENCIES: ${{ inputs.update-dependencies }}
       run: |
         helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
         helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
         helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
-        helm dependency build nktp --skip-refresh
+        if [[ "${UPDATE_DEPENDENCIES}" == 'true' ]]; then
+          helm dependency update nktp --skip-refresh
+        else
+          helm dependency build nktp --skip-refresh
+        fi
