@@ -142,7 +142,7 @@ jobs:
             `, {input: {
               branch: {
                 repositoryNameWithOwner: `${context.repo.owner}/${context.repo.repo}`,
-                refName: process.env.PR_BRANCH,
+                branchName: process.env.PR_BRANCH,
               },
               expectedHeadOid: process.env.EXPECTED_HEAD,
               message: {
