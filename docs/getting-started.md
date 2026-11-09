@@ -91,15 +91,15 @@ for HTTP configuration.
 otel-lgtm:
   enabled: false
 watchdog:
-  otelcol: {config: {exporters: {otlp: {endpoint: "<backend>:4317", tls: {insecure: false}}}}}
+  otelcol: {config: {exporters: {otlp_grpc: {endpoint: "<backend>:4317", tls: {insecure: false}}}}}
   sidecar:
-    otelcol: {config: {exporters: {otlp: {endpoint: "<backend>:4317", tls: {insecure: false}}}}}
+    otelcol: {config: {exporters: {otlp_grpc: {endpoint: "<backend>:4317", tls: {insecure: false}}}}}
 gateway_logs:
-  otelcol: {config: {exporters: {otlp: {endpoint: "<backend>:4317", tls: {insecure: false}}}}}
+  otelcol: {config: {exporters: {otlp_grpc: {endpoint: "<backend>:4317", tls: {insecure: false}}}}}
 gateway_metrics:
-  otelcol: {config: {exporters: {otlp: {endpoint: "<backend>:4317", tls: {insecure: false}}}}}
+  otelcol: {config: {exporters: {otlp_grpc: {endpoint: "<backend>:4317", tls: {insecure: false}}}}}
 gateway_traces:
-  otelcol: {config: {exporters: {otlp: {endpoint: "<backend>:4317", tls: {insecure: false}}}}}
+  otelcol: {config: {exporters: {otlp_grpc: {endpoint: "<backend>:4317", tls: {insecure: false}}}}}
 ```
 
 - **TLS and mTLS** to the backend: see [Secure gateway export](guides/secure_gateway_export.md).

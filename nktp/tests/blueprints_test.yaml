@@ -53,7 +53,7 @@ tests:
             retry_on_failure: *retry
             sending_queue: *queue
       - equal:
-          path: spec.config.exporters["otlp/(exp/otlp_backend)"]
+          path: spec.config.exporters["otlp_grpc/(exp/otlp_backend)"]
           value: *exporter
       - equal:
           path: spec.config.service.pipelines.logs.exporters
@@ -62,7 +62,7 @@ tests:
           path: spec.config.service.pipelines["logs/(exp/otlp_backend)"]
           value:
             receivers: [forward/exp/otlp_backend]
-            exporters: [otlp/(exp/otlp_backend)]
+            exporters: [otlp_grpc/(exp/otlp_backend)]
 
   - it: expands a blueprint from the blueprints value in a sidecar
     template: templates/gateway-logs.yaml
@@ -74,7 +74,7 @@ tests:
     asserts:
       - matchRegex:
           path: spec.initContainers[0].args[0]
-          pattern: '"otlp/\(exp/otlp_backend\)":\{"endpoint":"sidecar.example.com:4317"'
+          pattern: '"otlp_grpc/\(exp/otlp_backend\)":\{"endpoint":"sidecar.example.com:4317"'
       - matchRegex:
           path: spec.initContainers[0].args[0]
           pattern: '"traces":\{"exporters":\["forward/exp/otlp_backend"\]'

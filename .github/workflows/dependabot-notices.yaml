@@ -1,0 +1,157 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: Update Dependabot Notices
+
+# Run from the default branch, after the unprivileged PR checks. PR code is
+# never checked out, and checkout does not persist the job's credentials.
+on:
+  workflow_run:
+    workflows: [License Checks]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      pull_request:
+        description: Dependabot chart pull request number
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: dependabot-notices-${{ github.event.workflow_run.head_branch || inputs.pull_request }}
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Update Bundled Chart Versions
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'pull_request' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - name: Checkout trusted updater
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Select chart update and read its inputs
+        id: pr
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_NUMBER: ${{ inputs.pull_request }}
+        with:
+          script: |
+            const fs = require('node:fs');
+            const path = require('node:path');
+            const run = context.payload.workflow_run;
+            let number = run?.pull_requests?.[0]?.number || Number(process.env.PR_NUMBER);
+            if (run && !number) {
+              const prs = await github.paginate(github.rest.repos.listPullRequestsAssociatedWithCommit, {
+                ...context.repo, commit_sha: run.head_sha, per_page: 100,
+              });
+              number = prs.find(pr => pr.head.sha === run.head_sha)?.number;
+            }
+            if (!number) {
+              core.info('No pull request associated with this run.');
+              return;
+            }
+            const {data: pr} = await github.rest.pulls.get({...context.repo, pull_number: number});
+            const repository = `${context.repo.owner}/${context.repo.repo}`;
+            if (pr.state !== 'open' || pr.user.login !== 'dependabot[bot]' ||
+                pr.head.repo?.full_name !== repository || !pr.head.ref.startsWith('dependabot/helm/') ||
+                pr.base.ref !== context.payload.repository.default_branch ||
+                pr.head.ref === pr.base.ref || (run && pr.head.sha !== run.head_sha)) {
+              core.info('Not a current, same-repository Dependabot Helm update.');
+              return;
+            }
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              ...context.repo, pull_number: number, per_page: 100,
+            });
+            const inputs = ['nktp/Chart.yaml', 'nktp/Chart.lock', 'nktp/THIRD_PARTY_NOTICES.md'];
+            if (!files.some(file => file.filename === 'nktp/Chart.yaml') ||
+                files.some(file => !inputs.includes(file.filename) || file.status !== 'modified')) {
+              core.info('Skipping image-only updates and PRs with changes beyond chart pins and notices.');
+              return;
+            }
+            // Read data at an immutable SHA, retaining all executable code from main.
+            for (const file of inputs) {
+              const {data} = await github.rest.repos.getContent({
+                ...context.repo, path: file, ref: pr.head.sha,
+              });
+              if (data.type !== 'file' || data.encoding !== 'base64') {
+                throw new Error(`Expected a regular file: ${file}`);
+              }
+              fs.writeFileSync(file, Buffer.from(data.content, 'base64'));
+            }
+            fs.copyFileSync('nktp/THIRD_PARTY_NOTICES.md', path.join(process.env.RUNNER_TEMP, 'notices-before.md'));
+            core.setOutput('number', pr.number);
+            core.setOutput('head', pr.head.sha);
+            core.setOutput('branch', pr.head.ref);
+            core.setOutput('update', 'true');
+
+      - name: Build pinned chart dependencies
+        if: steps.pr.outputs.update == 'true'
+        uses: ./.github/actions/setup-chart
+
+      - name: Update existing notices version rows
+        if: steps.pr.outputs.update == 'true'
+        id: notices
+        run: |
+          .github/scripts/check-third-party-notices.sh --update
+          if ! cmp -s nktp/THIRD_PARTY_NOTICES.md "${RUNNER_TEMP}/notices-before.md"; then
+            echo 'changed=true' >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Append notices commit to the Dependabot branch
+        if: steps.notices.outputs.changed == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          EXPECTED_HEAD: ${{ steps.pr.outputs.head }}
+          PR_BRANCH: ${{ steps.pr.outputs.branch }}
+        with:
+          # PR checks triggered by GITHUB_TOKEN may require approval to run.
+          github-token: ${{ github.token }}
+          script: |
+            const fs = require('node:fs');
+            const {data: pr} = await github.rest.pulls.get({
+              ...context.repo, pull_number: Number(process.env.PR_NUMBER),
+            });
+            if (pr.state !== 'open' || pr.head.sha !== process.env.EXPECTED_HEAD ||
+                pr.head.ref !== process.env.PR_BRANCH) {
+              core.info('The PR changed while updating notices; leaving it untouched.');
+              return;
+            }
+            const {data: user} = await github.rest.users.getByUsername({username: 'github-actions[bot]'});
+            const name = user.name || user.login;
+            const email = user.email || `${user.id}+${user.login}@users.noreply.github.com`;
+            // expectedHeadOid rejects a concurrent push; no force-push or rebase.
+            const result = await github.graphql(`
+              mutation($input: CreateCommitOnBranchInput!) {
+                createCommitOnBranch(input: $input) { commit { url } }
+              }
+            `, {input: {
+              branch: {
+                repositoryNameWithOwner: `${context.repo.owner}/${context.repo.repo}`,
+                branchName: process.env.PR_BRANCH,
+              },
+              expectedHeadOid: process.env.EXPECTED_HEAD,
+              message: {
+                headline: 'docs(nktp): update bundled chart notices',
+                body: `Signed-off-by: ${name} <${email}>`,
+              },
+              fileChanges: {additions: [{
+                path: 'nktp/THIRD_PARTY_NOTICES.md',
+                contents: fs.readFileSync('nktp/THIRD_PARTY_NOTICES.md').toString('base64'),
+              }]},
+            }});
+            core.info(`Created ${result.createCommitOnBranch.commit.url}`);

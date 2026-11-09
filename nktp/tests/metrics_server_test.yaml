@@ -29,7 +29,7 @@ tests:
           name: v1beta1.metrics.k8s.io
         not: true
 
-  - it: runs the pinned metrics-server when enabled
+  - it: runs metrics-server from the upstream registry when enabled
     set:
       metrics-server:
         enabled: true
@@ -39,9 +39,9 @@ tests:
           apiVersion: apps/v1
           kind: Deployment
           name: test-metrics-server
-      - equal:
+      - matchRegex:
           path: spec.template.spec.containers[0].image
-          value: registry.k8s.io/metrics-server/metrics-server:v0.8.1
+          pattern: '^registry\.k8s\.io/metrics-server/metrics-server:v[0-9]+\.[0-9]+\.[0-9]+$'
       - equal:
           path: spec.template.spec.containers[0].ports[0].containerPort
           value: 10250

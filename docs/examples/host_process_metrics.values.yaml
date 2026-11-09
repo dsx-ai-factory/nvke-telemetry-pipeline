@@ -53,6 +53,13 @@ daemonset:
         hostPath:
           path: /etc/passwd
           type: File
+      - name: internal-tls-client
+        secret:
+          secretName: nktp-daemonset-client-tls
+          items:
+            - {key: tls.crt, path: tls.crt}
+            - {key: tls.key, path: tls.key}
+            - {key: ca.crt, path: ca.crt}
     volumeMounts:
       - name: pod-logs
         mountPath: /var/log/pods
@@ -84,6 +91,7 @@ daemonset:
       - name: host-passwd
         mountPath: /etc/passwd # The scraper reads the container's /etc/passwd, not root_path.
         readOnly: true
+      - {name: internal-tls-client, mountPath: /etc/nktp/internal-tls/client, readOnly: true}
   otelcol:
     config:
       receivers:

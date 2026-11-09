@@ -329,7 +329,7 @@ matches the snapshot with default values:
     kind: OpenTelemetryCollector
     metadata:
       labels:
-        helm.sh/chart: opentelemetry-kube-stack-0.25.1
+        helm.sh/chart: opentelemetry-kube-stack-VERSION
       name: nktp-cluster-events
       namespace: NAMESPACE
     spec:
@@ -437,7 +437,7 @@ matches the snapshot with default values:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-      image: otel/opentelemetry-collector-k8s:0.164.0
+      image: otel/opentelemetry-collector-k8s:VERSION
       initContainers:
         - args:
             - --config=yaml:{"exporters":{"otlp_grpc":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":4194304,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":10000},"decision_wait":"5s","num_traces":1000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp_grpc"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-cluster-events-sidecar"},"traces":{"level":"none"}}}}
@@ -448,7 +448,7 @@ matches the snapshot with default values:
                   fieldPath: metadata.name
             - name: GOMEMLIMIT
               value: 96MiB
-          image: otel/opentelemetry-collector-k8s:0.164.0
+          image: otel/opentelemetry-collector-k8s:VERSION
           livenessProbe:
             httpGet:
               path: /
@@ -612,7 +612,7 @@ matches the snapshot with default values:
     kind: OpenTelemetryCollector
     metadata:
       labels:
-        helm.sh/chart: opentelemetry-kube-stack-0.25.1
+        helm.sh/chart: opentelemetry-kube-stack-VERSION
       name: nktp-daemonset
       namespace: NAMESPACE
     spec:
@@ -1039,7 +1039,7 @@ matches the snapshot with default values:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
-      image: otel/opentelemetry-collector-k8s:0.164.0
+      image: otel/opentelemetry-collector-k8s:VERSION
       initContainers:
         - args:
             - --config=yaml:{"exporters":{"otlp_grpc":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":4194304,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":10000},"decision_wait":"5s","num_traces":1000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp_grpc"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"k8s.node.name":"${env:NODE_NAME}","service.instance.id":"${env:POD_NAME}","service.name":"nktp-daemonset-sidecar"},"traces":{"level":"none"}}}}
@@ -1054,7 +1054,7 @@ matches the snapshot with default values:
                   fieldPath: spec.nodeName
             - name: GOMEMLIMIT
               value: 96MiB
-          image: otel/opentelemetry-collector-k8s:0.164.0
+          image: otel/opentelemetry-collector-k8s:VERSION
           livenessProbe:
             httpGet:
               path: /
@@ -1119,7 +1119,7 @@ matches the snapshot with default values:
                 fieldPath: metadata.name
           - name: OTEL_RESOURCE_ATTRIBUTES
             value: service.instance.id=$(POD_NAME)
-        image: ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:0.161.0
+        image: ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:VERSION
         mtls:
           enabled: true
           useCertManager: true
@@ -1283,7 +1283,7 @@ matches the snapshot with default values:
     kind: OpenTelemetryCollector
     metadata:
       labels:
-        helm.sh/chart: opentelemetry-kube-stack-0.25.1
+        helm.sh/chart: opentelemetry-kube-stack-VERSION
       name: nktp-gateway-logs
       namespace: NAMESPACE
     spec:
@@ -1409,7 +1409,7 @@ matches the snapshot with default values:
           value: 1536MiB
         - name: GOGC
           value: "50"
-      image: otel/opentelemetry-collector-k8s:0.164.0
+      image: otel/opentelemetry-collector-k8s:VERSION
       initContainers:
         - args:
             - --config=yaml:{"exporters":{"otlp_grpc":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":16777216,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":50000},"decision_wait":"5s","num_traces":5000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp_grpc"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-gateway-logs-sidecar"},"traces":{"level":"none"}}}}
@@ -1420,7 +1420,7 @@ matches the snapshot with default values:
                   fieldPath: metadata.name
             - name: GOMEMLIMIT
               value: 192MiB
-          image: otel/opentelemetry-collector-k8s:0.164.0
+          image: otel/opentelemetry-collector-k8s:VERSION
           livenessProbe:
             httpGet:
               path: /
@@ -1535,7 +1535,7 @@ matches the snapshot with default values:
     kind: OpenTelemetryCollector
     metadata:
       labels:
-        helm.sh/chart: opentelemetry-kube-stack-0.25.1
+        helm.sh/chart: opentelemetry-kube-stack-VERSION
       name: nktp-gateway-metrics
       namespace: NAMESPACE
     spec:
@@ -1661,7 +1661,7 @@ matches the snapshot with default values:
           value: 1536MiB
         - name: GOGC
           value: "50"
-      image: otel/opentelemetry-collector-k8s:0.164.0
+      image: otel/opentelemetry-collector-k8s:VERSION
       initContainers:
         - args:
             - --config=yaml:{"exporters":{"otlp_grpc":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":16777216,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":50000},"decision_wait":"5s","num_traces":5000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp_grpc"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-gateway-metrics-sidecar"},"traces":{"level":"none"}}}}
@@ -1672,7 +1672,7 @@ matches the snapshot with default values:
                   fieldPath: metadata.name
             - name: GOMEMLIMIT
               value: 192MiB
-          image: otel/opentelemetry-collector-k8s:0.164.0
+          image: otel/opentelemetry-collector-k8s:VERSION
           livenessProbe:
             httpGet:
               path: /
@@ -1787,7 +1787,7 @@ matches the snapshot with default values:
     kind: OpenTelemetryCollector
     metadata:
       labels:
-        helm.sh/chart: opentelemetry-kube-stack-0.25.1
+        helm.sh/chart: opentelemetry-kube-stack-VERSION
       name: nktp-gateway-traces
       namespace: NAMESPACE
     spec:
@@ -1913,7 +1913,7 @@ matches the snapshot with default values:
           value: 1536MiB
         - name: GOGC
           value: "50"
-      image: otel/opentelemetry-collector-k8s:0.164.0
+      image: otel/opentelemetry-collector-k8s:VERSION
       initContainers:
         - args:
             - --config=yaml:{"exporters":{"otlp_grpc":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":16777216,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":50000},"decision_wait":"5s","num_traces":5000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp_grpc"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-gateway-traces-sidecar"},"traces":{"level":"none"}}}}
@@ -1924,7 +1924,7 @@ matches the snapshot with default values:
                   fieldPath: metadata.name
             - name: GOMEMLIMIT
               value: 192MiB
-          image: otel/opentelemetry-collector-k8s:0.164.0
+          image: otel/opentelemetry-collector-k8s:VERSION
           livenessProbe:
             httpGet:
               path: /
@@ -2678,7 +2678,7 @@ matches the snapshot with default values:
                 - --auto-gomemlimit-ratio=0.8
                 - --shard=0
                 - --total-shards=1
-              image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0
+              image: registry.k8s.io/kube-state-metrics/kube-state-metrics:vVERSION
               livenessProbe:
                 httpGet:
                   path: /livez
@@ -2754,7 +2754,7 @@ matches the snapshot with default values:
                 - --auto-gomemlimit-ratio=0.8
                 - --shard=0
                 - --total-shards=1
-              image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0
+              image: registry.k8s.io/kube-state-metrics/kube-state-metrics:vVERSION
               livenessProbe:
                 httpGet:
                   path: /livez
@@ -2830,7 +2830,7 @@ matches the snapshot with default values:
                 - --auto-gomemlimit-ratio=0.8
                 - --shard=0
                 - --total-shards=1
-              image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0
+              image: registry.k8s.io/kube-state-metrics/kube-state-metrics:vVERSION
               livenessProbe:
                 httpGet:
                   path: /livez
@@ -2907,7 +2907,7 @@ matches the snapshot with default values:
                   valueFrom:
                     fieldRef:
                       fieldPath: spec.nodeName
-              image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0
+              image: registry.k8s.io/kube-state-metrics/kube-state-metrics:vVERSION
               livenessProbe:
                 httpGet:
                   path: /livez
@@ -2985,7 +2985,7 @@ matches the snapshot with default values:
                 - --auto-gomemlimit-ratio=0.8
                 - --shard=0
                 - --total-shards=1
-              image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0
+              image: registry.k8s.io/kube-state-metrics/kube-state-metrics:vVERSION
               livenessProbe:
                 httpGet:
                   path: /livez
@@ -3062,7 +3062,7 @@ matches the snapshot with default values:
                 - --auto-gomemlimit-ratio=0.8
                 - --shard=0
                 - --total-shards=1
-              image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0
+              image: registry.k8s.io/kube-state-metrics/kube-state-metrics:vVERSION
               livenessProbe:
                 httpGet:
                   path: /livez
@@ -3138,7 +3138,7 @@ matches the snapshot with default values:
                 - --auto-gomemlimit-ratio=0.8
                 - --shard=0
                 - --total-shards=1
-              image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0
+              image: registry.k8s.io/kube-state-metrics/kube-state-metrics:vVERSION
               livenessProbe:
                 httpGet:
                   path: /livez
@@ -3257,7 +3257,7 @@ matches the snapshot with default values:
     kind: OpenTelemetryCollector
     metadata:
       labels:
-        helm.sh/chart: opentelemetry-kube-stack-0.25.1
+        helm.sh/chart: opentelemetry-kube-stack-VERSION
       name: nktp-large-target-metrics
       namespace: NAMESPACE
     spec:
@@ -3376,7 +3376,7 @@ matches the snapshot with default values:
           value: 7168MiB
         - name: GOGC
           value: "50"
-      image: otel/opentelemetry-collector-k8s:0.164.0
+      image: otel/opentelemetry-collector-k8s:VERSION
       initContainers:
         - args:
             - --config=yaml:{"exporters":{"otlp_grpc":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":4194304,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":10000},"decision_wait":"5s","num_traces":1000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp_grpc"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-large-target-metrics-sidecar"},"traces":{"level":"none"}}}}
@@ -3387,7 +3387,7 @@ matches the snapshot with default values:
                   fieldPath: metadata.name
             - name: GOMEMLIMIT
               value: 96MiB
-          image: otel/opentelemetry-collector-k8s:0.164.0
+          image: otel/opentelemetry-collector-k8s:VERSION
           livenessProbe:
             httpGet:
               path: /
@@ -3454,7 +3454,7 @@ matches the snapshot with default values:
                 fieldPath: metadata.name
           - name: OTEL_RESOURCE_ATTRIBUTES
             value: service.instance.id=$(POD_NAME)
-        image: ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:0.161.0
+        image: ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:VERSION
         mtls:
           enabled: true
           useCertManager: true
@@ -3610,7 +3610,7 @@ matches the snapshot with default values:
     kind: OpenTelemetryCollector
     metadata:
       labels:
-        helm.sh/chart: opentelemetry-kube-stack-0.25.1
+        helm.sh/chart: opentelemetry-kube-stack-VERSION
       name: nktp-nodeless-metrics
       namespace: NAMESPACE
     spec:
@@ -3703,7 +3703,7 @@ matches the snapshot with default values:
           value: 384MiB
         - name: GOGC
           value: "50"
-      image: otel/opentelemetry-collector-k8s:0.164.0
+      image: otel/opentelemetry-collector-k8s:VERSION
       initContainers:
         - args:
             - --config=yaml:{"exporters":{"otlp_grpc":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":4194304,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":10000},"decision_wait":"5s","num_traces":1000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp_grpc"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-nodeless-metrics-sidecar"},"traces":{"level":"none"}}}}
@@ -3714,7 +3714,7 @@ matches the snapshot with default values:
                   fieldPath: metadata.name
             - name: GOMEMLIMIT
               value: 96MiB
-          image: otel/opentelemetry-collector-k8s:0.164.0
+          image: otel/opentelemetry-collector-k8s:VERSION
           livenessProbe:
             httpGet:
               path: /
@@ -3781,7 +3781,7 @@ matches the snapshot with default values:
                 fieldPath: metadata.name
           - name: OTEL_RESOURCE_ATTRIBUTES
             value: service.instance.id=$(POD_NAME)
-        image: ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:0.161.0
+        image: ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:VERSION
         mtls:
           enabled: true
           useCertManager: true
@@ -14499,7 +14499,7 @@ matches the snapshot with default values:
                   value: Admin
                 - name: GF_PLUGINS_DISABLE_PLUGINS
                   value: stackdriver
-              image: grafana/otel-lgtm:0.38.0
+              image: grafana/otel-lgtm:VERSION
               name: lgtm
               ports:
                 - containerPort: 3000
@@ -14615,7 +14615,7 @@ matches the snapshot with default values:
     kind: OpenTelemetryCollector
     metadata:
       labels:
-        helm.sh/chart: opentelemetry-kube-stack-0.25.1
+        helm.sh/chart: opentelemetry-kube-stack-VERSION
       name: nktp-watchdog
       namespace: NAMESPACE
     spec:
@@ -14800,7 +14800,7 @@ matches the snapshot with default values:
           value: 192MiB
         - name: GOGC
           value: "50"
-      image: otel/opentelemetry-collector-k8s:0.164.0
+      image: otel/opentelemetry-collector-k8s:VERSION
       initContainers:
         - args:
             - --config=yaml:{"exporters":{"otlp_grpc":{"endpoint":"lgtm:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":16777216,"sizer":"bytes"},"tls":{"insecure":true}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"redaction/basic_v1":{"allow_all_keys":true,"blocked_key_patterns":["(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$"],"blocked_values":["(?i)\\bBearer\\s+[A-Za-z0-9._~+/-]+=*","(?i)\"?\\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))\"?\\s*[:=]\\s*(?:\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*'|(?:(?:Bearer|Basic)\\s+)?[^\\s,;\"]+)"],"redact_all_types":true,"summary":"silent"},"tail_sampling":{"decision_cache":{"sampled_cache_size":50000},"decision_wait":"5s","num_traces":5000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]},"transform/cluster":{"error_mode":"ignore","log_statements":[{"context":"resource","statements":["set(attributes[\"k8s.cluster.name\"], \"${env:K8S_CLUSTER_NAME:-unknown}\") where attributes[\"k8s.cluster.name\"] == nil"]}],"metric_statements":[{"context":"resource","statements":["set(attributes[\"k8s.cluster.name\"], \"${env:K8S_CLUSTER_NAME:-unknown}\") where attributes[\"k8s.cluster.name\"] == nil"]}],"trace_statements":[{"context":"resource","statements":["set(attributes[\"k8s.cluster.name\"], \"${env:K8S_CLUSTER_NAME:-unknown}\") where attributes[\"k8s.cluster.name\"] == nil"]}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp_grpc"],"processors":["memory_limiter","redaction/basic_v1","transform/cluster"],"receivers":["otlp"]},"metrics":{"exporters":["otlp_grpc"],"processors":["memory_limiter","redaction/basic_v1","transform/cluster"],"receivers":["otlp"]},"traces":{"exporters":["otlp_grpc"],"processors":["memory_limiter","tail_sampling","redaction/basic_v1","transform/cluster"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-watchdog-sidecar"},"traces":{"level":"none"}}}}
@@ -14811,7 +14811,7 @@ matches the snapshot with default values:
                   fieldPath: metadata.name
             - name: GOMEMLIMIT
               value: 192MiB
-          image: otel/opentelemetry-collector-k8s:0.164.0
+          image: otel/opentelemetry-collector-k8s:VERSION
           livenessProbe:
             httpGet:
               path: /
@@ -14878,7 +14878,7 @@ matches the snapshot with default values:
                 fieldPath: metadata.name
           - name: OTEL_RESOURCE_ATTRIBUTES
             value: service.instance.id=$(POD_NAME)
-        image: ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:0.161.0
+        image: ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:VERSION
         mtls:
           enabled: true
           useCertManager: true

@@ -55,52 +55,73 @@ tests:
       - notExists:
           path: spec.deploymentUpdateStrategy
       - equal:
-          path: spec.targetAllocator
+          path: spec.targetAllocator.enabled
+          value: true
+      - matchRegex:
+          path: spec.targetAllocator.image
+          pattern: '^ghcr\.io/open-telemetry/opentelemetry-operator/target-allocator:[0-9]+\.[0-9]+\.[0-9]+$'
+      - equal:
+          path: spec.targetAllocator.mtls
           value:
             enabled: true
-            image: ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:0.161.0
-            mtls:
-              enabled: true
-              useCertManager: true
-            replicas: 1
-            podSecurityContext:
-              runAsNonRoot: true
-              seccompProfile:
-                type: RuntimeDefault
-            securityContext:
-              allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: true
-              capabilities:
-                drop: [ALL]
-            allocationStrategy: consistent-hashing
-            resources:
-              requests: {cpu: 250m, memory: 1Gi}
-              limits: {cpu: "1", memory: 2Gi}
-            env:
-              - name: OTEL_SERVICE_NAME
-                value: nktp-watchdog-targetallocator
-              - name: POD_NAME
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.name
-              - name: OTEL_RESOURCE_ATTRIBUTES
-                value: service.instance.id=$(POD_NAME)
-            telemetry:
-              metrics:
-                readers:
-                  - periodic:
-                      interval: 30s
-                      exporter:
-                        otlpGrpc:
-                          endpoint: nktp-watchdog-collector:4320
-                          tls:
-                            insecure: true
-                          temporalityPreference: cumulative
-            prometheusCR:
-              enabled: false
-            observability:
-              metrics:
-                enableMetrics: false
+            useCertManager: true
+      - equal:
+          path: spec.targetAllocator.replicas
+          value: 1
+      - equal:
+          path: spec.targetAllocator.podSecurityContext
+          value:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+      - equal:
+          path: spec.targetAllocator.securityContext
+          value:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+      - equal:
+          path: spec.targetAllocator.allocationStrategy
+          value: consistent-hashing
+      - equal:
+          path: spec.targetAllocator.resources
+          value:
+            requests: {cpu: 250m, memory: 1Gi}
+            limits: {cpu: "1", memory: 2Gi}
+      - equal:
+          path: spec.targetAllocator.env
+          value:
+            - name: OTEL_SERVICE_NAME
+              value: nktp-watchdog-targetallocator
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: service.instance.id=$(POD_NAME)
+      - equal:
+          path: spec.targetAllocator.telemetry
+          value:
+            metrics:
+              readers:
+                - periodic:
+                    interval: 30s
+                    exporter:
+                      otlpGrpc:
+                        endpoint: nktp-watchdog-collector:4320
+                        tls:
+                          insecure: true
+                        temporalityPreference: cumulative
+      - equal:
+          path: spec.targetAllocator.prometheusCR
+          value:
+            enabled: false
+      - equal:
+          path: spec.targetAllocator.observability
+          value:
+            metrics:
+              enableMetrics: false
       - equal:
           path: spec.topologySpreadConstraints
           value:
@@ -167,15 +188,15 @@ tests:
                 min_size: 1048576
                 max_size: 2097152
                 flush_timeout: 1s
-      - equal:
+      - matchRegex:
           path: spec.image
-          value: otel/opentelemetry-collector-k8s:0.164.0
-      - equal:
+          pattern: '^otel/opentelemetry-collector-k8s:[0-9]+\.[0-9]+\.[0-9]+$'
+      - matchRegex:
           path: metadata.labels["helm.sh/chart"]
-          value: opentelemetry-kube-stack-0.25.1
-      - contains:
-          path: spec.template.spec.containers[0].args
-          content: helm.sh/chart=opentelemetry-kube-stack-0.25.1
+          pattern: '^opentelemetry-kube-stack-[0-9]+\.[0-9]+\.[0-9]+$'
+      - matchRegex:
+          path: spec.template.spec.containers[0].args[3]
+          pattern: '^helm\.sh/chart=opentelemetry-kube-stack-[0-9]+\.[0-9]+\.[0-9]+$'
         template: charts/opentelemetry-kube-stack/templates/hooks.yaml
         documentSelector:
           path: kind
@@ -340,19 +361,19 @@ tests:
     set:
       global.imageRegistry: mirror.example.com
     asserts:
-      - equal:
+      - matchRegex:
           path: spec.image
-          value: mirror.example.com/otel/opentelemetry-collector-k8s:0.164.0
-      - equal:
+          pattern: '^mirror\.example\.com/otel/opentelemetry-collector-k8s:[0-9]+\.[0-9]+\.[0-9]+$'
+      - matchRegex:
           path: spec.targetAllocator.image
-          value: mirror.example.com/open-telemetry/opentelemetry-operator/target-allocator:0.161.0
+          pattern: '^mirror\.example\.com/open-telemetry/opentelemetry-operator/target-allocator:[0-9]+\.[0-9]+\.[0-9]+$'
 
   - it: uses the Operator's Target Allocator image by default
     template: templates/watchdog.yaml
     asserts:
-      - equal:
+      - matchRegex:
           path: spec.targetAllocator.image
-          value: ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:0.161.0
+          pattern: '^ghcr\.io/open-telemetry/opentelemetry-operator/target-allocator:[0-9]+\.[0-9]+\.[0-9]+$'
 
   - it: keeps a workload Target Allocator image override
     template: templates/watchdog.yaml
@@ -782,9 +803,9 @@ tests:
           apiVersion: opentelemetry.io/v1beta1
           kind: OpenTelemetryCollector
           name: nktp-watchdog
-      - equal:
+      - matchRegex:
           path: metadata.labels["helm.sh/chart"]
-          value: opentelemetry-kube-stack-0.25.1
+          pattern: '^opentelemetry-kube-stack-[0-9]+\.[0-9]+\.[0-9]+$'
 
   - it: rejects string configuration
     template: templates/watchdog.yaml

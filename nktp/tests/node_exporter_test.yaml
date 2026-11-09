@@ -5,16 +5,16 @@ templates:
   - charts/node-exporter/templates/*.yaml
   - templates/otel-lgtm.yaml
 tests:
-  - it: runs the pinned exporter on every node by default
+  - it: runs the upstream exporter on every node by default
     template: charts/node-exporter/templates/daemonset.yaml
     asserts:
       - containsDocument:
           apiVersion: apps/v1
           kind: DaemonSet
           name: test-node-exporter
-      - equal:
+      - matchRegex:
           path: spec.template.spec.containers[0].image
-          value: quay.io/prometheus/node-exporter:v1.12.1
+          pattern: '^quay\.io/prometheus/node-exporter:v[0-9]+\.[0-9]+\.[0-9]+$'
       - equal:
           path: spec.template.spec.tolerations
           value:

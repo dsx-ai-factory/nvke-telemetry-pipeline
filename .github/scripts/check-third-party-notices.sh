@@ -13,6 +13,11 @@
 
 set -euo pipefail
 
+if [[ "${1:-}" != "" && "${1:-}" != "--update" ]] || [[ "$#" -gt 1 ]]; then
+  echo "Usage: $0 [--update]" >&2
+  exit 2
+fi
+
 cd "$(git rev-parse --show-toplevel)"
 
 notices=nktp/THIRD_PARTY_NOTICES.md
@@ -72,6 +77,45 @@ for archive in "${archives[@]}"; do
 done
 sort -u -o "${work}/expected" "${work}/expected"
 
+if [[ "${1:-}" == "--update" ]]; then
+  # Update only versions for charts already listed. New or removed charts need
+  # a human to review their copyright, license, source, and NOTICE files.
+  awk -F'|' '
+    function trim(value) {
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+      return value
+    }
+    NR == FNR {
+      name = trim($2)
+      version[name] = trim($3)
+      next
+    }
+    /^\|/ && trim($2) != "Chart" && trim($2) !~ /^-+$/ {
+      name = trim($2)
+      if (!(name in version) || seen[name]++) {
+        print "Review added, removed, or duplicate chart: " name > "/dev/stderr"
+        failed = 1
+      } else {
+        $3 = " " version[name] " "
+      }
+    }
+    { print }
+    END {
+      for (name in version) {
+        if (!seen[name]) {
+          print "Review newly bundled chart: " name > "/dev/stderr"
+          failed = 1
+        }
+      }
+      if (failed) exit 1
+    }
+  ' OFS='|' "${work}/expected" "${notices}" >"${work}/updated"
+  if ! cmp -s "${work}/updated" "${notices}"; then
+    cp "${work}/updated" "${notices}"
+    echo "Updated chart versions in ${notices}; review its diff before committing."
+  fi
+fi
+
 awk -F'|' '
   /^\|/ && $2 !~ /^[[:space:]]*(Chart|-+)[[:space:]]*$/ {
     gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2)
@@ -93,6 +137,6 @@ done < <(comm -13 "${work}/expected" "${work}/listed")
 if [[ "${status}" -eq 0 ]]; then
   echo "${notices} lists all $(wc -l <"${work}/expected" | tr -d ' ') bundled charts."
 else
-  echo "Update the chart table in ${notices} to match Chart.yaml and Chart.lock."
+  echo "Run task license:update-notices for version changes, then review ${notices}."
 fi
 exit "${status}"
