@@ -21,7 +21,7 @@ each part in depth.
 - [Restrict monitor file access](guides/restrict_monitor_file_access.md)
 - [Enable host process metrics](guides/enable_host_process_metrics.md)
 - [Configure exporter queue storage](guides/configure_exporter_queue_storage.md)
-- [Enable log checkpoints for the node Collector](guides/enable_daemonset_log_checkpoints.md)
+- [Configure node log checkpoints](guides/configure_daemonset_log_checkpoints.md)
 - [Enable auto-instrumentation](guides/enable_auto_instrumentation.md)
 - [Enable eBPF instrumentation](guides/enable_ebpf_instrumentation.md)
 - [Use blueprints](guides/use_blueprints.md)

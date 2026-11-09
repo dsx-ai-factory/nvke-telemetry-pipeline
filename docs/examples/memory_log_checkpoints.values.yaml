@@ -1,11 +1,9 @@
-# Persists the node Collector's log read positions in a host directory, so a
-# restarted or replaced Collector resumes where it stopped. Read
-# ../guides/enable_daemonset_log_checkpoints.md first: the Collector writes to
-# the node's filesystem.
+# Keep node log read positions in memory. Restarts use each receiver's start_at.
+# Helm replaces lists; preserve custom host and TLS mounts when combining values.
+# See ../guides/configure_daemonset_log_checkpoints.md.
 daemonset:
   kubernetes:
-    # Helm replaces lists, so the chart's default volumes and mounts are restated
-    # with log-checkpoints added.
+    # Helm replaces lists; retain host-log and TLS mounts when customizing.
     volumes:
       - name: pod-logs
         hostPath:
@@ -46,10 +44,6 @@ daemonset:
             - {key: tls.crt, path: tls.crt}
             - {key: tls.key, path: tls.key}
             - {key: ca.crt, path: ca.crt}
-      - name: log-checkpoints
-        hostPath:
-          path: /var/lib/nktp/log-checkpoints # One directory per node. Change it when running more than one NKTP release.
-          type: DirectoryOrCreate
     volumeMounts:
       - name: pod-logs
         mountPath: /var/log/pods
@@ -81,29 +75,24 @@ daemonset:
       - name: internal-tls-client
         mountPath: /etc/nktp/internal-tls/client
         readOnly: true
-      - name: log-checkpoints
-        mountPath: /var/lib/otelcol/log-checkpoints
   otelcol:
     config:
       extensions:
-        file_storage/log-checkpoints:
-          directory: /var/lib/otelcol/log-checkpoints
-          create_directory: true
-          timeout: 1s
+        file_storage/log-checkpoints: null
       receivers:
         file_log:
-          storage: file_storage/log-checkpoints
+          storage: null
         file_log/host-auth:
-          storage: file_storage/log-checkpoints
+          storage: null
         file_log/host-audit:
-          storage: file_storage/log-checkpoints
+          storage: null
         file_log/kube-api-audit:
-          storage: file_storage/log-checkpoints
+          storage: null
         file_log/targetallocator:
-          storage: file_storage/log-checkpoints
+          storage: null
         file_log/operator:
-          storage: file_storage/log-checkpoints
+          storage: null
         journald:
-          storage: file_storage/log-checkpoints
+          storage: null
       service:
-        extensions: [health_check, file_storage/log-checkpoints] # Helm replaces lists.
+        extensions: [health_check]

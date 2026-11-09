@@ -11,6 +11,7 @@ tests:
       - equal:
           path: spec.config.receivers["file_log/host-auth"]
           value:
+            storage: file_storage/log-checkpoints
             include: [/hostfs/var/log/auth.log, /hostfs/var/log/secure]
             start_at: end
             include_file_path: true
@@ -25,6 +26,7 @@ tests:
       - equal:
           path: spec.config.receivers["file_log/host-audit"]
           value:
+            storage: file_storage/log-checkpoints
             include: [/hostfs/var/log/audit/audit.log]
             start_at: end
             include_file_path: true
@@ -41,6 +43,7 @@ tests:
       - equal:
           path: spec.config.receivers["file_log/kube-api-audit"]
           value:
+            storage: file_storage/log-checkpoints
             include: [/hostfs/var/log/kubernetes/audit/audit.log]
             start_at: end
             include_file_path: true
