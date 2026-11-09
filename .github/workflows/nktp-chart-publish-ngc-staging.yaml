@@ -1,0 +1,143 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: NKTP Chart Publish NGC Staging
+
+on:
+  push:
+    tags: ['nktp/v*']
+
+permissions:
+  contents: read
+  attestations: read
+
+concurrency:
+  group: nktp-chart-publish-ngc-staging-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  staging:
+    if: >-
+      github.repository == 'dsx-ai-factory/nvke-telemetry-pipeline' &&
+      startsWith(github.ref, 'refs/tags/nktp/v') &&
+      !contains(github.ref_name, '+') &&
+      (!contains(github.ref_name, '-') || contains(github.ref_name, '-rc.'))
+    runs-on: ubuntu-latest
+    environment: nvstaging
+    timeout-minutes: 40
+    steps:
+      - name: Wait for release assets and verify archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The job filter excludes other prereleases. Reject malformed RC tags here.
+          version="${GITHUB_REF_NAME#nktp/v}"
+          if [[ ! "${version}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-rc\.[1-9][0-9]*)?$ ]]; then
+            echo "::error::Expected nktp/vX.Y.Z or nktp/vX.Y.Z-rc.N"
+            exit 1
+          fi
+          echo "VERSION=${version}" >> "${GITHUB_ENV}"
+          package="nktp-${version}.tgz"
+          mkdir -p "${RUNNER_TEMP}/chart-dist"
+          cd "${RUNNER_TEMP}/chart-dist"
+          # Wait up to 30 minutes for a published release with all required assets.
+          for attempt in {1..60}; do
+            rm -f release.json
+            if gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" \
+              --json isDraft,assets > release.json && \
+              jq --exit-status --arg package "${package}" '
+                .isDraft == false and
+                (([$package, "checksums.txt", ($package + ".sigstore.json")]
+                  - [.assets[].name]) | length == 0)
+              ' release.json > /dev/null; then
+              break
+            fi
+            if [[ "${attempt}" == 60 ]]; then
+              echo "::error::Timed out waiting for published release ${GITHUB_REF_NAME} and its archive, checksum and attestation. Publish the release, then rerun this staging workflow"
+              exit 1
+            fi
+            echo "Waiting for release assets (${attempt}/60)"
+            sleep 30
+          done
+          gh release download "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" \
+            --pattern "${package}" --pattern checksums.txt --pattern "${package}.sigstore.json"
+          # Compare the exact checksum line without following paths from the manifest.
+          if ! sha256sum -- "${package}" | diff - checksums.txt; then
+            echo "::error::Release archive checksum does not match checksums.txt"
+            exit 1
+          fi
+          gh attestation verify "${package}" --repo "${GITHUB_REPOSITORY}" \
+            --bundle "${package}.sigstore.json" \
+            --signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/chart-publish-nvcr.yaml" \
+            --source-ref "${GITHUB_REF}" --source-digest "${GITHUB_SHA}"
+
+      - name: Install verified NGC CLI
+        env:
+          NGC_VERSION: 4.34.10
+          # Use the same pinned archive and checksum as the private publisher:
+          # https://catalog.ngc.nvidia.com/orgs/nvidia/ngc-apps/resources/ngc_cli/-/setup
+          NGC_SHA256: 58bc4d7b6901551a095ce5a43a0065b1c22d5eaf1a164d40029ee3fda11ccd47
+        run: |
+          set -euo pipefail
+          archive="${RUNNER_TEMP}/ngccli_linux.zip"
+          curl --fail --silent --show-error --location --retry 3 \
+            --proto '=https' --proto-redir '=https' \
+            "https://api.ngc.nvidia.com/v2/resources/nvidia/ngc-apps/ngc_cli/versions/${NGC_VERSION}/files/ngccli_linux.zip" \
+            --output "${archive}"
+          printf '%s  %s\n' "${NGC_SHA256}" "${archive}" | sha256sum --check
+          unzip -q "${archive}" -d "${RUNNER_TEMP}/ngc-install"
+          chmod u+x "${RUNNER_TEMP}/ngc-install/ngc-cli/ngc"
+          "${RUNNER_TEMP}/ngc-install/ngc-cli/ngc" --version
+          echo "${RUNNER_TEMP}/ngc-install/ngc-cli" >> "${GITHUB_PATH}"
+
+      - name: Stage and verify native Helm chart
+        env:
+          NGC_CLI_API_KEY: ${{ secrets.NGC_STAGING_API_KEY }}
+          NGC_CLI_ORG: ${{ secrets.NGC_CLI_ORG }}
+          NGC_CLI_TEAM: ${{ secrets.NGC_CLI_TEAM }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${NGC_CLI_API_KEY}" ]]; then
+            echo "::error::Set NGC_STAGING_API_KEY in the nvstaging environment"
+            exit 1
+          fi
+          if [[ ! "${NGC_CLI_ORG}" =~ ^[a-z0-9_-]+$ || ! "${NGC_CLI_TEAM}" =~ ^[a-z0-9_-]+$ ]]; then
+            echo "::error::Set NGC_CLI_ORG and NGC_CLI_TEAM environment secrets to valid NGC names"
+            exit 1
+          fi
+          umask 077
+          export NGC_CLI_HOME
+          NGC_CLI_HOME="$(mktemp -d "${RUNNER_TEMP}/ngc.XXXXXX")"
+          trap 'rm -rf -- "${NGC_CLI_HOME}"' EXIT
+          chart_ref="${NGC_CLI_ORG}/${NGC_CLI_TEAM}/nktp"
+          target="${chart_ref}:${VERSION}"
+          package="nktp-${VERSION}.tgz"
+          # Provision the chart and its catalog metadata before enabling CI.
+          ngc registry chart info "${chart_ref}"
+          if ! ngc registry chart info "${target}" > "${NGC_CLI_HOME}/lookup.log" 2>&1; then
+            if ! grep -Eiq 'target.*not.*found|client error:[[:space:]]*404[[:space:]]+response' "${NGC_CLI_HOME}/lookup.log"; then
+              echo "::error::Version lookup failed. Check registry availability and service-key permissions"
+              exit 1
+            fi
+            ( cd "${RUNNER_TEMP}/chart-dist" && ngc registry chart push "${target}" )
+          fi
+          # An existing version is accepted only when it contains the same bytes.
+          readback="$(mktemp -d "${RUNNER_TEMP}/chart-readback.XXXXXX")"
+          ngc registry chart pull "${target}" --dest "${readback}"
+          mapfile -d '' archives < <(find "${readback}" -type f -name '*.tgz' -print0)
+          if [[ "${#archives[@]}" != 1 ]]; then
+            echo "::error::Expected exactly one downloaded chart archive"
+            exit 1
+          fi
+          if ! cmp -- "${RUNNER_TEMP}/chart-dist/${package}" "${archives[0]}"; then
+            echo "::error::Staged archive differs from the release asset. Do not overwrite this version"
+            exit 1
+          fi
+          {
+            echo "Staged ${target}"
+            echo "Source commit: ${GITHUB_SHA}"
+            sha256sum -- "${RUNNER_TEMP}/chart-dist/${package}"
+          } >> "${GITHUB_STEP_SUMMARY}"
