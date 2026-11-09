@@ -12,11 +12,12 @@ its [installation instructions](../nktp/README.md#install).
 To configure a backend or cluster name during installation, put the values
 from the sections below in your overrides file.
 
-The defaults require cert-manager and SSD-backed persistent storage. For
-alternatives, see:
+The defaults require cert-manager, SSD-backed persistent volumes, and a writable
+node directory for log checkpoints. For alternatives, see:
 
 - [Install without cert-manager](guides/configure_cert_manager.md#installing-nktp-without-cert-manager).
-- [Install without persistent storage](guides/configure_exporter_queue_storage.md#installing-nktp-without-persistent-storage).
+- [Use in-memory exporter queues](guides/configure_exporter_queue_storage.md#installing-nktp-without-persistent-storage).
+- [Keep node log checkpoints in memory](guides/configure_daemonset_log_checkpoints.md#without-persistent-checkpoints).
 
 ## Check readiness
 

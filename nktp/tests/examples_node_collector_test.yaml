@@ -42,10 +42,10 @@ tests:
             appArmorProfile: {type: Unconfined}
       - lengthEqual:
           path: spec.volumes
-          count: 10
+          count: 11
       - lengthEqual:
           path: spec.volumeMounts
-          count: 11
+          count: 12
       - contains:
           path: spec.volumes
           content:
@@ -60,63 +60,32 @@ tests:
       - notExists:
           path: spec.hostPID
 
-  - it: stores log read positions on the node with the documented opt-in values
+  - it: keeps log read positions in memory without a writable host mount
     values:
-      - ../../docs/examples/daemonset_log_checkpoints.values.yaml
+      - ../../docs/examples/memory_log_checkpoints.values.yaml
     asserts:
-      - equal:
+      - notExists:
           path: spec.config.extensions["file_storage/log-checkpoints"]
-          value:
-            directory: /var/lib/otelcol/log-checkpoints
-            create_directory: true
-            timeout: 1s
       - equal:
           path: spec.config.service.extensions
-          value: [health_check, file_storage/log-checkpoints]
-      - equal:
-          path: spec.config.receivers.journald.storage
-          value: file_storage/log-checkpoints
-      - equal:
-          path: spec.config.receivers.journald.start_at
-          value: end
-      - equal:
-          path: spec.config.receivers.file_log.storage
-          value: file_storage/log-checkpoints
-      - equal:
-          path: spec.config.receivers["file_log/host-auth"].storage
-          value: file_storage/log-checkpoints
-      - equal:
-          path: spec.config.receivers["file_log/host-audit"].storage
-          value: file_storage/log-checkpoints
-      - equal:
-          path: spec.config.receivers["file_log/kube-api-audit"].storage
-          value: file_storage/log-checkpoints
-      - equal:
-          path: spec.config.receivers["file_log/targetallocator"].storage
-          value: file_storage/log-checkpoints
-      - equal:
-          path: spec.config.receivers["file_log/operator"].storage
-          value: file_storage/log-checkpoints
-      - equal:
-          path: spec.securityContext.runAsUser
-          value: 0
+          value: [health_check]
       - lengthEqual:
           path: spec.volumes
+          count: 9
+      - lengthEqual:
+          path: spec.volumeMounts
           count: 10
-      - lengthEqual:
-          path: spec.volumeMounts
-          count: 11
-      - contains:
-          path: spec.volumes
-          content:
-            name: log-checkpoints
-            hostPath: {path: /var/lib/nktp/log-checkpoints, type: DirectoryOrCreate}
-      - contains:
-          path: spec.volumeMounts
-          content: {name: log-checkpoints, mountPath: /var/lib/otelcol/log-checkpoints}
-      - contains:
-          path: spec.volumeMounts
-          content: {name: internal-tls-client, mountPath: /etc/nktp/internal-tls/client, readOnly: true}
-      - contains:
-          path: spec.volumeMounts
-          content: {name: pod-logs, mountPath: /var/log/pods, readOnly: true}
+      - notExists:
+          path: spec.config.receivers["file_log"].storage
+      - notExists:
+          path: spec.config.receivers["file_log/host-auth"].storage
+      - notExists:
+          path: spec.config.receivers["file_log/host-audit"].storage
+      - notExists:
+          path: spec.config.receivers["file_log/kube-api-audit"].storage
+      - notExists:
+          path: spec.config.receivers["file_log/targetallocator"].storage
+      - notExists:
+          path: spec.config.receivers["file_log/operator"].storage
+      - notExists:
+          path: spec.config.receivers["journald"].storage

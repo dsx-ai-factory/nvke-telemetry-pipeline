@@ -110,6 +110,8 @@ daemonset:
             - {key: tls.crt, path: tls.crt}
             - {key: tls.key, path: tls.key}
             - {key: ca.crt, path: ca.crt}
+      - name: log-checkpoints
+        hostPath: {path: /var/lib/nktp/log-checkpoints, type: DirectoryOrCreate}
     volumeMounts:
       - {name: pod-logs, mountPath: /var/log/pods, readOnly: true}
       - {name: host-proc, mountPath: /hostfs/proc, readOnly: true}
@@ -122,6 +124,7 @@ daemonset:
       - {name: journal-persistent, mountPath: /hostfs/run/log/journal, readOnly: true}
       - {name: host-logs, mountPath: /hostfs/var/log, readOnly: true}
       - {name: internal-tls-client, mountPath: /etc/nktp/internal-tls/client, readOnly: true}
+      - {name: log-checkpoints, mountPath: /var/lib/otelcol/log-checkpoints}
   otelcol:
     config:
       receivers:

@@ -60,6 +60,8 @@ daemonset:
             - {key: tls.crt, path: tls.crt}
             - {key: tls.key, path: tls.key}
             - {key: ca.crt, path: ca.crt}
+      - name: log-checkpoints
+        hostPath: {path: /var/lib/nktp/log-checkpoints, type: DirectoryOrCreate}
     volumeMounts:
       - name: pod-logs
         mountPath: /var/log/pods
@@ -92,6 +94,7 @@ daemonset:
         mountPath: /etc/passwd # The scraper reads the container's /etc/passwd, not root_path.
         readOnly: true
       - {name: internal-tls-client, mountPath: /etc/nktp/internal-tls/client, readOnly: true}
+      - {name: log-checkpoints, mountPath: /var/lib/otelcol/log-checkpoints}
   otelcol:
     config:
       receivers:

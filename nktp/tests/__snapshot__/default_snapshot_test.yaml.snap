@@ -695,6 +695,11 @@ matches the snapshot with default values:
               key_file: /etc/nktp/internal-tls/client/tls.key
               reload_interval: 1h
         extensions:
+          file_storage/log-checkpoints:
+            create_directory: true
+            directory: /var/lib/otelcol/log-checkpoints
+            fsync: false
+            timeout: 1s
           health_check:
             endpoint: 0.0.0.0:13133
         processors:
@@ -751,6 +756,7 @@ matches the snapshot with default values:
               enabled: true
               max_elapsed_time: 0
             start_at: end
+            storage: file_storage/log-checkpoints
           file_log/host-audit:
             include:
               - /hostfs/var/log/audit/audit.log
@@ -762,6 +768,7 @@ matches the snapshot with default values:
               enabled: true
               max_elapsed_time: 0
             start_at: end
+            storage: file_storage/log-checkpoints
           file_log/host-auth:
             include:
               - /hostfs/var/log/auth.log
@@ -774,6 +781,7 @@ matches the snapshot with default values:
               enabled: true
               max_elapsed_time: 0
             start_at: end
+            storage: file_storage/log-checkpoints
           file_log/kube-api-audit:
             include:
               - /hostfs/var/log/kubernetes/audit/audit.log
@@ -785,6 +793,7 @@ matches the snapshot with default values:
               enabled: true
               max_elapsed_time: 0
             start_at: end
+            storage: file_storage/log-checkpoints
           file_log/operator:
             include:
               - /var/log/pods/${env:POD_NAMESPACE}_nktp-operator-*_*/manager/*.log
@@ -795,6 +804,7 @@ matches the snapshot with default values:
               enabled: true
               max_elapsed_time: 0
             start_at: beginning
+            storage: file_storage/log-checkpoints
           file_log/targetallocator:
             include:
               - /var/log/pods/${env:POD_NAMESPACE}_nktp-*-targetallocator-*_*/ta-container/*.log
@@ -805,6 +815,7 @@ matches the snapshot with default values:
               enabled: true
               max_elapsed_time: 0
             start_at: beginning
+            storage: file_storage/log-checkpoints
           journald:
             directory: /var/log/journal
             journalctl_path: /usr/bin/journalctl
@@ -824,6 +835,7 @@ matches the snapshot with default values:
               max_elapsed_time: 0
             root_path: /hostfs
             start_at: end
+            storage: file_storage/log-checkpoints
           otlp:
             protocols:
               grpc:
@@ -939,6 +951,7 @@ matches the snapshot with default values:
         service:
           extensions:
             - health_check
+            - file_storage/log-checkpoints
           pipelines:
             logs:
               exporters:
@@ -1235,6 +1248,8 @@ matches the snapshot with default values:
         - mountPath: /etc/nktp/internal-tls/client
           name: internal-tls-client
           readOnly: true
+        - mountPath: /var/lib/otelcol/log-checkpoints
+          name: log-checkpoints
       volumes:
         - hostPath:
             path: /var/log/pods
@@ -1278,6 +1293,10 @@ matches the snapshot with default values:
               - key: ca.crt
                 path: ca.crt
             secretName: nktp-daemonset-client-tls
+        - hostPath:
+            path: /var/lib/nktp/log-checkpoints
+            type: DirectoryOrCreate
+          name: log-checkpoints
   26: |
     apiVersion: opentelemetry.io/v1beta1
     kind: OpenTelemetryCollector
