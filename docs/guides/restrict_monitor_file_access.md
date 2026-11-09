@@ -1,8 +1,8 @@
 # Restrict monitor file access
 
 To enable `denyFSAccessThroughSMs: true`, first replace file references in every
-monitor selected by the allocator with Secret or ConfigMap references. Both
-allocators default to `false`; the preparation is the same for both pools.
+monitor selected by the allocator with Secret or ConfigMap references. All three
+allocators default to `false`; the preparation is the same for every pool.
 See [rationale and compatibility](../designs/monitor_file_access.md) for why
 `denyFSAccessThroughSMs` defaults to `false` and how enabling it protects the
 Collector's mounted credentials from disclosure through monitor file references.
@@ -15,18 +15,24 @@ selectors:
 | Monitor metadata | Allocator | Values key |
 | --- | --- | --- |
 | `nktp.nvidia.io/large-target: "true"` | Large-target | `large_target_metrics` |
-| Label absent or not `"true"` | Node | `daemonset` |
+| Label absent or not `"true"` | Node and nodeless | `daemonset` and `nodeless_metrics` |
 
-The node allocator also excludes ServiceMonitors with `app` set to
-`kube-prometheus-stack-kubelet` or `prometheus-operator-kubelet`. If you customized
-monitor or namespace selectors, use those selectors to determine responsibility.
-See [Topology](../architecture/topology.md#metrics-scraping) for target assignment
+The node and nodeless allocators select the same monitors and split their
+targets: the node allocator keeps targets that have a node, and the
+[nodeless allocator](../components/nodeless_metrics.md) keeps the rest, such as
+Probe targets and static ScrapeConfig targets. A monitor's targets can therefore
+reach either allocator, so prepare and grant both. Both also exclude
+ServiceMonitors with `app` set to `kube-prometheus-stack-kubelet` or
+`prometheus-operator-kubelet`. If you customized monitor or namespace selectors,
+use those selectors to determine responsibility. See
+[Topology](../architecture/topology.md#metrics-scraping) for target assignment
 within each pool.
 
 Before enabling the restriction:
 
 1. Inventory **all ServiceMonitors in all namespaces**, including those installed
-   by other charts, and audit PodMonitors as well. Check `bearerTokenFile` and
+   by other charts, and audit PodMonitors, Probes and ScrapeConfigs as well.
+   Check `bearerTokenFile` and
    `tlsConfig.caFile`, `certFile`, and `keyFile`, including inherited scrape-class
    settings. Every monitor selected by an allocator must be free of file
    references before enabling its restriction. Audit the whole cluster so a
@@ -40,9 +46,10 @@ Before enabling the restriction:
    show the bearer-token change. Grant the responsible allocator access to the
    referenced objects. For the node allocator, see
    [Monitor credentials](../components/node_collector.md#monitor-credentials).
-   For the large-target allocator, configure its `prometheusCR.secretNamespaces`
-   and provide namespace RBAC separately; automatic chart credential grants
-   cover only the node allocator.
+   For the large-target and nodeless allocators, configure their
+   `prometheusCR.secretNamespaces` and
+   [provide namespace RBAC separately](#grant-the-large-target-and-nodeless-allocators-access);
+   automatic chart credential grants cover only the node allocator.
 3. If another chart cannot configure these references, disable its generated
    ServiceMonitors through that chart's values and maintain replacements with
    the same target selection, pool label, ports, paths, and authentication.
@@ -153,6 +160,62 @@ and grant its Secret access as described above. For TLS authentication, Secret
 keys must contain the PEM CA certificate, client certificate, or private key
 referenced by `tlsConfig.ca`, `cert`, or `keySecret`, respectively; replace
 `caFile`, `certFile`, and `keyFile` with those object references as well.
+Probes and ScrapeConfigs reference credentials the same way, through
+`authorization`, `basicAuth` and `tlsConfig`.
+
+## Grant the large-target and nodeless allocators access
+
+The chart creates credential Roles only for the node allocator. For the
+large-target or nodeless allocator, list each namespace that holds monitors and
+their referenced Secrets or ConfigMaps:
+
+```yaml
+nodeless_metrics:
+  kubernetes:
+    targetAllocator:
+      prometheusCR:
+        secretNamespaces: [metrics-monitors]
+```
+
+Then grant the allocator's ServiceAccount the same access in each listed
+namespace. The ServiceAccounts are `nktp-large-target-metrics-targetallocator`
+and `nktp-nodeless-metrics-targetallocator`, in the NKTP release namespace,
+unless you set `<component>.kubernetes.targetAllocator.serviceAccount`. Edit the
+namespaces before applying; this example assumes NKTP runs in `nktp`:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: nktp-nodeless-metrics-monitor
+  namespace: metrics-monitors
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: nktp-nodeless-metrics-monitor
+  namespace: metrics-monitors
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: nktp-nodeless-metrics-monitor
+subjects:
+  - kind: ServiceAccount
+    name: nktp-nodeless-metrics-targetallocator
+    namespace: nktp
+```
+
+For the large-target allocator, change the names and subject to
+`nktp-large-target-metrics-targetallocator`. Monitors without the large-target
+label need both the node and nodeless allocators granted: list the namespace
+under `daemonset` too, and the chart creates the node allocator's Role.
 
 ## Replace a CA file with a ConfigMap reference
 
@@ -270,10 +333,16 @@ certificate.
 After replacing all file references in the selected monitors and verifying that
 they scrape successfully, apply this values override through your NKTP Helm
 upgrade. Include only the component whose monitors you have prepared if enabling
-one pool at a time:
+one pool at a time. Enable `daemonset` and `nodeless_metrics` together: they
+select the same monitors.
 
 ```yaml
 daemonset:
+  kubernetes:
+    targetAllocator:
+      prometheusCR:
+        denyFSAccessThroughSMs: true
+nodeless_metrics:
   kubernetes:
     targetAllocator:
       prometheusCR:

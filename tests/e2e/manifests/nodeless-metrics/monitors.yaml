@@ -1,0 +1,81 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Each monitor scrapes the blackbox exporter's own metrics, so every target
+# answers. The ServiceMonitors and PodMonitor set job to their own name, which
+# would otherwise be the Service's, shared by both ServiceMonitors. nktp-e2e is
+# a scrape class the e2e values define on the node and nodeless allocators.
+
+# Unlabeled, with one pod-backed and one external target: the node pool takes
+# the first and the nodeless pool the second.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: nktp-e2e-ownership-mixed
+spec:
+  selector:
+    matchLabels:
+      nktp.nvidia.io/e2e-ownership: "true"
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      relabelings:
+        - {action: replace, targetLabel: job, replacement: nktp-e2e-ownership-mixed}
+---
+# The same targets, labeled for the large-target pool, which takes both.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: nktp-e2e-ownership-large
+  labels:
+    nktp.nvidia.io/large-target: "true"
+spec:
+  selector:
+    matchLabels:
+      nktp.nvidia.io/e2e-ownership: "true"
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      relabelings:
+        - {action: replace, targetLabel: job, replacement: nktp-e2e-ownership-large}
+---
+# Pod targets in a named class stay with the node pool.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: nktp-e2e-ownership-classed
+spec:
+  scrapeClass: nktp-e2e
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: blackbox-exporter
+  podMetricsEndpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      relabelings:
+        - {action: replace, targetLabel: job, replacement: nktp-e2e-ownership-classed}
+---
+# Static targets have no node, in the default class or a named one.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: nktp-e2e-ownership-static
+spec:
+  scrapeInterval: 15s
+  metricsPath: /metrics
+  staticConfigs:
+    - targets: [nktp-blackbox-exporter:9115]
+---
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: nktp-e2e-ownership-static-classed
+spec:
+  scrapeClass: nktp-e2e
+  scrapeInterval: 15s
+  metricsPath: /metrics
+  staticConfigs:
+    - targets: [nktp-blackbox-exporter:9115]

@@ -17,6 +17,9 @@
   {{- end -}}
 {{- end -}}
 {{- $_ := set $workload "env" $env -}}
+{{- with $workload.targetAllocator.prometheusCR -}}
+{{- $_ := set . "scrapeClasses" (include "nktp.nodeScrapeClasses" (dict "classes" .scrapeClasses "action" "keep" "name" "nktp-node-targets") | fromYaml).scrapeClasses -}}
+{{- end -}}
 apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
 metadata:

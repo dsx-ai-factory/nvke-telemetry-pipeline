@@ -30,7 +30,7 @@ import (
 // Collector/Target Allocator pair. New target requests must reach the mTLS handler.
 func TestTargetAllocatorMTLS(t *testing.T) {
 	f := features.New("Target Allocator mTLS")
-	for _, collectorName := range []string{"nktp-daemonset", "nktp-large-target-metrics", "nktp-watchdog"} {
+	for _, collectorName := range []string{"nktp-daemonset", "nktp-large-target-metrics", "nktp-nodeless-metrics", "nktp-watchdog"} {
 		metricServiceName := collectorName + "-targetallocator"
 		if collectorName == "nktp-daemonset" {
 			metricServiceName = "nktp-targetallocator"

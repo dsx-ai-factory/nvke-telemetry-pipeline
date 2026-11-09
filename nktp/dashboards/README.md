@@ -37,6 +37,7 @@ sidecar (`job="nktp-<name>-sidecar"`), never both.
 | `default/nktp-gateway-traces.json` | NKTP Traces Gateway | Traces gateway pipeline, resources, and sidecar. |
 | `default/nktp-cluster-events.json` | NKTP Cluster Events | Kubernetes Event reader pipeline, leader election, resources, and sidecar. |
 | `default/nktp-large-target-metrics.json` | NKTP Large-target Metrics | Large-target pool pipeline, its Target Allocator, the largest targets, kube-state-metrics scrape health, resources, and sidecar. |
+| `default/nktp-nodeless-metrics.json` | NKTP Nodeless Metrics | Nodeless pool pipeline, its Target Allocator, per-target health and Probe success, resources, and sidecar. |
 | `default/nktp-operator.json` | NKTP Operator | OpenTelemetry Operator reconciliation, webhook HTTP traffic and process health. Requires scraped Operator metrics in the selected Prometheus datasource. |
 | `default/otel-lgtm-health.json` | OTel LGTM Health | Bundled LGTM collector up, receive/export rates, memory, and exporter queue. |
 

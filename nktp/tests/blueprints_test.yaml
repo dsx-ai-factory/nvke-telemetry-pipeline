@@ -8,6 +8,7 @@ templates:
   - templates/gateway-traces.yaml
   - templates/daemonset.yaml
   - templates/large-target-metrics.yaml
+  - templates/nodeless-metrics.yaml
   - templates/cluster-events.yaml
 tests:
   - it: leaves default configurations without blueprint definitions or connectors

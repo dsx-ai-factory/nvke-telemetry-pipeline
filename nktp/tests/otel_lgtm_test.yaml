@@ -334,6 +334,51 @@ tests:
           path: data["nktp-large-target-metrics.json"]
           pattern: opentelemetry_allocator_targets_per_collector
 
+  - it: provisions nodeless metrics with per-target and Probe health
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboards
+    asserts:
+      - matchRegex:
+          path: data["nktp-nodeless-metrics.json"]
+          pattern: '"uid": "nktp-nodeless-metrics"'
+      - matchRegex:
+          path: data["nktp-nodeless-metrics.json"]
+          pattern: 'otelcol_receiver_accepted_metric_points_total\{job=\\"nktp-nodeless-metrics\\"\}'
+      - matchRegex:
+          path: data["nktp-nodeless-metrics.json"]
+          pattern: 'opentelemetry_allocator_targets_per_collector\{job=\\"nktp-nodeless-metrics-targetallocator\\"\}'
+      - matchRegex:
+          path: data["nktp-nodeless-metrics.json"]
+          pattern: 'up\{nktp_metrics_pool=\\"nodeless\\",job!=\\"nktp-nodeless-metrics-targetallocator\\"\}'
+      - matchRegex:
+          path: data["nktp-nodeless-metrics.json"]
+          pattern: 'probe_success\{nktp_metrics_pool=\\"nodeless\\"\}'
+      - matchRegex:
+          path: data["nktp-nodeless-metrics.json"]
+          pattern: 'nktp-nodeless-metrics-sidecar'
+      - notMatchRegex:
+          path: data["nktp-nodeless-metrics.json"]
+          pattern: 'large-target|kube_state_metrics|\$namespace|rate\(scrape_samples|"step": "\$__interval"'
+
+  - it: includes the nodeless pool in NKTP Health
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboards
+    asserts:
+      - matchRegex:
+          path: data["nktp-health.json"]
+          pattern: '"url": "/d/nktp-nodeless-metrics"'
+      - matchRegex:
+          path: data["nktp-health.json"]
+          pattern: 'large-target-metrics\|nodeless-metrics\|watchdog\)-sidecar'
+      - matchRegex:
+          path: data["nktp-health.json"]
+          pattern: 'nktp-nodeless-metrics-collector'
+      - matchRegex:
+          path: data["nktp-health.json"]
+          pattern: 'nktp-nodeless-metrics-targetallocator'
+
   - it: shows current large-target scrape samples and matched durations
     documentSelector:
       path: metadata.name
@@ -967,22 +1012,22 @@ tests:
     asserts:
       - matchRegex:
           path: data["nktp-health.json"]
-          pattern: 'otelcol_exporter_send_failed_metric_points_total\{job=~\\"nktp-\(daemonset\|cluster-events\|gateway-\(logs\|metrics\|traces\)\|large-target-metrics\|watchdog\)-sidecar\\"'
+          pattern: 'otelcol_exporter_send_failed_metric_points_total\{job=~\\"nktp-\(daemonset\|cluster-events\|gateway-\(logs\|metrics\|traces\)\|large-target-metrics\|nodeless-metrics\|watchdog\)-sidecar\\"'
       - matchRegex:
           path: data["nktp-health.json"]
-          pattern: 'otelcol_receiver_refused_metric_points_total\{job=~\\"nktp-\(daemonset\|cluster-events\|gateway-\(logs\|metrics\|traces\)\|large-target-metrics\|watchdog\)-sidecar\\"'
+          pattern: 'otelcol_receiver_refused_metric_points_total\{job=~\\"nktp-\(daemonset\|cluster-events\|gateway-\(logs\|metrics\|traces\)\|large-target-metrics\|nodeless-metrics\|watchdog\)-sidecar\\"'
       - matchRegex:
           path: data["nktp-health.json"]
-          pattern: 'otelcol_exporter_send_failed_log_records_total\{job=~\\"nktp-\(daemonset\|cluster-events\|gateway-\(logs\|metrics\|traces\)\|large-target-metrics\|watchdog\)-sidecar\\"'
+          pattern: 'otelcol_exporter_send_failed_log_records_total\{job=~\\"nktp-\(daemonset\|cluster-events\|gateway-\(logs\|metrics\|traces\)\|large-target-metrics\|nodeless-metrics\|watchdog\)-sidecar\\"'
       - matchRegex:
           path: data["nktp-health.json"]
-          pattern: 'otelcol_receiver_refused_log_records_total\{job=~\\"nktp-\(daemonset\|cluster-events\|gateway-\(logs\|metrics\|traces\)\|large-target-metrics\|watchdog\)-sidecar\\"'
+          pattern: 'otelcol_receiver_refused_log_records_total\{job=~\\"nktp-\(daemonset\|cluster-events\|gateway-\(logs\|metrics\|traces\)\|large-target-metrics\|nodeless-metrics\|watchdog\)-sidecar\\"'
       - matchRegex:
           path: data["nktp-health.json"]
-          pattern: 'otelcol_exporter_send_failed_spans_total\{job=~\\"nktp-\(daemonset\|cluster-events\|gateway-\(logs\|metrics\|traces\)\|large-target-metrics\|watchdog\)-sidecar\\"'
+          pattern: 'otelcol_exporter_send_failed_spans_total\{job=~\\"nktp-\(daemonset\|cluster-events\|gateway-\(logs\|metrics\|traces\)\|large-target-metrics\|nodeless-metrics\|watchdog\)-sidecar\\"'
       - matchRegex:
           path: data["nktp-health.json"]
-          pattern: 'otelcol_receiver_refused_spans_total\{job=~\\"nktp-\(daemonset\|cluster-events\|gateway-\(logs\|metrics\|traces\)\|large-target-metrics\|watchdog\)-sidecar\\"'
+          pattern: 'otelcol_receiver_refused_spans_total\{job=~\\"nktp-\(daemonset\|cluster-events\|gateway-\(logs\|metrics\|traces\)\|large-target-metrics\|nodeless-metrics\|watchdog\)-sidecar\\"'
       - matchRegex:
           path: data["nktp-watchdog.json"]
           pattern: 'otelcol_exporter_send_failed_metric_points_total\{job=\\"nktp-watchdog-sidecar\\"\}'

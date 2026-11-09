@@ -170,6 +170,25 @@ matches the snapshot with default values:
     apiVersion: cert-manager.io/v1
     kind: Certificate
     metadata:
+      name: nktp-nodeless-metrics-client
+      namespace: NAMESPACE
+    spec:
+      commonName: nktp-nodeless-metrics
+      duration: 2160h
+      issuerRef:
+        group: cert-manager.io
+        kind: Issuer
+        name: nktp-internal-ca-issuer
+      privateKey:
+        rotationPolicy: Always
+      renewBefore: 360h
+      secretName: nktp-nodeless-metrics-client-tls
+      usages:
+        - client auth
+  11: |
+    apiVersion: cert-manager.io/v1
+    kind: Certificate
+    metadata:
       name: nktp-cluster-events-client
       namespace: NAMESPACE
     spec:
@@ -185,7 +204,7 @@ matches the snapshot with default values:
       secretName: nktp-cluster-events-client-tls
       usages:
         - client auth
-  11: |
+  12: |
     apiVersion: cert-manager.io/v1
     kind: Certificate
     metadata:
@@ -204,7 +223,7 @@ matches the snapshot with default values:
       secretName: nktp-gateway-traces-client-tls
       usages:
         - client auth
-  12: |
+  13: |
     apiVersion: cert-manager.io/v1
     kind: Certificate
     metadata:
@@ -223,7 +242,7 @@ matches the snapshot with default values:
       secretName: nktp-gateway-logs-client-tls
       usages:
         - client auth
-  13: |
+  14: |
     apiVersion: cert-manager.io/v1
     kind: Certificate
     metadata:
@@ -242,7 +261,7 @@ matches the snapshot with default values:
       secretName: nktp-gateway-metrics-client-tls
       usages:
         - client auth
-  14: |
+  15: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -256,7 +275,7 @@ matches the snapshot with default values:
           - get
           - list
           - watch
-  15: |
+  16: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -269,7 +288,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-cluster-events-collector
         namespace: NAMESPACE
-  16: |
+  17: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: Role
     metadata:
@@ -285,7 +304,7 @@ matches the snapshot with default values:
         verbs:
           - get
           - update
-  17: |
+  18: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: RoleBinding
     metadata:
@@ -299,13 +318,13 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-cluster-events-collector
         namespace: NAMESPACE
-  18: |
+  19: |
     apiVersion: coordination.k8s.io/v1
     kind: Lease
     metadata:
       name: nktp-cluster-events
       namespace: NAMESPACE
-  19: |
+  20: |
     apiVersion: opentelemetry.io/v1beta1
     kind: OpenTelemetryCollector
     metadata:
@@ -513,7 +532,7 @@ matches the snapshot with default values:
               - key: ca.crt
                 path: ca.crt
             secretName: nktp-cluster-events-client-tls
-  20: |
+  21: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -550,7 +569,7 @@ matches the snapshot with default values:
           - get
           - list
           - watch
-  21: |
+  22: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -563,7 +582,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-daemonset-targetallocator
         namespace: NAMESPACE
-  22: |
+  23: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -575,7 +594,7 @@ matches the snapshot with default values:
           - nodes/metrics
         verbs:
           - get
-  23: |
+  24: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -588,7 +607,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-daemonset-collector
         namespace: NAMESPACE
-  24: |
+  25: |
     apiVersion: opentelemetry.io/v1beta1
     kind: OpenTelemetryCollector
     metadata:
@@ -716,6 +735,7 @@ matches the snapshot with default values:
                   - set(attributes["service.name"], "nktp-targetallocator") where IsMatch(attributes["k8s.pod.name"], "^nktp-daemonset-targetallocator-")
                   - set(attributes["service.name"], "nktp-watchdog-targetallocator") where IsMatch(attributes["k8s.pod.name"], "^nktp-watchdog-targetallocator-")
                   - set(attributes["service.name"], "nktp-large-target-metrics-targetallocator") where IsMatch(attributes["k8s.pod.name"], "^nktp-large-target-metrics-targetallocator-")
+                  - set(attributes["service.name"], "nktp-nodeless-metrics-targetallocator") where IsMatch(attributes["k8s.pod.name"], "^nktp-nodeless-metrics-targetallocator-")
         receivers:
           file_log:
             exclude:
@@ -1138,6 +1158,19 @@ matches the snapshot with default values:
                 operator: NotIn
                 values:
                   - "true"
+          scrapeClasses:
+            - default: true
+              name: nktp-node-targets
+              relabelings:
+                - action: keep
+                  regex: '[^;]+;.*|[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]*;Node;[^;]+'
+                  separator: ;
+                  sourceLabels:
+                    - __meta_kubernetes_pod_node_name
+                    - __meta_kubernetes_node_name
+                    - __meta_kubernetes_endpoint_node_name
+                    - __meta_kubernetes_endpointslice_address_target_kind
+                    - __meta_kubernetes_endpointslice_address_target_name
           scrapeConfigSelector:
             matchExpressions:
               - key: nktp.nvidia.io/large-target
@@ -1264,7 +1297,7 @@ matches the snapshot with default values:
             path: /var/lib/nktp/log-checkpoints
             type: DirectoryOrCreate
           name: log-checkpoints
-  25: |
+  26: |
     apiVersion: opentelemetry.io/v1beta1
     kind: OpenTelemetryCollector
     metadata:
@@ -1516,7 +1549,7 @@ matches the snapshot with default values:
               - key: ca.crt
                 path: ca.crt
             secretName: nktp-gateway-logs-client-tls
-  26: |
+  27: |
     apiVersion: opentelemetry.io/v1beta1
     kind: OpenTelemetryCollector
     metadata:
@@ -1768,7 +1801,7 @@ matches the snapshot with default values:
               - key: ca.crt
                 path: ca.crt
             secretName: nktp-gateway-metrics-client-tls
-  27: |
+  28: |
     apiVersion: opentelemetry.io/v1beta1
     kind: OpenTelemetryCollector
     metadata:
@@ -2020,7 +2053,7 @@ matches the snapshot with default values:
               - key: ca.crt
                 path: ca.crt
             secretName: nktp-gateway-traces-client-tls
-  28: |
+  29: |
     apiVersion: monitoring.coreos.com/v1
     kind: PodMonitor
     metadata:
@@ -2041,7 +2074,7 @@ matches the snapshot with default values:
           app.kubernetes.io/component: kube-state-metrics
           app.kubernetes.io/instance: RELEASE-NAME
           app.kubernetes.io/name: nktp-ksm-cluster
-  29: |
+  30: |
     apiVersion: monitoring.coreos.com/v1
     kind: PodMonitor
     metadata:
@@ -2062,7 +2095,7 @@ matches the snapshot with default values:
           app.kubernetes.io/component: kube-state-metrics
           app.kubernetes.io/instance: RELEASE-NAME
           app.kubernetes.io/name: nktp-ksm-configuration
-  30: |
+  31: |
     apiVersion: monitoring.coreos.com/v1
     kind: PodMonitor
     metadata:
@@ -2083,7 +2116,7 @@ matches the snapshot with default values:
           app.kubernetes.io/component: kube-state-metrics
           app.kubernetes.io/instance: RELEASE-NAME
           app.kubernetes.io/name: nktp-ksm-networking
-  31: |
+  32: |
     apiVersion: monitoring.coreos.com/v1
     kind: PodMonitor
     metadata:
@@ -2103,7 +2136,7 @@ matches the snapshot with default values:
           app.kubernetes.io/component: kube-state-metrics
           app.kubernetes.io/instance: RELEASE-NAME
           app.kubernetes.io/name: nktp-ksm-pods
-  32: |
+  33: |
     apiVersion: monitoring.coreos.com/v1
     kind: PodMonitor
     metadata:
@@ -2124,7 +2157,7 @@ matches the snapshot with default values:
           app.kubernetes.io/component: kube-state-metrics
           app.kubernetes.io/instance: RELEASE-NAME
           app.kubernetes.io/name: nktp-ksm-storage
-  33: |
+  34: |
     apiVersion: monitoring.coreos.com/v1
     kind: PodMonitor
     metadata:
@@ -2145,7 +2178,7 @@ matches the snapshot with default values:
           app.kubernetes.io/component: kube-state-metrics
           app.kubernetes.io/instance: RELEASE-NAME
           app.kubernetes.io/name: nktp-ksm-unscheduled-pods
-  34: |
+  35: |
     apiVersion: monitoring.coreos.com/v1
     kind: PodMonitor
     metadata:
@@ -2166,7 +2199,7 @@ matches the snapshot with default values:
           app.kubernetes.io/component: kube-state-metrics
           app.kubernetes.io/instance: RELEASE-NAME
           app.kubernetes.io/name: nktp-ksm-workloads
-  35: |
+  36: |
     apiVersion: v1
     kind: ServiceAccount
     metadata:
@@ -2176,7 +2209,7 @@ matches the snapshot with default values:
         app.kubernetes.io/name: nktp-ksm-cluster
       name: nktp-ksm-cluster
       namespace: NAMESPACE
-  36: |
+  37: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -2218,7 +2251,7 @@ matches the snapshot with default values:
         verbs:
           - list
           - watch
-  37: |
+  38: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -2235,7 +2268,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-ksm-cluster
         namespace: NAMESPACE
-  38: |
+  39: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -2260,7 +2293,7 @@ matches the snapshot with default values:
         verbs:
           - list
           - watch
-  39: |
+  40: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -2277,7 +2310,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-ksm-cluster
         namespace: NAMESPACE
-  40: |
+  41: |
     apiVersion: v1
     kind: ServiceAccount
     metadata:
@@ -2287,7 +2320,7 @@ matches the snapshot with default values:
         app.kubernetes.io/name: nktp-ksm-configuration
       name: nktp-ksm-configuration
       namespace: NAMESPACE
-  41: |
+  42: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -2304,7 +2337,7 @@ matches the snapshot with default values:
         verbs:
           - list
           - watch
-  42: |
+  43: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -2321,7 +2354,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-ksm-configuration
         namespace: NAMESPACE
-  43: |
+  44: |
     apiVersion: v1
     kind: ServiceAccount
     metadata:
@@ -2331,7 +2364,7 @@ matches the snapshot with default values:
         app.kubernetes.io/name: nktp-ksm-networking
       name: nktp-ksm-networking
       namespace: NAMESPACE
-  44: |
+  45: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -2363,7 +2396,7 @@ matches the snapshot with default values:
         verbs:
           - list
           - watch
-  45: |
+  46: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -2380,7 +2413,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-ksm-networking
         namespace: NAMESPACE
-  46: |
+  47: |
     apiVersion: v1
     kind: ServiceAccount
     metadata:
@@ -2390,7 +2423,7 @@ matches the snapshot with default values:
         app.kubernetes.io/name: nktp-ksm-pods
       name: nktp-ksm-pods
       namespace: NAMESPACE
-  47: |
+  48: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -2407,7 +2440,7 @@ matches the snapshot with default values:
         verbs:
           - list
           - watch
-  48: |
+  49: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -2424,7 +2457,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-ksm-pods
         namespace: NAMESPACE
-  49: |
+  50: |
     apiVersion: v1
     kind: ServiceAccount
     metadata:
@@ -2434,7 +2467,7 @@ matches the snapshot with default values:
         app.kubernetes.io/name: nktp-ksm-storage
       name: nktp-ksm-storage
       namespace: NAMESPACE
-  50: |
+  51: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -2458,7 +2491,7 @@ matches the snapshot with default values:
         verbs:
           - list
           - watch
-  51: |
+  52: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -2475,7 +2508,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-ksm-storage
         namespace: NAMESPACE
-  52: |
+  53: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -2492,7 +2525,7 @@ matches the snapshot with default values:
         verbs:
           - list
           - watch
-  53: |
+  54: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -2509,7 +2542,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-ksm-storage
         namespace: NAMESPACE
-  54: |
+  55: |
     apiVersion: v1
     kind: ServiceAccount
     metadata:
@@ -2519,7 +2552,7 @@ matches the snapshot with default values:
         app.kubernetes.io/name: nktp-ksm-unscheduled-pods
       name: nktp-ksm-unscheduled-pods
       namespace: NAMESPACE
-  55: |
+  56: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -2536,7 +2569,7 @@ matches the snapshot with default values:
         verbs:
           - list
           - watch
-  56: |
+  57: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -2553,7 +2586,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-ksm-unscheduled-pods
         namespace: NAMESPACE
-  57: |
+  58: |
     apiVersion: v1
     kind: ServiceAccount
     metadata:
@@ -2563,7 +2596,7 @@ matches the snapshot with default values:
         app.kubernetes.io/name: nktp-ksm-workloads
       name: nktp-ksm-workloads
       namespace: NAMESPACE
-  58: |
+  59: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -2612,7 +2645,7 @@ matches the snapshot with default values:
         verbs:
           - list
           - watch
-  59: |
+  60: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -2629,7 +2662,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-ksm-workloads
         namespace: NAMESPACE
-  60: |
+  61: |
     apiVersion: apps/v1
     kind: Deployment
     metadata:
@@ -2705,7 +2738,7 @@ matches the snapshot with default values:
             seccompProfile:
               type: RuntimeDefault
           serviceAccountName: nktp-ksm-cluster
-  61: |
+  62: |
     apiVersion: apps/v1
     kind: Deployment
     metadata:
@@ -2781,7 +2814,7 @@ matches the snapshot with default values:
             seccompProfile:
               type: RuntimeDefault
           serviceAccountName: nktp-ksm-configuration
-  62: |
+  63: |
     apiVersion: apps/v1
     kind: Deployment
     metadata:
@@ -2857,7 +2890,7 @@ matches the snapshot with default values:
             seccompProfile:
               type: RuntimeDefault
           serviceAccountName: nktp-ksm-networking
-  63: |
+  64: |
     apiVersion: apps/v1
     kind: DaemonSet
     metadata:
@@ -2936,7 +2969,7 @@ matches the snapshot with default values:
           serviceAccountName: nktp-ksm-pods
           tolerations:
             - operator: Exists
-  64: |
+  65: |
     apiVersion: apps/v1
     kind: Deployment
     metadata:
@@ -3012,7 +3045,7 @@ matches the snapshot with default values:
             seccompProfile:
               type: RuntimeDefault
           serviceAccountName: nktp-ksm-storage
-  65: |
+  66: |
     apiVersion: apps/v1
     kind: Deployment
     metadata:
@@ -3089,7 +3122,7 @@ matches the snapshot with default values:
             seccompProfile:
               type: RuntimeDefault
           serviceAccountName: nktp-ksm-unscheduled-pods
-  66: |
+  67: |
     apiVersion: apps/v1
     kind: Deployment
     metadata:
@@ -3165,7 +3198,7 @@ matches the snapshot with default values:
             seccompProfile:
               type: RuntimeDefault
           serviceAccountName: nktp-ksm-workloads
-  67: |
+  68: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -3202,7 +3235,7 @@ matches the snapshot with default values:
           - get
           - list
           - watch
-  68: |
+  69: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -3215,7 +3248,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-large-target-metrics-targetallocator
         namespace: NAMESPACE
-  69: |
+  70: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     metadata:
@@ -3225,7 +3258,7 @@ matches the snapshot with default values:
           - /metrics
         verbs:
           - get
-  70: |
+  71: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -3238,7 +3271,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-large-target-metrics-collector
         namespace: NAMESPACE
-  71: |
+  72: |
     apiVersion: opentelemetry.io/v1beta1
     kind: OpenTelemetryCollector
     metadata:
@@ -3533,7 +3566,352 @@ matches the snapshot with default values:
               - key: ca.crt
                 path: ca.crt
             secretName: nktp-large-target-metrics-client-tls
-  72: |
+  73: |
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: nktp-nodeless-metrics-targetallocator-NAMESPACE
+    rules:
+      - apiGroups:
+          - ""
+        resources:
+          - pods
+          - services
+          - endpoints
+          - namespaces
+          - nodes
+        verbs:
+          - get
+          - list
+          - watch
+      - apiGroups:
+          - discovery.k8s.io
+        resources:
+          - endpointslices
+        verbs:
+          - get
+          - list
+          - watch
+      - apiGroups:
+          - networking.k8s.io
+        resources:
+          - ingresses
+        verbs:
+          - get
+          - list
+          - watch
+      - apiGroups:
+          - monitoring.coreos.com
+        resources:
+          - servicemonitors
+          - podmonitors
+          - probes
+          - scrapeconfigs
+        verbs:
+          - get
+          - list
+          - watch
+  74: |
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: nktp-nodeless-metrics-targetallocator-NAMESPACE
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: nktp-nodeless-metrics-targetallocator-NAMESPACE
+    subjects:
+      - kind: ServiceAccount
+        name: nktp-nodeless-metrics-targetallocator
+        namespace: NAMESPACE
+  75: |
+    apiVersion: opentelemetry.io/v1beta1
+    kind: OpenTelemetryCollector
+    metadata:
+      labels:
+        helm.sh/chart: opentelemetry-kube-stack-VERSION
+      name: nktp-nodeless-metrics
+      namespace: NAMESPACE
+    spec:
+      config:
+        exporters:
+          otlp_grpc:
+            endpoint: nktp-gateway-metrics-collector:4317
+            retry_on_failure:
+              max_elapsed_time: 30m
+            sending_queue:
+              batch:
+                flush_timeout: 1s
+                max_size: 2097152
+                min_size: 1048576
+                sizer: bytes
+              block_on_overflow: true
+              num_consumers: 4
+              queue_size: 33554432
+              sizer: bytes
+            tls:
+              ca_file: /etc/nktp/internal-tls/client/ca.crt
+              cert_file: /etc/nktp/internal-tls/client/tls.crt
+              key_file: /etc/nktp/internal-tls/client/tls.key
+              reload_interval: 1h
+        extensions:
+          health_check:
+            endpoint: 0.0.0.0:13133
+        processors:
+          memory_limiter:
+            check_interval: 500ms
+            limit_percentage: 80
+            spike_limit_percentage: 25
+          redaction/basic_v1:
+            allow_all_keys: true
+            blocked_key_patterns:
+              - (?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$
+            blocked_values:
+              - (?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*
+              - (?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)
+            redact_all_types: true
+            summary: silent
+        receivers:
+          prometheus:
+            config:
+              global:
+                external_labels:
+                  nktp_metrics_pool: nodeless
+              scrape_configs: []
+        service:
+          extensions:
+            - health_check
+          pipelines:
+            metrics:
+              exporters:
+                - otlp_grpc
+              processors:
+                - memory_limiter
+                - redaction/basic_v1
+              receivers:
+                - prometheus
+          telemetry:
+            logs:
+              processors:
+                - batch:
+                    exporter:
+                      otlp:
+                        endpoint: http://127.0.0.1:4319
+                        protocol: http/protobuf
+            metrics:
+              readers:
+                - periodic:
+                    exporter:
+                      otlp:
+                        endpoint: http://127.0.0.1:4319
+                        protocol: http/protobuf
+            resource:
+              service.instance.id: ${env:POD_NAME}
+              service.name: nktp-nodeless-metrics
+            traces:
+              level: basic
+              processors:
+                - batch:
+                    exporter:
+                      otlp:
+                        endpoint: http://127.0.0.1:4319
+                        protocol: http/protobuf
+                    schedule_delay: 1000
+      env:
+        - name: GOMEMLIMIT
+          value: 384MiB
+        - name: GOGC
+          value: "50"
+      image: otel/opentelemetry-collector-k8s:VERSION
+      initContainers:
+        - args:
+            - --config=yaml:{"exporters":{"otlp_grpc":{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":{"max_elapsed_time":"30m"},"sending_queue":{"batch":{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"},"block_on_overflow":false,"num_consumers":2,"queue_size":4194304,"sizer":"bytes"},"tls":{"ca_file":"/etc/nktp/internal-tls/client/ca.crt","cert_file":"/etc/nktp/internal-tls/client/tls.crt","key_file":"/etc/nktp/internal-tls/client/tls.key","reload_interval":"1h"}}},"extensions":{"health_check":{"endpoint":"0.0.0.0:13134"}},"processors":{"memory_limiter":{"check_interval":"500ms","limit_percentage":80,"spike_limit_percentage":25},"tail_sampling":{"decision_cache":{"sampled_cache_size":10000},"decision_wait":"5s","num_traces":1000,"policies":[{"name":"errors","status_code":{"status_codes":["ERROR"]},"type":"status_code"},{"name":"slow","ottl_condition":{"error_mode":"ignore","span":["end_time_unix_nano - start_time_unix_nano \u003e 1000000000"]},"type":"ottl_condition"}]}},"receivers":{"otlp":{"protocols":{"http":{"endpoint":"127.0.0.1:4319","keepalive":{"idle_timeout":"5m"}}}}},"service":{"extensions":["health_check"],"pipelines":{"logs":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"metrics":{"exporters":["otlp_grpc"],"processors":["memory_limiter"],"receivers":["otlp"]},"traces":{"exporters":["otlp_grpc"],"processors":["memory_limiter","tail_sampling"],"receivers":["otlp"]}},"telemetry":{"logs":{"processors":[{"batch":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"metrics":{"readers":[{"periodic":{"exporter":{"otlp":{"endpoint":"http://127.0.0.1:4319","protocol":"http/protobuf"}}}}]},"resource":{"service.instance.id":"${env:POD_NAME}","service.name":"nktp-nodeless-metrics-sidecar"},"traces":{"level":"none"}}}}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: GOMEMLIMIT
+              value: 96MiB
+          image: otel/opentelemetry-collector-k8s:VERSION
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 13134
+          name: otc-sidecar
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          restartPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          startupProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /
+              port: 13134
+            periodSeconds: 1
+          volumeMounts:
+            - mountPath: /etc/nktp/internal-tls/client
+              name: internal-tls-client
+              readOnly: true
+      managementState: managed
+      mode: statefulset
+      podDisruptionBudget:
+        maxUnavailable: 1
+      podSecurityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      priorityClassName: nktp-telemetry-critical
+      replicas: 2
+      resources:
+        limits:
+          cpu: "1"
+          memory: 1Gi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        readOnlyRootFilesystem: true
+      targetAllocator:
+        allocationStrategy: consistent-hashing
+        collectorTargetReloadInterval: 10s
+        enabled: true
+        env:
+          - name: OTEL_SERVICE_NAME
+            value: nktp-nodeless-metrics-targetallocator
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: OTEL_RESOURCE_ATTRIBUTES
+            value: service.instance.id=$(POD_NAME)
+        image: ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:VERSION
+        mtls:
+          enabled: true
+          useCertManager: true
+        observability:
+          metrics:
+            enableMetrics: false
+        podSecurityContext:
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+        prometheusCR:
+          denyFSAccessThroughSMs: false
+          enabled: true
+          podMonitorSelector:
+            matchExpressions:
+              - key: nktp.nvidia.io/large-target
+                operator: NotIn
+                values:
+                  - "true"
+          probeSelector:
+            matchExpressions:
+              - key: nktp.nvidia.io/large-target
+                operator: NotIn
+                values:
+                  - "true"
+          scrapeClasses:
+            - default: true
+              name: nktp-nodeless-targets
+              relabelings:
+                - action: drop
+                  regex: '[^;]+;.*|[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]*;Node;[^;]+'
+                  separator: ;
+                  sourceLabels:
+                    - __meta_kubernetes_pod_node_name
+                    - __meta_kubernetes_node_name
+                    - __meta_kubernetes_endpoint_node_name
+                    - __meta_kubernetes_endpointslice_address_target_kind
+                    - __meta_kubernetes_endpointslice_address_target_name
+          scrapeConfigSelector:
+            matchExpressions:
+              - key: nktp.nvidia.io/large-target
+                operator: NotIn
+                values:
+                  - "true"
+          serviceMonitorSelector:
+            matchExpressions:
+              - key: nktp.nvidia.io/large-target
+                operator: NotIn
+                values:
+                  - "true"
+              - key: app
+                operator: NotIn
+                values:
+                  - kube-prometheus-stack-kubelet
+                  - prometheus-operator-kubelet
+        replicas: 1
+        resources:
+          limits:
+            cpu: "1"
+            memory: 2Gi
+          requests:
+            cpu: 250m
+            memory: 1Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          readOnlyRootFilesystem: true
+        telemetry:
+          metrics:
+            readers:
+              - periodic:
+                  exporter:
+                    otlpGrpc:
+                      endpoint: nktp-watchdog-collector:4320
+                      temporalityPreference: cumulative
+                      tls:
+                        insecure: true
+                  interval: 30s
+      terminationGracePeriodSeconds: 60
+      topologySpreadConstraints:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: nktp-nodeless-metrics-collector
+          maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: nktp-nodeless-metrics-collector
+          maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+      upgradeStrategy: automatic
+      volumeMounts:
+        - mountPath: /etc/nktp/internal-tls/client
+          name: internal-tls-client
+          readOnly: true
+      volumes:
+        - name: internal-tls-client
+          secret:
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+              - key: ca.crt
+                path: ca.crt
+            secretName: nktp-nodeless-metrics-client-tls
+  76: |
     apiVersion: v1
     data:
       nktp.yaml: |
@@ -3551,7 +3929,7 @@ matches the snapshot with default values:
     metadata:
       name: lgtm-dashboard-provider
       namespace: NAMESPACE
-  73: |
+  77: |
     apiVersion: v1
     data:
       nktp-cluster-events.json: |
@@ -6441,6 +6819,14 @@ matches the snapshot with default values:
               "targetBlank": false
             },
             {
+              "title": "Nodeless targets",
+              "type": "link",
+              "url": "/d/nktp-nodeless-metrics",
+              "includeVars": false,
+              "keepTime": true,
+              "targetBlank": false
+            },
+            {
               "title": "Operator",
               "type": "link",
               "url": "/d/nktp-operator",
@@ -6514,7 +6900,7 @@ matches the snapshot with default values:
                 "name": "component",
                 "label": "Resource component",
                 "type": "custom",
-                "query": "nktp-daemonset-collector,nktp-cluster-events-collector,nktp-gateway-logs-collector,nktp-gateway-metrics-collector,nktp-gateway-traces-collector,nktp-large-target-metrics-collector,nktp-watchdog-collector,nktp-daemonset-targetallocator,nktp-large-target-metrics-targetallocator,nktp-watchdog-targetallocator,nktp-operator,nktp-ksm-pods,nktp-ksm-unscheduled-pods,nktp-ksm-cluster,nktp-ksm-workloads,nktp-ksm-configuration,nktp-ksm-networking,nktp-ksm-storage,nktp-node-exporter,nktp-metrics-server,metrics-server,lgtm",
+                "query": "nktp-daemonset-collector,nktp-cluster-events-collector,nktp-gateway-logs-collector,nktp-gateway-metrics-collector,nktp-gateway-traces-collector,nktp-large-target-metrics-collector,nktp-nodeless-metrics-collector,nktp-watchdog-collector,nktp-daemonset-targetallocator,nktp-large-target-metrics-targetallocator,nktp-nodeless-metrics-targetallocator,nktp-watchdog-targetallocator,nktp-operator,nktp-ksm-pods,nktp-ksm-unscheduled-pods,nktp-ksm-cluster,nktp-ksm-workloads,nktp-ksm-configuration,nktp-ksm-networking,nktp-ksm-storage,nktp-node-exporter,nktp-metrics-server,metrics-server,lgtm",
                 "multi": true,
                 "includeAll": true,
                 "allValue": ".*",
@@ -6530,7 +6916,7 @@ matches the snapshot with default values:
                 "label": "Diagnostic service",
                 "description": "Filters the diagnostic logs and internal traces.",
                 "type": "custom",
-                "query": "nktp-daemonset,nktp-cluster-events,nktp-gateway-logs,nktp-gateway-metrics,nktp-gateway-traces,nktp-large-target-metrics,nktp-watchdog,nktp-daemonset-sidecar,nktp-cluster-events-sidecar,nktp-gateway-logs-sidecar,nktp-gateway-metrics-sidecar,nktp-gateway-traces-sidecar,nktp-large-target-metrics-sidecar,nktp-watchdog-sidecar,nktp-targetallocator,nktp-watchdog-targetallocator,nktp-large-target-metrics-targetallocator,nktp-operator",
+                "query": "nktp-daemonset,nktp-cluster-events,nktp-gateway-logs,nktp-gateway-metrics,nktp-gateway-traces,nktp-large-target-metrics,nktp-nodeless-metrics,nktp-watchdog,nktp-daemonset-sidecar,nktp-cluster-events-sidecar,nktp-gateway-logs-sidecar,nktp-gateway-metrics-sidecar,nktp-gateway-traces-sidecar,nktp-large-target-metrics-sidecar,nktp-nodeless-metrics-sidecar,nktp-watchdog-sidecar,nktp-targetallocator,nktp-watchdog-targetallocator,nktp-large-target-metrics-targetallocator,nktp-nodeless-metrics-targetallocator,nktp-operator",
                 "multi": true,
                 "includeAll": true,
                 "allValue": "nktp-.*",
@@ -6730,7 +7116,7 @@ matches the snapshot with default values:
               },
               "targets": [
                 {
-                  "expr": "max(100 * otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"} / otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"})",
+                  "expr": "max(100 * otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"} / otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"})",
                   "legendFormat": "",
                   "refId": "A",
                   "range": false,
@@ -7065,7 +7451,7 @@ matches the snapshot with default values:
               },
               "targets": [
                 {
-                  "expr": "(sum by (job) (rate(otelcol_receiver_refused_metric_points_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}[$__rate_interval])) or 0 * sum by (job) (rate(otelcol_receiver_accepted_metric_points_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}[$__rate_interval])))",
+                  "expr": "(sum by (job) (rate(otelcol_receiver_refused_metric_points_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}[$__rate_interval])) or 0 * sum by (job) (rate(otelcol_receiver_accepted_metric_points_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}[$__rate_interval])))",
                   "legendFormat": "{{job}} metrics",
                   "refId": "A",
                   "range": true,
@@ -7073,7 +7459,7 @@ matches the snapshot with default values:
                   "interval": "1m"
                 },
                 {
-                  "expr": "(sum by (job) (rate(otelcol_receiver_refused_log_records_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}[$__rate_interval])) or 0 * sum by (job) (rate(otelcol_receiver_accepted_log_records_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}[$__rate_interval])))",
+                  "expr": "(sum by (job) (rate(otelcol_receiver_refused_log_records_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}[$__rate_interval])) or 0 * sum by (job) (rate(otelcol_receiver_accepted_log_records_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}[$__rate_interval])))",
                   "legendFormat": "{{job}} logs",
                   "refId": "B",
                   "range": true,
@@ -7081,7 +7467,7 @@ matches the snapshot with default values:
                   "interval": "1m"
                 },
                 {
-                  "expr": "(sum by (job) (rate(otelcol_receiver_refused_spans_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}[$__rate_interval])) or 0 * sum by (job) (rate(otelcol_receiver_accepted_spans_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}[$__rate_interval])))",
+                  "expr": "(sum by (job) (rate(otelcol_receiver_refused_spans_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}[$__rate_interval])) or 0 * sum by (job) (rate(otelcol_receiver_accepted_spans_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}[$__rate_interval])))",
                   "legendFormat": "{{job}} traces",
                   "refId": "C",
                   "range": true,
@@ -7161,7 +7547,7 @@ matches the snapshot with default values:
               },
               "targets": [
                 {
-                  "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_send_failed_metric_points_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\",data_type=\"metrics\"}))))",
+                  "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_send_failed_metric_points_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\",data_type=\"metrics\"}))))",
                   "legendFormat": "{{job}} metrics",
                   "refId": "A",
                   "range": true,
@@ -7169,7 +7555,7 @@ matches the snapshot with default values:
                   "interval": "1m"
                 },
                 {
-                  "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_send_failed_log_records_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\",data_type=\"logs\"}))))",
+                  "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_send_failed_log_records_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\",data_type=\"logs\"}))))",
                   "legendFormat": "{{job}} logs",
                   "refId": "B",
                   "range": true,
@@ -7177,7 +7563,7 @@ matches the snapshot with default values:
                   "interval": "1m"
                 },
                 {
-                  "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_send_failed_spans_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\",data_type=\"traces\"}))))",
+                  "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_send_failed_spans_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\",data_type=\"traces\"}))))",
                   "legendFormat": "{{job}} traces",
                   "refId": "C",
                   "range": true,
@@ -7257,7 +7643,7 @@ matches the snapshot with default values:
               },
               "targets": [
                 {
-                  "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_enqueue_failed_metric_points_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\",data_type=\"metrics\"}))))",
+                  "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_enqueue_failed_metric_points_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\",data_type=\"metrics\"}))))",
                   "legendFormat": "{{job}} metrics",
                   "refId": "A",
                   "range": true,
@@ -7265,7 +7651,7 @@ matches the snapshot with default values:
                   "interval": "1m"
                 },
                 {
-                  "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_enqueue_failed_log_records_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\",data_type=\"logs\"}))))",
+                  "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_enqueue_failed_log_records_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\",data_type=\"logs\"}))))",
                   "legendFormat": "{{job}} logs",
                   "refId": "B",
                   "range": true,
@@ -7273,7 +7659,7 @@ matches the snapshot with default values:
                   "interval": "1m"
                 },
                 {
-                  "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_enqueue_failed_spans_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\",data_type=\"traces\"}))))",
+                  "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_enqueue_failed_spans_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\",data_type=\"traces\"}))))",
                   "legendFormat": "{{job}} traces",
                   "refId": "C",
                   "range": true,
@@ -7353,7 +7739,7 @@ matches the snapshot with default values:
               },
               "targets": [
                 {
-                  "expr": "sum by (job) (rate(otelcol_receiver_accepted_metric_points_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}[$__rate_interval]))",
+                  "expr": "sum by (job) (rate(otelcol_receiver_accepted_metric_points_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}[$__rate_interval]))",
                   "legendFormat": "{{job}} received",
                   "refId": "A",
                   "range": true,
@@ -7361,7 +7747,7 @@ matches the snapshot with default values:
                   "interval": "1m"
                 },
                 {
-                  "expr": "sum by (job) (rate(otelcol_exporter_sent_metric_points_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}[$__rate_interval]))",
+                  "expr": "sum by (job) (rate(otelcol_exporter_sent_metric_points_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}[$__rate_interval]))",
                   "legendFormat": "{{job}} sent",
                   "refId": "B",
                   "range": true,
@@ -7439,7 +7825,7 @@ matches the snapshot with default values:
               },
               "targets": [
                 {
-                  "expr": "sum by (job) (rate(otelcol_receiver_accepted_log_records_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}[$__rate_interval]))",
+                  "expr": "sum by (job) (rate(otelcol_receiver_accepted_log_records_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}[$__rate_interval]))",
                   "legendFormat": "{{job}} received",
                   "refId": "A",
                   "range": true,
@@ -7447,7 +7833,7 @@ matches the snapshot with default values:
                   "interval": "1m"
                 },
                 {
-                  "expr": "sum by (job) (rate(otelcol_exporter_sent_log_records_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}[$__rate_interval]))",
+                  "expr": "sum by (job) (rate(otelcol_exporter_sent_log_records_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}[$__rate_interval]))",
                   "legendFormat": "{{job}} sent",
                   "refId": "B",
                   "range": true,
@@ -7525,7 +7911,7 @@ matches the snapshot with default values:
               },
               "targets": [
                 {
-                  "expr": "sum by (job) (rate(otelcol_receiver_accepted_spans_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}[$__rate_interval]))",
+                  "expr": "sum by (job) (rate(otelcol_receiver_accepted_spans_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}[$__rate_interval]))",
                   "legendFormat": "{{job}} received",
                   "refId": "A",
                   "range": true,
@@ -7533,7 +7919,7 @@ matches the snapshot with default values:
                   "interval": "1m"
                 },
                 {
-                  "expr": "sum by (job) (rate(otelcol_exporter_sent_spans_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}[$__rate_interval]))",
+                  "expr": "sum by (job) (rate(otelcol_exporter_sent_spans_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}[$__rate_interval]))",
                   "legendFormat": "{{job}} sent",
                   "refId": "B",
                   "range": true,
@@ -7623,7 +8009,7 @@ matches the snapshot with default values:
                   },
                   "targets": [
                     {
-                      "expr": "(100 * otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"} / otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}) and on (job, instance, exporter, data_type) topk(20, 100 * otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"} @ end() / otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"} @ end())",
+                      "expr": "(100 * otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"} / otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}) and on (job, instance, exporter, data_type) topk(20, 100 * otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"} @ end() / otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"} @ end())",
                       "legendFormat": "{{instance}} \u00b7 {{exporter}} \u00b7 {{data_type}}",
                       "refId": "A",
                       "range": true,
@@ -7698,28 +8084,28 @@ matches the snapshot with default values:
                   },
                   "targets": [
                     {
-                      "expr": "max by (target) (label_join((100 * otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"} / otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}) and on (job, instance, exporter, data_type) (topk(20, 100 * otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"} / otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"})), \"target\", \" \u00b7 \", \"instance\", \"exporter\", \"data_type\"))",
+                      "expr": "max by (target) (label_join((100 * otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"} / otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}) and on (job, instance, exporter, data_type) (topk(20, 100 * otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"} / otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"})), \"target\", \" \u00b7 \", \"instance\", \"exporter\", \"data_type\"))",
                       "instant": true,
                       "range": false,
                       "format": "table",
                       "refId": "A"
                     },
                     {
-                      "expr": "max by (target) (label_join((otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}) and on (job, instance, exporter, data_type) (topk(20, 100 * otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"} / otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"})), \"target\", \" \u00b7 \", \"instance\", \"exporter\", \"data_type\"))",
+                      "expr": "max by (target) (label_join((otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}) and on (job, instance, exporter, data_type) (topk(20, 100 * otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"} / otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"})), \"target\", \" \u00b7 \", \"instance\", \"exporter\", \"data_type\"))",
                       "instant": true,
                       "range": false,
                       "format": "table",
                       "refId": "B"
                     },
                     {
-                      "expr": "max by (target) (label_join((otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}) and on (job, instance, exporter, data_type) (topk(20, 100 * otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"} / otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"})), \"target\", \" \u00b7 \", \"instance\", \"exporter\", \"data_type\"))",
+                      "expr": "max by (target) (label_join((otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}) and on (job, instance, exporter, data_type) (topk(20, 100 * otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"} / otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"})), \"target\", \" \u00b7 \", \"instance\", \"exporter\", \"data_type\"))",
                       "instant": true,
                       "range": false,
                       "format": "table",
                       "refId": "C"
                     },
                     {
-                      "expr": "max by (target) (label_join((otelcol_exporter_in_flight_requests{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}) and on (job, instance, exporter, data_type) (topk(20, 100 * otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"} / otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"})), \"target\", \" \u00b7 \", \"instance\", \"exporter\", \"data_type\"))",
+                      "expr": "max by (target) (label_join((otelcol_exporter_in_flight_requests{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}) and on (job, instance, exporter, data_type) (topk(20, 100 * otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"} / otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"})), \"target\", \" \u00b7 \", \"instance\", \"exporter\", \"data_type\"))",
                       "instant": true,
                       "range": false,
                       "format": "table",
@@ -7891,7 +8277,7 @@ matches the snapshot with default values:
                       "refId": "A",
                       "queryType": "traceql",
                       "metricsQueryType": "range",
-                      "query": "{ resource.service.name =~ \"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\" && name =~ \"exporter/.*/.*\" } | max_over_time(duration) by (resource.service.name, span:name)"
+                      "query": "{ resource.service.name =~ \"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\" && name =~ \"exporter/.*/.*\" } | max_over_time(duration) by (resource.service.name, span:name)"
                     }
                   ],
                   "fieldConfig": {
@@ -7976,7 +8362,7 @@ matches the snapshot with default values:
                       "refId": "A",
                       "queryType": "traceql",
                       "metricsQueryType": "range",
-                      "query": "{ resource.service.name =~ \"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\" && name = \"exporter/enqueue\" } | max_over_time(duration) by (resource.service.name)"
+                      "query": "{ resource.service.name =~ \"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\" && name = \"exporter/enqueue\" } | max_over_time(duration) by (resource.service.name)"
                     }
                   ],
                   "fieldConfig": {
@@ -8072,7 +8458,7 @@ matches the snapshot with default values:
                   },
                   "targets": [
                     {
-                      "expr": "max by (target) (label_join((max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})) and on (namespace, pod, container) (topk by (component) (3, label_replace(((max by (namespace, pod, container) (kube_pod_container_resource_requests{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"cpu\"})) or (max by (namespace, pod, container) (kube_pod_container_resource_limits{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"cpu\"})) or (0 * (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})))) and on (namespace, pod, container) (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})), \"component\", \"$1\", \"pod\", \"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\"))), \"target\", \" / \", \"pod\", \"container\"))",
+                      "expr": "max by (target) (label_join((max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})) and on (namespace, pod, container) (topk by (component) (3, label_replace(((max by (namespace, pod, container) (kube_pod_container_resource_requests{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"cpu\"})) or (max by (namespace, pod, container) (kube_pod_container_resource_limits{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"cpu\"})) or (0 * (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})))) and on (namespace, pod, container) (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})), \"component\", \"$1\", \"pod\", \"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\"))), \"target\", \" / \", \"pod\", \"container\"))",
                       "refId": "A",
                       "instant": true,
                       "range": false,
@@ -8081,7 +8467,7 @@ matches the snapshot with default values:
                       "format": "table"
                     },
                     {
-                      "expr": "max by (target) (label_join((max by (namespace, pod, container) (kube_pod_container_resource_requests{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"cpu\"})) and on (namespace, pod, container) (topk by (component) (3, label_replace(((max by (namespace, pod, container) (kube_pod_container_resource_requests{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"cpu\"})) or (max by (namespace, pod, container) (kube_pod_container_resource_limits{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"cpu\"})) or (0 * (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})))) and on (namespace, pod, container) (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})), \"component\", \"$1\", \"pod\", \"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\"))), \"target\", \" / \", \"pod\", \"container\"))",
+                      "expr": "max by (target) (label_join((max by (namespace, pod, container) (kube_pod_container_resource_requests{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"cpu\"})) and on (namespace, pod, container) (topk by (component) (3, label_replace(((max by (namespace, pod, container) (kube_pod_container_resource_requests{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"cpu\"})) or (max by (namespace, pod, container) (kube_pod_container_resource_limits{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"cpu\"})) or (0 * (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})))) and on (namespace, pod, container) (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})), \"component\", \"$1\", \"pod\", \"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\"))), \"target\", \" / \", \"pod\", \"container\"))",
                       "refId": "B",
                       "instant": true,
                       "range": false,
@@ -8090,7 +8476,7 @@ matches the snapshot with default values:
                       "format": "table"
                     },
                     {
-                      "expr": "max by (target) (label_join((max by (namespace, pod, container) (kube_pod_container_resource_limits{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"cpu\"})) and on (namespace, pod, container) (topk by (component) (3, label_replace(((max by (namespace, pod, container) (kube_pod_container_resource_requests{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"cpu\"})) or (max by (namespace, pod, container) (kube_pod_container_resource_limits{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"cpu\"})) or (0 * (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})))) and on (namespace, pod, container) (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})), \"component\", \"$1\", \"pod\", \"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\"))), \"target\", \" / \", \"pod\", \"container\"))",
+                      "expr": "max by (target) (label_join((max by (namespace, pod, container) (kube_pod_container_resource_limits{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"cpu\"})) and on (namespace, pod, container) (topk by (component) (3, label_replace(((max by (namespace, pod, container) (kube_pod_container_resource_requests{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"cpu\"})) or (max by (namespace, pod, container) (kube_pod_container_resource_limits{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"cpu\"})) or (0 * (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})))) and on (namespace, pod, container) (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})), \"component\", \"$1\", \"pod\", \"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\"))), \"target\", \" / \", \"pod\", \"container\"))",
                       "refId": "C",
                       "instant": true,
                       "range": false,
@@ -8237,7 +8623,7 @@ matches the snapshot with default values:
                   },
                   "targets": [
                     {
-                      "expr": "max by (target) (label_join((max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})) and on (namespace, pod, container) (topk by (component) (3, label_replace(((max by (namespace, pod, container) (kube_pod_container_resource_requests{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"memory\"})) or (max by (namespace, pod, container) (kube_pod_container_resource_limits{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"memory\"})) or (0 * (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})))) and on (namespace, pod, container) (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})), \"component\", \"$1\", \"pod\", \"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\"))), \"target\", \" / \", \"pod\", \"container\"))",
+                      "expr": "max by (target) (label_join((max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})) and on (namespace, pod, container) (topk by (component) (3, label_replace(((max by (namespace, pod, container) (kube_pod_container_resource_requests{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"memory\"})) or (max by (namespace, pod, container) (kube_pod_container_resource_limits{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"memory\"})) or (0 * (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})))) and on (namespace, pod, container) (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})), \"component\", \"$1\", \"pod\", \"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\"))), \"target\", \" / \", \"pod\", \"container\"))",
                       "refId": "A",
                       "instant": true,
                       "range": false,
@@ -8246,7 +8632,7 @@ matches the snapshot with default values:
                       "format": "table"
                     },
                     {
-                      "expr": "max by (target) (label_join((max by (namespace, pod, container) (kube_pod_container_resource_requests{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"memory\"})) and on (namespace, pod, container) (topk by (component) (3, label_replace(((max by (namespace, pod, container) (kube_pod_container_resource_requests{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"memory\"})) or (max by (namespace, pod, container) (kube_pod_container_resource_limits{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"memory\"})) or (0 * (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})))) and on (namespace, pod, container) (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})), \"component\", \"$1\", \"pod\", \"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\"))), \"target\", \" / \", \"pod\", \"container\"))",
+                      "expr": "max by (target) (label_join((max by (namespace, pod, container) (kube_pod_container_resource_requests{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"memory\"})) and on (namespace, pod, container) (topk by (component) (3, label_replace(((max by (namespace, pod, container) (kube_pod_container_resource_requests{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"memory\"})) or (max by (namespace, pod, container) (kube_pod_container_resource_limits{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"memory\"})) or (0 * (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})))) and on (namespace, pod, container) (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})), \"component\", \"$1\", \"pod\", \"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\"))), \"target\", \" / \", \"pod\", \"container\"))",
                       "refId": "B",
                       "instant": true,
                       "range": false,
@@ -8255,7 +8641,7 @@ matches the snapshot with default values:
                       "format": "table"
                     },
                     {
-                      "expr": "max by (target) (label_join((max by (namespace, pod, container) (kube_pod_container_resource_limits{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"memory\"})) and on (namespace, pod, container) (topk by (component) (3, label_replace(((max by (namespace, pod, container) (kube_pod_container_resource_requests{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"memory\"})) or (max by (namespace, pod, container) (kube_pod_container_resource_limits{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"memory\"})) or (0 * (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})))) and on (namespace, pod, container) (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})), \"component\", \"$1\", \"pod\", \"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\"))), \"target\", \" / \", \"pod\", \"container\"))",
+                      "expr": "max by (target) (label_join((max by (namespace, pod, container) (kube_pod_container_resource_limits{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"memory\"})) and on (namespace, pod, container) (topk by (component) (3, label_replace(((max by (namespace, pod, container) (kube_pod_container_resource_requests{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"memory\"})) or (max by (namespace, pod, container) (kube_pod_container_resource_limits{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\",resource=\"memory\"})) or (0 * (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})))) and on (namespace, pod, container) (max by (namespace, pod, container) (kube_pod_container_info{namespace=\"$namespace\",pod=~\"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\",pod=~\"(${component:regex})(-.*)?\",container!=\"\",container!=\"POD\"})), \"component\", \"$1\", \"pod\", \"(nktp-daemonset-collector|nktp-cluster-events-collector|nktp-gateway-logs-collector|nktp-gateway-metrics-collector|nktp-gateway-traces-collector|nktp-large-target-metrics-collector|nktp-nodeless-metrics-collector|nktp-watchdog-collector|nktp-daemonset-targetallocator|nktp-large-target-metrics-targetallocator|nktp-nodeless-metrics-targetallocator|nktp-watchdog-targetallocator|nktp-operator|nktp-ksm-pods|nktp-ksm-unscheduled-pods|nktp-ksm-cluster|nktp-ksm-workloads|nktp-ksm-configuration|nktp-ksm-networking|nktp-ksm-storage|nktp-node-exporter|nktp-metrics-server|metrics-server|lgtm)(-.*)?\"))), \"target\", \" / \", \"pod\", \"container\"))",
                       "refId": "C",
                       "instant": true,
                       "range": false,
@@ -8402,7 +8788,7 @@ matches the snapshot with default values:
                   },
                   "targets": [
                     {
-                      "expr": "(sum by (job, instance) (rate(otelcol_process_cpu_seconds_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}[$__rate_interval]))) and on (job, instance) topk(20, sum by (job, instance) (rate(otelcol_process_cpu_seconds_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"}[$__rate_interval] @ end())))",
+                      "expr": "(sum by (job, instance) (rate(otelcol_process_cpu_seconds_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}[$__rate_interval]))) and on (job, instance) topk(20, sum by (job, instance) (rate(otelcol_process_cpu_seconds_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"}[$__rate_interval] @ end())))",
                       "legendFormat": "{{instance}}",
                       "refId": "A",
                       "range": true,
@@ -8477,7 +8863,7 @@ matches the snapshot with default values:
                   },
                   "targets": [
                     {
-                      "expr": "(max by (job, instance) (otelcol_process_memory_rss_bytes{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"})) and on (job, instance) topk(20, max by (job, instance) (otelcol_process_memory_rss_bytes{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)\"} @ end()))",
+                      "expr": "(max by (job, instance) (otelcol_process_memory_rss_bytes{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"})) and on (job, instance) topk(20, max by (job, instance) (otelcol_process_memory_rss_bytes{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)\"} @ end()))",
                       "legendFormat": "{{instance}}",
                       "refId": "A",
                       "range": true,
@@ -8636,7 +9022,7 @@ matches the snapshot with default values:
                   },
                   "targets": [
                     {
-                      "expr": "opentelemetry_allocator_collectors_discovered{job=~\"nktp-(targetallocator|watchdog-targetallocator|large-target-metrics-targetallocator)\"}",
+                      "expr": "opentelemetry_allocator_collectors_discovered{job=~\"nktp-(targetallocator|watchdog-targetallocator|large-target-metrics-targetallocator|nodeless-metrics-targetallocator)\"}",
                       "legendFormat": "{{job}} \u00b7 {{instance}} discovered",
                       "refId": "A",
                       "range": true,
@@ -8644,7 +9030,7 @@ matches the snapshot with default values:
                       "interval": "1m"
                     },
                     {
-                      "expr": "opentelemetry_allocator_collectors_allocatable{job=~\"nktp-(targetallocator|watchdog-targetallocator|large-target-metrics-targetallocator)\"}",
+                      "expr": "opentelemetry_allocator_collectors_allocatable{job=~\"nktp-(targetallocator|watchdog-targetallocator|large-target-metrics-targetallocator|nodeless-metrics-targetallocator)\"}",
                       "legendFormat": "{{job}} \u00b7 {{instance}} allocatable",
                       "refId": "B",
                       "range": true,
@@ -8719,7 +9105,7 @@ matches the snapshot with default values:
                   },
                   "targets": [
                     {
-                      "expr": "(opentelemetry_allocator_targets_per_collector{job=~\"nktp-(targetallocator|watchdog-targetallocator|large-target-metrics-targetallocator)\"}) and on (job, instance, collector_name) topk(20, opentelemetry_allocator_targets_per_collector{job=~\"nktp-(targetallocator|watchdog-targetallocator|large-target-metrics-targetallocator)\"} @ end())",
+                      "expr": "(opentelemetry_allocator_targets_per_collector{job=~\"nktp-(targetallocator|watchdog-targetallocator|large-target-metrics-targetallocator|nodeless-metrics-targetallocator)\"}) and on (job, instance, collector_name) topk(20, opentelemetry_allocator_targets_per_collector{job=~\"nktp-(targetallocator|watchdog-targetallocator|large-target-metrics-targetallocator|nodeless-metrics-targetallocator)\"} @ end())",
                       "legendFormat": "{{job}} \u00b7 {{collector_name}} \u00b7 {{instance}}",
                       "refId": "A",
                       "range": true,
@@ -8996,7 +9382,7 @@ matches the snapshot with default values:
                   },
                   "targets": [
                     {
-                      "expr": "rate(process_cpu_seconds_total{job=~\"nktp-(targetallocator|watchdog-targetallocator|large-target-metrics-targetallocator)\"}[$__rate_interval])",
+                      "expr": "rate(process_cpu_seconds_total{job=~\"nktp-(targetallocator|watchdog-targetallocator|large-target-metrics-targetallocator|nodeless-metrics-targetallocator)\"}[$__rate_interval])",
                       "legendFormat": "{{instance}}",
                       "refId": "A",
                       "range": true,
@@ -9071,7 +9457,7 @@ matches the snapshot with default values:
                   },
                   "targets": [
                     {
-                      "expr": "process_resident_memory_bytes{job=~\"nktp-(targetallocator|watchdog-targetallocator|large-target-metrics-targetallocator)\"}",
+                      "expr": "process_resident_memory_bytes{job=~\"nktp-(targetallocator|watchdog-targetallocator|large-target-metrics-targetallocator|nodeless-metrics-targetallocator)\"}",
                       "legendFormat": "{{instance}}",
                       "refId": "A",
                       "range": true,
@@ -9146,7 +9532,7 @@ matches the snapshot with default values:
                   },
                   "targets": [
                     {
-                      "expr": "sum by (job, instance, method, strategy) (rate(opentelemetry_allocator_time_to_allocate_sum{job=~\"nktp-(targetallocator|watchdog-targetallocator|large-target-metrics-targetallocator)\"}[$__rate_interval])) / (sum by (job, instance, method, strategy) (rate(opentelemetry_allocator_time_to_allocate_count{job=~\"nktp-(targetallocator|watchdog-targetallocator|large-target-metrics-targetallocator)\"}[$__rate_interval])) > 0)",
+                      "expr": "sum by (job, instance, method, strategy) (rate(opentelemetry_allocator_time_to_allocate_sum{job=~\"nktp-(targetallocator|watchdog-targetallocator|large-target-metrics-targetallocator|nodeless-metrics-targetallocator)\"}[$__rate_interval])) / (sum by (job, instance, method, strategy) (rate(opentelemetry_allocator_time_to_allocate_count{job=~\"nktp-(targetallocator|watchdog-targetallocator|large-target-metrics-targetallocator|nodeless-metrics-targetallocator)\"}[$__rate_interval])) > 0)",
                       "refId": "A",
                       "instant": false,
                       "range": true,
@@ -10230,7 +10616,7 @@ matches the snapshot with default values:
                   },
                   "targets": [
                     {
-                      "expr": "(sum by (job) (rate(otelcol_receiver_refused_metric_points_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\"}[$__rate_interval])) or 0 * sum by (job) (rate(otelcol_receiver_accepted_metric_points_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\"}[$__rate_interval])))",
+                      "expr": "(sum by (job) (rate(otelcol_receiver_refused_metric_points_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\"}[$__rate_interval])) or 0 * sum by (job) (rate(otelcol_receiver_accepted_metric_points_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\"}[$__rate_interval])))",
                       "legendFormat": "{{job}} metrics",
                       "refId": "A",
                       "range": true,
@@ -10238,7 +10624,7 @@ matches the snapshot with default values:
                       "interval": "1m"
                     },
                     {
-                      "expr": "(sum by (job) (rate(otelcol_receiver_refused_log_records_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\"}[$__rate_interval])) or 0 * sum by (job) (rate(otelcol_receiver_accepted_log_records_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\"}[$__rate_interval])))",
+                      "expr": "(sum by (job) (rate(otelcol_receiver_refused_log_records_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\"}[$__rate_interval])) or 0 * sum by (job) (rate(otelcol_receiver_accepted_log_records_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\"}[$__rate_interval])))",
                       "legendFormat": "{{job}} logs",
                       "refId": "B",
                       "range": true,
@@ -10246,7 +10632,7 @@ matches the snapshot with default values:
                       "interval": "1m"
                     },
                     {
-                      "expr": "(sum by (job) (rate(otelcol_receiver_refused_spans_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\"}[$__rate_interval])) or 0 * sum by (job) (rate(otelcol_receiver_accepted_spans_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\"}[$__rate_interval])))",
+                      "expr": "(sum by (job) (rate(otelcol_receiver_refused_spans_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\"}[$__rate_interval])) or 0 * sum by (job) (rate(otelcol_receiver_accepted_spans_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\"}[$__rate_interval])))",
                       "legendFormat": "{{job}} traces",
                       "refId": "C",
                       "range": true,
@@ -10326,7 +10712,7 @@ matches the snapshot with default values:
                   },
                   "targets": [
                     {
-                      "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_send_failed_metric_points_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\",data_type=\"metrics\"}))))",
+                      "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_send_failed_metric_points_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\",data_type=\"metrics\"}))))",
                       "legendFormat": "{{job}} metrics",
                       "refId": "A",
                       "range": true,
@@ -10334,7 +10720,7 @@ matches the snapshot with default values:
                       "interval": "1m"
                     },
                     {
-                      "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_send_failed_log_records_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\",data_type=\"logs\"}))))",
+                      "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_send_failed_log_records_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\",data_type=\"logs\"}))))",
                       "legendFormat": "{{job}} logs",
                       "refId": "B",
                       "range": true,
@@ -10342,7 +10728,7 @@ matches the snapshot with default values:
                       "interval": "1m"
                     },
                     {
-                      "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_send_failed_spans_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\",data_type=\"traces\"}))))",
+                      "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_send_failed_spans_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\",data_type=\"traces\"}))))",
                       "legendFormat": "{{job}} traces",
                       "refId": "C",
                       "range": true,
@@ -10422,7 +10808,7 @@ matches the snapshot with default values:
                   },
                   "targets": [
                     {
-                      "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_enqueue_failed_metric_points_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\",data_type=\"metrics\"}))))",
+                      "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_enqueue_failed_metric_points_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\",data_type=\"metrics\"}))))",
                       "legendFormat": "{{job}} metrics",
                       "refId": "A",
                       "range": true,
@@ -10430,7 +10816,7 @@ matches the snapshot with default values:
                       "interval": "1m"
                     },
                     {
-                      "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_enqueue_failed_log_records_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\",data_type=\"logs\"}))))",
+                      "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_enqueue_failed_log_records_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\",data_type=\"logs\"}))))",
                       "legendFormat": "{{job}} logs",
                       "refId": "B",
                       "range": true,
@@ -10438,7 +10824,7 @@ matches the snapshot with default values:
                       "interval": "1m"
                     },
                     {
-                      "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_enqueue_failed_spans_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\",data_type=\"traces\"}))))",
+                      "expr": "sum by (job) ((sum by (job, instance, exporter) (rate(otelcol_exporter_enqueue_failed_spans_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\"}[$__rate_interval])) or (0 * max by (job, instance, exporter) (otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\",data_type=\"traces\"}))))",
                       "legendFormat": "{{job}} traces",
                       "refId": "C",
                       "range": true,
@@ -10518,7 +10904,7 @@ matches the snapshot with default values:
                   },
                   "targets": [
                     {
-                      "expr": "(100 * otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\"} / otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\"}) and on (job, instance, exporter, data_type) topk(20, 100 * otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\"} @ end() / otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\"} @ end())",
+                      "expr": "(100 * otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\"} / otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\"}) and on (job, instance, exporter, data_type) topk(20, 100 * otelcol_exporter_queue_size{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\"} @ end() / otelcol_exporter_queue_capacity{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\"} @ end())",
                       "legendFormat": "{{instance}} · {{exporter}} · {{data_type}}",
                       "refId": "A",
                       "range": true,
@@ -10593,7 +10979,7 @@ matches the snapshot with default values:
                   },
                   "targets": [
                     {
-                      "expr": "sum by (job) (rate(otelcol_processor_tail_sampling_global_count_traces_sampled_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\",sampled=\"true\"}[$__rate_interval]))",
+                      "expr": "sum by (job) (rate(otelcol_processor_tail_sampling_global_count_traces_sampled_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\",sampled=\"true\"}[$__rate_interval]))",
                       "legendFormat": "{{job}} kept",
                       "refId": "A",
                       "range": true,
@@ -10601,7 +10987,7 @@ matches the snapshot with default values:
                       "interval": "1m"
                     },
                     {
-                      "expr": "sum by (job) (rate(otelcol_processor_tail_sampling_global_count_traces_sampled_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\",sampled=\"false\"}[$__rate_interval]))",
+                      "expr": "sum by (job) (rate(otelcol_processor_tail_sampling_global_count_traces_sampled_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\",sampled=\"false\"}[$__rate_interval]))",
                       "legendFormat": "{{job}} dropped",
                       "refId": "B",
                       "range": true,
@@ -10681,7 +11067,7 @@ matches the snapshot with default values:
                   },
                   "targets": [
                     {
-                      "expr": "(sum by (job, instance) (rate(otelcol_process_cpu_seconds_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\"}[$__rate_interval]))) and on (job, instance) topk(20, sum by (job, instance) (rate(otelcol_process_cpu_seconds_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\"}[$__rate_interval] @ end())))",
+                      "expr": "(sum by (job, instance) (rate(otelcol_process_cpu_seconds_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\"}[$__rate_interval]))) and on (job, instance) topk(20, sum by (job, instance) (rate(otelcol_process_cpu_seconds_total{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\"}[$__rate_interval] @ end())))",
                       "legendFormat": "{{instance}}",
                       "refId": "A",
                       "range": true,
@@ -10756,7 +11142,7 @@ matches the snapshot with default values:
                   },
                   "targets": [
                     {
-                      "expr": "(max by (job, instance) (otelcol_process_memory_rss_bytes{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\"})) and on (job, instance) topk(20, max by (job, instance) (otelcol_process_memory_rss_bytes{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|watchdog)-sidecar\"} @ end()))",
+                      "expr": "(max by (job, instance) (otelcol_process_memory_rss_bytes{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\"})) and on (job, instance) topk(20, max by (job, instance) (otelcol_process_memory_rss_bytes{job=~\"nktp-(daemonset|cluster-events|gateway-(logs|metrics|traces)|large-target-metrics|nodeless-metrics|watchdog)-sidecar\"} @ end()))",
                       "legendFormat": "{{instance}}",
                       "refId": "A",
                       "range": true,
@@ -12429,6 +12815,832 @@ matches the snapshot with default values:
             }
           ]
         }
+      nktp-nodeless-metrics.json: |
+        {
+          "uid": "nktp-nodeless-metrics",
+          "title": "NKTP Nodeless Metrics",
+          "tags": [
+            "nktp",
+            "nktp-collector",
+            "opentelemetry"
+          ],
+          "schemaVersion": 39,
+          "refresh": "30s",
+          "time": {
+            "from": "now-30m",
+            "to": "now"
+          },
+          "links": [
+            {
+              "title": "Collectors",
+              "type": "dashboards",
+              "tags": [
+                "nktp-collector"
+              ],
+              "asDropdown": true,
+              "includeVars": false,
+              "keepTime": true,
+              "targetBlank": false
+            },
+            {
+              "title": "NKTP Health",
+              "type": "link",
+              "url": "/d/nktp-health",
+              "includeVars": false,
+              "keepTime": true,
+              "targetBlank": false
+            }
+          ],
+          "templating": {
+            "list": []
+          },
+          "panels": [
+            {
+              "id": 1,
+              "type": "row",
+              "title": "Pipeline",
+              "collapsed": false,
+              "gridPos": {
+                "x": 0,
+                "y": 0,
+                "w": 24,
+                "h": 1
+              },
+              "panels": []
+            },
+            {
+              "id": 2,
+              "type": "timeseries",
+              "title": "Received /s",
+              "gridPos": {
+                "x": 0,
+                "y": 1,
+                "w": 12,
+                "h": 7
+              },
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0
+                }
+              },
+              "targets": [
+                {
+                  "expr": "sum(rate(otelcol_receiver_accepted_metric_points_total{job=\"nktp-nodeless-metrics\"}[5m]))",
+                  "legendFormat": "metric points",
+                  "refId": "A"
+                }
+              ],
+              "description": "Items received per second across all replicas."
+            },
+            {
+              "id": 3,
+              "type": "timeseries",
+              "title": "Exported /s",
+              "gridPos": {
+                "x": 12,
+                "y": 1,
+                "w": 12,
+                "h": 7
+              },
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0
+                }
+              },
+              "targets": [
+                {
+                  "expr": "sum(rate(otelcol_exporter_sent_metric_points_total{job=\"nktp-nodeless-metrics\"}[5m]))",
+                  "legendFormat": "metric points",
+                  "refId": "A"
+                }
+              ],
+              "description": "Items exported per second across all replicas."
+            },
+            {
+              "id": 4,
+              "type": "timeseries",
+              "title": "Export failures /s",
+              "gridPos": {
+                "x": 0,
+                "y": 8,
+                "w": 12,
+                "h": 7
+              },
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0
+                }
+              },
+              "targets": [
+                {
+                  "expr": "sum(rate(otelcol_exporter_send_failed_metric_points_total{job=\"nktp-nodeless-metrics\"}[5m])) or 0 * sum(otelcol_exporter_queue_capacity{job=\"nktp-nodeless-metrics\",data_type=\"metrics\"})",
+                  "legendFormat": "metric points",
+                  "refId": "A"
+                }
+              ],
+              "description": "Items that failed to send, across all replicas. The exporter may retry them."
+            },
+            {
+              "id": 5,
+              "type": "timeseries",
+              "title": "Refused /s",
+              "gridPos": {
+                "x": 12,
+                "y": 8,
+                "w": 12,
+                "h": 7
+              },
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0
+                }
+              },
+              "targets": [
+                {
+                  "expr": "sum(rate(otelcol_receiver_refused_metric_points_total{job=\"nktp-nodeless-metrics\"}[5m])) or 0 * sum(rate(otelcol_receiver_accepted_metric_points_total{job=\"nktp-nodeless-metrics\"}[5m]))",
+                  "legendFormat": "metric points",
+                  "refId": "A"
+                }
+              ],
+              "description": "Items the receivers refused across all replicas, for example under memory pressure."
+            },
+            {
+              "id": 32,
+              "type": "timeseries",
+              "title": "Received /s by replica · top 20",
+              "description": "The 20 replicas that received the most at the end of the range, to show imbalance.",
+              "gridPos": {
+                "x": 0,
+                "y": 15,
+                "w": 24,
+                "h": 8
+              },
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0
+                }
+              },
+              "targets": [
+                {
+                  "expr": "(sum by (instance) (rate(otelcol_receiver_accepted_metric_points_total{job=\"nktp-nodeless-metrics\"}[5m]))) and on (instance) topk(20, sum by (instance) (rate(otelcol_receiver_accepted_metric_points_total{job=\"nktp-nodeless-metrics\"}[5m] @ end())))",
+                  "legendFormat": "{{instance}} metric points",
+                  "refId": "A"
+                }
+              ]
+            },
+            {
+              "id": 6,
+              "type": "row",
+              "title": "Target Allocator",
+              "collapsed": false,
+              "gridPos": {
+                "x": 0,
+                "y": 23,
+                "w": 24,
+                "h": 1
+              },
+              "panels": []
+            },
+            {
+              "id": 7,
+              "type": "timeseries",
+              "title": "Target Allocator collectors",
+              "description": "Discovered and allocatable nodeless Collectors reported by each Target Allocator replica. A discovered Collector may not yet be allocatable; replica reports are shown separately.",
+              "gridPos": {
+                "x": 0,
+                "y": 24,
+                "w": 12,
+                "h": 7
+              },
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0
+                }
+              },
+              "targets": [
+                {
+                  "expr": "opentelemetry_allocator_collectors_discovered{job=\"nktp-nodeless-metrics-targetallocator\"}",
+                  "legendFormat": "{{instance}} discovered",
+                  "refId": "A"
+                },
+                {
+                  "expr": "opentelemetry_allocator_collectors_allocatable{job=\"nktp-nodeless-metrics-targetallocator\"}",
+                  "legendFormat": "{{instance}} allocatable",
+                  "refId": "B"
+                }
+              ]
+            },
+            {
+              "id": 8,
+              "type": "timeseries",
+              "title": "Targets per collector",
+              "description": "Targets assigned to each nodeless Collector by the Target Allocator. This is an assignment count, not a count of successful scrapes. Multiple allocator replicas may report the same assignments.",
+              "gridPos": {
+                "x": 12,
+                "y": 24,
+                "w": 12,
+                "h": 7
+              },
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0
+                }
+              },
+              "targets": [
+                {
+                  "expr": "opentelemetry_allocator_targets_per_collector{job=\"nktp-nodeless-metrics-targetallocator\"}",
+                  "legendFormat": "{{collector_name}}",
+                  "refId": "A"
+                }
+              ]
+            },
+            {
+              "id": 9,
+              "type": "timeseries",
+              "title": "Target Allocator CPU cores",
+              "gridPos": {
+                "x": 0,
+                "y": 31,
+                "w": 12,
+                "h": 7
+              },
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0,
+                  "unit": "cores"
+                }
+              },
+              "targets": [
+                {
+                  "expr": "rate(process_cpu_seconds_total{job=\"nktp-nodeless-metrics-targetallocator\"}[5m])",
+                  "legendFormat": "{{instance}}",
+                  "refId": "A"
+                }
+              ]
+            },
+            {
+              "id": 10,
+              "type": "timeseries",
+              "title": "Target Allocator memory (RSS)",
+              "gridPos": {
+                "x": 12,
+                "y": 31,
+                "w": 12,
+                "h": 7
+              },
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0,
+                  "unit": "bytes"
+                }
+              },
+              "targets": [
+                {
+                  "expr": "process_resident_memory_bytes{job=\"nktp-nodeless-metrics-targetallocator\"}",
+                  "legendFormat": "{{instance}}",
+                  "refId": "A"
+                }
+              ]
+            },
+            {
+              "id": 11,
+              "type": "row",
+              "title": "Nodeless targets",
+              "collapsed": false,
+              "gridPos": {
+                "x": 0,
+                "y": 38,
+                "w": 24,
+                "h": 1
+              },
+              "panels": []
+            },
+            {
+              "id": 12,
+              "type": "table",
+              "title": "Targets",
+              "description": "Every target the pool scrapes, with its latest up value, sample count and scrape duration. Up 0 means the last scrape failed.",
+              "gridPos": {
+                "x": 0,
+                "y": 39,
+                "w": 24,
+                "h": 8
+              },
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Up"
+                    },
+                    "properties": [
+                      {
+                        "id": "decimals",
+                        "value": 0
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Samples"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "short"
+                      },
+                      {
+                        "id": "decimals",
+                        "value": 0
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Scrape duration"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "s"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "showHeader": true,
+                "sortBy": [
+                  {
+                    "displayName": "Up",
+                    "desc": false
+                  }
+                ]
+              },
+              "targets": [
+                {
+                  "expr": "max by (job, instance) (up{nktp_metrics_pool=\"nodeless\",job!=\"nktp-nodeless-metrics-targetallocator\"})",
+                  "refId": "A",
+                  "instant": true,
+                  "range": false,
+                  "format": "table"
+                },
+                {
+                  "expr": "max by (job, instance) (scrape_samples_scraped{nktp_metrics_pool=\"nodeless\",job!=\"nktp-nodeless-metrics-targetallocator\"})",
+                  "refId": "B",
+                  "instant": true,
+                  "range": false,
+                  "format": "table"
+                },
+                {
+                  "expr": "max by (job, instance) (scrape_duration_seconds{nktp_metrics_pool=\"nodeless\",job!=\"nktp-nodeless-metrics-targetallocator\"})",
+                  "refId": "C",
+                  "instant": true,
+                  "range": false,
+                  "format": "table"
+                }
+              ],
+              "transformations": [
+                {
+                  "id": "merge",
+                  "options": {}
+                },
+                {
+                  "id": "organize",
+                  "options": {
+                    "excludeByName": {
+                      "Time": true
+                    },
+                    "indexByName": {
+                      "job": 0,
+                      "instance": 1,
+                      "Value #A": 2,
+                      "Value #B": 3,
+                      "Value #C": 4
+                    },
+                    "renameByName": {
+                      "job": "Job",
+                      "instance": "Instance",
+                      "Value #A": "Up",
+                      "Value #B": "Samples",
+                      "Value #C": "Scrape duration"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": 13,
+              "type": "timeseries",
+              "title": "Probe success",
+              "description": "probe_success per Probe target, where 1 is a successful probe. Only Probes report it; ServiceMonitors and static ScrapeConfigs appear in the Targets table.",
+              "gridPos": {
+                "x": 0,
+                "y": 47,
+                "w": 12,
+                "h": 7
+              },
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0,
+                  "max": 1,
+                  "decimals": 0
+                }
+              },
+              "targets": [
+                {
+                  "expr": "min by (job, instance) (probe_success{nktp_metrics_pool=\"nodeless\"})",
+                  "legendFormat": "{{job}} {{instance}}",
+                  "refId": "A"
+                }
+              ]
+            },
+            {
+              "id": 14,
+              "type": "timeseries",
+              "title": "Targets down by job",
+              "description": "Targets whose last scrape failed, per job.",
+              "gridPos": {
+                "x": 12,
+                "y": 47,
+                "w": 12,
+                "h": 7
+              },
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0,
+                  "decimals": 0
+                }
+              },
+              "targets": [
+                {
+                  "expr": "sum by (job) (up{nktp_metrics_pool=\"nodeless\",job!=\"nktp-nodeless-metrics-targetallocator\"} == bool 0)",
+                  "legendFormat": "{{job}}",
+                  "refId": "A"
+                }
+              ]
+            },
+            {
+              "id": 21,
+              "type": "row",
+              "title": "Queues and resources",
+              "collapsed": false,
+              "gridPos": {
+                "x": 0,
+                "y": 54,
+                "w": 24,
+                "h": 1
+              },
+              "panels": []
+            },
+            {
+              "id": 22,
+              "type": "timeseries",
+              "title": "Exporter queue use · top 20",
+              "gridPos": {
+                "x": 0,
+                "y": 55,
+                "w": 24,
+                "h": 7
+              },
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0,
+                  "unit": "percent"
+                }
+              },
+              "targets": [
+                {
+                  "expr": "100 * (max by (instance, exporter, data_type) (otelcol_exporter_queue_size{job=\"nktp-nodeless-metrics\"} / otelcol_exporter_queue_capacity{job=\"nktp-nodeless-metrics\"})) and on (instance, exporter, data_type) topk(20, max by (instance, exporter, data_type) (otelcol_exporter_queue_size{job=\"nktp-nodeless-metrics\"} @ end() / otelcol_exporter_queue_capacity{job=\"nktp-nodeless-metrics\"} @ end()))",
+                  "legendFormat": "{{instance}} {{exporter}} {{data_type}}",
+                  "refId": "A"
+                }
+              ],
+              "description": "The 20 fullest exporter queues at the end of the range."
+            },
+            {
+              "id": 23,
+              "type": "timeseries",
+              "title": "CPU cores · top 20",
+              "gridPos": {
+                "x": 0,
+                "y": 62,
+                "w": 12,
+                "h": 7
+              },
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0,
+                  "unit": "cores"
+                }
+              },
+              "targets": [
+                {
+                  "expr": "(sum by (instance) (rate(otelcol_process_cpu_seconds_total{job=\"nktp-nodeless-metrics\"}[5m]))) and on (instance) topk(20, sum by (instance) (rate(otelcol_process_cpu_seconds_total{job=\"nktp-nodeless-metrics\"}[5m] @ end())))",
+                  "legendFormat": "{{instance}}",
+                  "refId": "A"
+                }
+              ]
+            },
+            {
+              "id": 24,
+              "type": "timeseries",
+              "title": "Memory (RSS) · top 20",
+              "gridPos": {
+                "x": 12,
+                "y": 62,
+                "w": 12,
+                "h": 7
+              },
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0,
+                  "unit": "bytes"
+                }
+              },
+              "targets": [
+                {
+                  "expr": "(sum by (instance) (otelcol_process_memory_rss_bytes{job=\"nktp-nodeless-metrics\"})) and on (instance) topk(20, sum by (instance) (otelcol_process_memory_rss_bytes{job=\"nktp-nodeless-metrics\"} @ end()))",
+                  "legendFormat": "{{instance}}",
+                  "refId": "A"
+                }
+              ]
+            },
+            {
+              "id": 25,
+              "type": "row",
+              "title": "Self-telemetry sidecar",
+              "collapsed": false,
+              "gridPos": {
+                "x": 0,
+                "y": 69,
+                "w": 24,
+                "h": 1
+              },
+              "panels": []
+            },
+            {
+              "id": 26,
+              "type": "timeseries",
+              "title": "Sidecar queue use",
+              "description": "Fullest sidecar export queue of any Pod, per signal. The sidecar buffers this Collector's internal telemetry while the watchdog is unavailable.",
+              "gridPos": {
+                "x": 0,
+                "y": 70,
+                "w": 12,
+                "h": 7
+              },
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0,
+                  "unit": "percent"
+                }
+              },
+              "targets": [
+                {
+                  "expr": "100 * max by (data_type) (otelcol_exporter_queue_size{job=\"nktp-nodeless-metrics-sidecar\"} / otelcol_exporter_queue_capacity{job=\"nktp-nodeless-metrics-sidecar\"})",
+                  "legendFormat": "{{data_type}}",
+                  "refId": "A"
+                }
+              ]
+            },
+            {
+              "id": 27,
+              "type": "timeseries",
+              "title": "Sidecar export failures /s",
+              "description": "Internal telemetry that the sidecar failed to send to the watchdog, per signal.",
+              "gridPos": {
+                "x": 12,
+                "y": 70,
+                "w": 12,
+                "h": 7
+              },
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0
+                }
+              },
+              "targets": [
+                {
+                  "expr": "sum(rate(otelcol_exporter_send_failed_metric_points_total{job=\"nktp-nodeless-metrics-sidecar\"}[5m])) or 0 * sum(otelcol_exporter_queue_capacity{job=\"nktp-nodeless-metrics-sidecar\",data_type=\"metrics\"})",
+                  "legendFormat": "metrics",
+                  "refId": "A"
+                },
+                {
+                  "expr": "sum(rate(otelcol_exporter_send_failed_log_records_total{job=\"nktp-nodeless-metrics-sidecar\"}[5m])) or 0 * sum(otelcol_exporter_queue_capacity{job=\"nktp-nodeless-metrics-sidecar\",data_type=\"logs\"})",
+                  "legendFormat": "logs",
+                  "refId": "B"
+                },
+                {
+                  "expr": "sum(rate(otelcol_exporter_send_failed_spans_total{job=\"nktp-nodeless-metrics-sidecar\"}[5m])) or 0 * sum(otelcol_exporter_queue_capacity{job=\"nktp-nodeless-metrics-sidecar\",data_type=\"traces\"})",
+                  "legendFormat": "traces",
+                  "refId": "C"
+                }
+              ]
+            },
+            {
+              "id": 28,
+              "type": "timeseries",
+              "title": "Sidecar refused /s",
+              "description": "Internal telemetry that the sidecar refused, per signal, for example under memory pressure.",
+              "gridPos": {
+                "x": 0,
+                "y": 77,
+                "w": 12,
+                "h": 7
+              },
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0
+                }
+              },
+              "targets": [
+                {
+                  "expr": "sum(rate(otelcol_receiver_refused_metric_points_total{job=\"nktp-nodeless-metrics-sidecar\"}[5m])) or 0 * sum(rate(otelcol_receiver_accepted_metric_points_total{job=\"nktp-nodeless-metrics-sidecar\"}[5m]))",
+                  "legendFormat": "metrics",
+                  "refId": "A"
+                },
+                {
+                  "expr": "sum(rate(otelcol_receiver_refused_log_records_total{job=\"nktp-nodeless-metrics-sidecar\"}[5m])) or 0 * sum(rate(otelcol_receiver_accepted_log_records_total{job=\"nktp-nodeless-metrics-sidecar\"}[5m]))",
+                  "legendFormat": "logs",
+                  "refId": "B"
+                },
+                {
+                  "expr": "sum(rate(otelcol_receiver_refused_spans_total{job=\"nktp-nodeless-metrics-sidecar\"}[5m])) or 0 * sum(rate(otelcol_receiver_accepted_spans_total{job=\"nktp-nodeless-metrics-sidecar\"}[5m]))",
+                  "legendFormat": "traces",
+                  "refId": "C"
+                }
+              ]
+            },
+            {
+              "id": 29,
+              "type": "timeseries",
+              "title": "Sidecar traces kept and dropped /s",
+              "description": "Tail sampling decisions. A trace is kept when a span has an error or lasts longer than 1 second.",
+              "gridPos": {
+                "x": 12,
+                "y": 77,
+                "w": 12,
+                "h": 7
+              },
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0
+                }
+              },
+              "targets": [
+                {
+                  "expr": "sum(rate(otelcol_processor_tail_sampling_global_count_traces_sampled_total{job=\"nktp-nodeless-metrics-sidecar\",sampled=\"true\"}[5m])) or 0 * sum(rate(otelcol_processor_tail_sampling_global_count_traces_sampled_total{job=\"nktp-nodeless-metrics-sidecar\",sampled=\"false\"}[5m]))",
+                  "legendFormat": "kept",
+                  "refId": "A"
+                },
+                {
+                  "expr": "sum(rate(otelcol_processor_tail_sampling_global_count_traces_sampled_total{job=\"nktp-nodeless-metrics-sidecar\",sampled=\"false\"}[5m]))",
+                  "legendFormat": "dropped",
+                  "refId": "B"
+                }
+              ]
+            },
+            {
+              "id": 30,
+              "type": "timeseries",
+              "title": "Sidecar CPU cores, highest Pod",
+              "gridPos": {
+                "x": 0,
+                "y": 84,
+                "w": 12,
+                "h": 7
+              },
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0,
+                  "unit": "cores"
+                }
+              },
+              "targets": [
+                {
+                  "expr": "max(rate(otelcol_process_cpu_seconds_total{job=\"nktp-nodeless-metrics-sidecar\"}[5m]))",
+                  "legendFormat": "highest Pod",
+                  "refId": "A"
+                }
+              ]
+            },
+            {
+              "id": 31,
+              "type": "timeseries",
+              "title": "Sidecar memory (RSS), highest Pod",
+              "gridPos": {
+                "x": 12,
+                "y": 84,
+                "w": 12,
+                "h": 7
+              },
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0,
+                  "unit": "bytes"
+                }
+              },
+              "targets": [
+                {
+                  "expr": "max(otelcol_process_memory_rss_bytes{job=\"nktp-nodeless-metrics-sidecar\"})",
+                  "legendFormat": "highest Pod",
+                  "refId": "A"
+                }
+              ],
+              "description": "Memory of the sidecar that uses the most. Compare it with the sidecar's memory limit."
+            }
+          ]
+        }
       nktp-operator.json: |
         {
           "uid": "nktp-operator",
@@ -13254,7 +14466,7 @@ matches the snapshot with default values:
     metadata:
       name: lgtm-dashboards
       namespace: NAMESPACE
-  74: |
+  78: |
     apiVersion: v1
     kind: Service
     metadata:
@@ -13280,7 +14492,7 @@ matches the snapshot with default values:
           targetPort: 4318
       selector:
         app: lgtm
-  75: |
+  79: |
     apiVersion: apps/v1
     kind: Deployment
     metadata:
@@ -13294,7 +14506,7 @@ matches the snapshot with default values:
       template:
         metadata:
           annotations:
-            checksum/dashboards: 672ff8ac26fdb9a9cc7c3faf5dc43ff1c534a7966dc99a74aac5aef33d8ab709
+            checksum/dashboards: a6cb24238b80349b681e0b23eaf0f6a2ea01ee5cc442eb1d81c6016f92206f43
           labels:
             app: lgtm
         spec:
@@ -13357,7 +14569,7 @@ matches the snapshot with default values:
               name: p8s-storage
             - emptyDir: {}
               name: pyroscope-storage
-  76: |
+  80: |
     apiVersion: scheduling.k8s.io/v1
     description: Prioritizes NKTP telemetry below Kubernetes system-critical Pods.
     globalDefault: false
@@ -13366,7 +14578,7 @@ matches the snapshot with default values:
       name: nktp-telemetry-critical
     preemptionPolicy: PreemptLowerPriority
     value: 1000000000
-  77: |
+  81: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -13379,7 +14591,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-watchdog-collector
         namespace: NAMESPACE
-  78: |
+  82: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: Role
     metadata:
@@ -13403,7 +14615,7 @@ matches the snapshot with default values:
           - get
           - list
           - watch
-  79: |
+  83: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: RoleBinding
     metadata:
@@ -13417,7 +14629,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-watchdog-targetallocator
         namespace: NAMESPACE
-  80: |
+  84: |
     apiVersion: opentelemetry.io/v1beta1
     kind: OpenTelemetryCollector
     metadata:

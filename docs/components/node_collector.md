@@ -281,8 +281,8 @@ Setting `daemonset.kubernetes.targetAllocator.enabled` to `false` will cause Hel
 rendering to fail.
 
 Monitoring CRs labeled `nktp.nvidia.io/large-target: "true"` are excluded.
-Unlabeled monitors remain eligible. Targets without a matching collector node
-remain unassigned.
+Its scrape classes keep only targets that have a node; the
+[nodeless metrics pool](nodeless_metrics.md) scrapes the rest.
 
 The Target Allocator defaults `prometheusCR.denyFSAccessThroughSMs` to `false`
 for compatibility with existing ServiceMonitors and PodMonitors that reference

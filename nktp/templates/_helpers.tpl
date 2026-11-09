@@ -104,6 +104,37 @@ mainEnv (optional, env entries to add to the main Collector when missing).
 {{- end -}}
 
 {{/*
+Return {scrapeClasses: <list>}: the Target Allocator's scrape classes, each with
+a first relabeling that keeps (action keep) or drops (action drop) the targets
+that have a node. When no class is the default, a default class named name is
+added, so monitors without scrapeClassName are split too. Because every class
+carries the split, a monitor that names its own class is still scraped by one
+pool only.
+
+The regex mirrors Item.GetNodeName in the pinned Target Allocator: a node label
+is set, or the EndpointSlice address targets a Node by name. This is how the
+per-node strategy places a target.
+
+Arguments: classes (list, may be empty), action (keep or drop), name (default
+class name).
+*/}}
+{{- define "nktp.nodeScrapeClasses" -}}
+{{- $rule := dict "sourceLabels" (list "__meta_kubernetes_pod_node_name" "__meta_kubernetes_node_name" "__meta_kubernetes_endpoint_node_name" "__meta_kubernetes_endpointslice_address_target_kind" "__meta_kubernetes_endpointslice_address_target_name") "separator" ";" "regex" "[^;]+;.*|[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]*;Node;[^;]+" "action" .action -}}
+{{- $classes := list -}}
+{{- $hasDefault := false -}}
+{{- range $class := .classes | default list -}}
+  {{- $class = deepCopy $class -}}
+  {{- $_ := set $class "relabelings" (prepend ($class.relabelings | default list) $rule) -}}
+  {{- if $class.default -}}{{- $hasDefault = true -}}{{- end -}}
+  {{- $classes = append $classes $class -}}
+{{- end -}}
+{{- if not $hasDefault -}}
+  {{- $classes = prepend $classes (dict "name" .name "default" true "relabelings" (list $rule)) -}}
+{{- end -}}
+{{- toYaml (dict "scrapeClasses" $classes) -}}
+{{- end -}}
+
+{{/*
 Return {env: <list>}: env with each entry of add appended when env has no entry
 with the same name. A user's own entry always wins.
 

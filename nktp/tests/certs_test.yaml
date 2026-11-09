@@ -8,7 +8,7 @@ tests:
   - it: creates the internal CA and collector-to-gateway and watchdog leaf certificates by default
     asserts:
       - hasDocuments:
-          count: 13
+          count: 14
       - equal:
           path: spec.selfSigned
           value: {}
@@ -44,6 +44,7 @@ tests:
       - containsDocument: {apiVersion: cert-manager.io/v1, kind: Certificate, name: nktp-gateway-traces-server, any: true}
       - containsDocument: {apiVersion: cert-manager.io/v1, kind: Certificate, name: nktp-daemonset-client, any: true}
       - containsDocument: {apiVersion: cert-manager.io/v1, kind: Certificate, name: nktp-large-target-metrics-client, any: true}
+      - containsDocument: {apiVersion: cert-manager.io/v1, kind: Certificate, name: nktp-nodeless-metrics-client, any: true}
       - containsDocument: {apiVersion: cert-manager.io/v1, kind: Certificate, name: nktp-cluster-events-client, any: true}
       - containsDocument: {apiVersion: cert-manager.io/v1, kind: Certificate, name: nktp-watchdog-server, any: true}
       - containsDocument: {apiVersion: cert-manager.io/v1, kind: Certificate, name: nktp-gateway-logs-client, any: true}
@@ -179,7 +180,7 @@ tests:
         group: cert-manager.io
     asserts:
       - hasDocuments:
-          count: 10
+          count: 11
       - containsDocument:
           apiVersion: cert-manager.io/v1
           kind: Issuer

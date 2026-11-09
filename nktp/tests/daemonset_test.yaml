@@ -377,7 +377,7 @@ tests:
             service.instance.id: ${env:POD_NAME}
             k8s.node.name: ${env:NODE_NAME}
 
-  - it: allocates per node and excludes large-target and kubelet ServiceMonitors
+  - it: allocates per node, excludes large-target and kubelet ServiceMonitors, and keeps only targets with a node
     asserts:
       - equal:
           path: spec.targetAllocator.enabled
@@ -458,6 +458,36 @@ tests:
               matchExpressions: [{key: nktp.nvidia.io/large-target, operator: NotIn, values: ["true"]}]
             scrapeConfigSelector:
               matchExpressions: [{key: nktp.nvidia.io/large-target, operator: NotIn, values: ["true"]}]
+            scrapeClasses:
+              - name: nktp-node-targets
+                default: true
+                relabelings:
+                  - sourceLabels:
+                      - __meta_kubernetes_pod_node_name
+                      - __meta_kubernetes_node_name
+                      - __meta_kubernetes_endpoint_node_name
+                      - __meta_kubernetes_endpointslice_address_target_kind
+                      - __meta_kubernetes_endpointslice_address_target_name
+                    separator: ";"
+                    regex: "[^;]+;.*|[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]+;.*|[^;]*;[^;]*;[^;]*;Node;[^;]+"
+                    action: keep
+
+  - it: keeps only targets with a node in a user's scrape class
+    set:
+      daemonset.kubernetes.targetAllocator.prometheusCR.scrapeClasses:
+        - name: team-a
+          relabelings:
+            - {targetLabel: team, replacement: a}
+    asserts:
+      - equal:
+          path: spec.targetAllocator.prometheusCR.scrapeClasses[0].name
+          value: nktp-node-targets
+      - equal:
+          path: spec.targetAllocator.prometheusCR.scrapeClasses[1].relabelings[0].action
+          value: keep
+      - equal:
+          path: spec.targetAllocator.prometheusCR.scrapeClasses[1].relabelings[1]
+          value: {targetLabel: team, replacement: a}
 
   - it: uses the global image and release namespace with an existing Operator
     release:
