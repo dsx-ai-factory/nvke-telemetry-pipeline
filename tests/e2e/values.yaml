@@ -68,6 +68,13 @@ gateway_traces:
 daemonset:
   kubernetes:
     targetAllocator:
+      # Monitors in the nodeless metrics test name this class. A monitor's
+      # class must exist on every allocator that selects it.
+      prometheusCR:
+        scrapeClasses: &e2e-scrape-classes
+          - name: nktp-e2e
+            relabelings:
+              - {action: replace, targetLabel: nktp_e2e_scrape_class, replacement: nktp-e2e}
       resources:
         requests:
           cpu: 50m
@@ -141,11 +148,13 @@ large_target_metrics:
         memory: 256Mi
 
 # Large target metrics covers distribution across a pool. One scraper is
-# enough to show that an unlabeled Probe reaches this pool and no other.
+# enough to show which targets reach this pool.
 nodeless_metrics:
   kubernetes:
     replicas: 1
     targetAllocator:
+      prometheusCR:
+        scrapeClasses: *e2e-scrape-classes
       resources:
         requests:
           cpu: 10m
