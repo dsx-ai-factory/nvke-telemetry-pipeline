@@ -35,6 +35,9 @@ The Target Allocator defaults `prometheusCR.denyFSAccessThroughSMs` to `false`
 for compatibility with existing monitors that reference local bearer-token or
 TLS files. See
 [Restrict monitor file access](../guides/restrict_monitor_file_access.md).
+The chart does not grant this allocator access to Secrets or ConfigMaps that
+monitors reference; see
+[Grant the large-target and nodeless allocators access](../guides/restrict_monitor_file_access.md#grant-the-large-target-and-nodeless-allocators-access).
 
 Setting `nodeless_metrics.kubernetes.targetAllocator.enabled` to `false`
 will cause Helm rendering to fail. Target Allocator telemetry is sent to watchdog.
