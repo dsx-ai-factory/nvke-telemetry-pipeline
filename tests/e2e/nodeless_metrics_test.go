@@ -33,9 +33,9 @@ import (
 const (
 	// ownershipScrapeInterval is every fixture monitor's interval.
 	ownershipScrapeInterval = 15 * time.Second
-	// ownershipWindow follows the first sample of every target. It spans
-	// several Collector target reloads (10s) and scrapes, so a scraper that
-	// picks a target up late is still seen.
+	// ownershipWindow starts once every target is ready. It spans several
+	// Collector target reloads (10s) and scrapes, so a scraper that picks a
+	// target up late is still seen.
 	ownershipWindow = 2 * time.Minute
 	externalService = "nktp-e2e-ownership-external"
 )
@@ -59,7 +59,9 @@ func TestNodelessMetrics(t *testing.T) {
 	namespace := testenv.EnvConf().Namespace()
 	probeJob := fmt.Sprintf("probe/%s/nktp-e2e-nodeless-probe", namespace)
 	selector := fmt.Sprintf(`up{job=~"nktp-e2e-ownership-.+|scrapeConfig/%s/nktp-e2e-ownership-.+|%s"}`, namespace, probeJob)
-	var started time.Time
+	// started is when this run applied its fixtures, and ready is when every
+	// target was first scraped successfully by its pool.
+	var started, ready time.Time
 	// The pool each target belongs to, and the targets in the nktp-e2e class.
 	want := map[ownershipTarget]string{}
 	classed := map[ownershipTarget]bool{}
@@ -110,31 +112,46 @@ func TestNodelessMetrics(t *testing.T) {
 			want[ownershipTarget{probeJob, "http://nktp-blackbox-exporter:9115/-/healthy"}] = "nodeless"
 			return ctx
 		}).
-		AssessWithDescription("TargetsReachTheirPools", "Every target is scraped successfully by its pool, and the nktp-e2e class applies to the targets of the monitors that name it.", func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
+		AssessWithDescription("TargetsReachTheirPools", "Every target is scraped successfully by its pool, the Probe succeeds, and the nktp-e2e class applies to the targets of the monitors that name it.", func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
 			waitCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 			defer cancel()
 			services := proxyServices(t, c, namespace)
-			// The latest up of each target and pool since this run applied its
-			// fixtures, so a series from an earlier run cannot match.
-			query := func() string {
+			// The best up of each target and pool, and the latest probe_success
+			// of each pool, since this run applied its fixtures, so a series
+			// from an earlier run cannot match.
+			upQuery := func() string {
 				return fmt.Sprintf(`max by (job, instance, nktp_metrics_pool, nktp_e2e_scrape_class) (max_over_time(%s[%ds]))`,
 					selector, rangeSeconds(started))
 			}
+			probeQuery := func() string {
+				return fmt.Sprintf(`max by (nktp_metrics_pool) (last_over_time(probe_success{job=%q}[%ds]))`,
+					probeJob, rangeSeconds(started))
+			}
 			var missing []string
+			var probes []prometheusSample
 			var lastErr error
 			err := wait.For(func(ctx context.Context) (bool, error) {
 				var series []prometheusSample
-				series, lastErr = prometheusVector(ctx, services, query())
+				series, lastErr = prometheusVector(ctx, services, upQuery())
 				if lastErr != nil {
 					return false, nil
 				}
 				missing = missingOwnership(series, want, classed)
-				return len(missing) == 0, nil
+				probes, lastErr = prometheusVector(ctx, services, probeQuery())
+				if lastErr != nil {
+					return false, nil
+				}
+				probed := slices.ContainsFunc(probes, func(s prometheusSample) bool {
+					return s.Metric["nktp_metrics_pool"] == "nodeless" && s.Value == 1
+				})
+				return len(missing) == 0 && probed, nil
 			}, wait.WithContext(waitCtx), wait.WithTimeout(0), wait.WithInterval(5*time.Second), wait.WithImmediate())
-			require.NoError(t, err, "targets not yet scraped successfully by their pool: %v; last query error: %v", missing, lastErr)
+			require.NoError(t, err, "targets not yet scraped successfully by their pool: %v; want probe_success == 1 for %s from pool nodeless, got %v; last query error: %v",
+				missing, probeJob, probes, lastErr)
+			ready = time.Now()
 			return ctx
 		}).
-		AssessWithDescription("NoTargetScrapedTwice", "Over discovery, reloads and scraping, each target is scraped by its own pool only, and by one scraper in it.", func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
+		AssessWithDescription("NoTargetScrapedTwice", "Over discovery, reloads and scraping, each target is scraped by its own pool only, and once targets are ready, by one scraper in it.", func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
 			select {
 			case <-ctx.Done():
 				require.NoError(t, ctx.Err())
@@ -143,15 +160,19 @@ func TestNodelessMetrics(t *testing.T) {
 			services := proxyServices(t, c, namespace)
 			queryCtx, cancel := context.WithTimeout(ctx, time.Minute)
 			defer cancel()
-			seconds := rangeSeconds(started)
-			series, err := prometheusVector(queryCtx, services, fmt.Sprintf(
-				`sum by (job, instance, nktp_metrics_pool) (count_over_time(%s[%ds]))`, selector, seconds))
-			require.NoError(t, err)
-			// One scraper takes at most one sample per interval. A second one in
-			// the same pool, whether or not it adds a label, adds more.
-			limit := float64(seconds)/ownershipScrapeInterval.Seconds() + 2
+			// Pools are checked over the whole run; sample counts only since
+			// ready, so discovery time does not raise the limit.
+			counts := func(since time.Time) (int, []prometheusSample) {
+				seconds := rangeSeconds(since)
+				series, err := prometheusVector(queryCtx, services, fmt.Sprintf(
+					`sum by (job, instance, nktp_metrics_pool) (count_over_time(%s[%ds]))`, selector, seconds))
+				require.NoError(t, err)
+				return seconds, series
+			}
+			_, run := counts(started)
+			seconds, observed := counts(ready)
 			var problems []string
-			for _, s := range series {
+			for _, s := range run {
 				target := ownershipTarget{s.Metric["job"], s.Metric["instance"]}
 				pool := s.Metric["nktp_metrics_pool"]
 				expected, ok := want[target]
@@ -160,7 +181,14 @@ func TestNodelessMetrics(t *testing.T) {
 					problems = append(problems, fmt.Sprintf("unexpected target %s from pool %s", target, poolName(pool)))
 				case pool != expected:
 					problems = append(problems, fmt.Sprintf("%s also scraped by pool %s, want only %s", target, poolName(pool), poolName(expected)))
-				case s.Value > limit:
+				}
+			}
+			// One scraper takes at most one sample per interval. A second one in
+			// the same pool, whether or not it adds a label, adds more.
+			limit := float64(seconds)/ownershipScrapeInterval.Seconds() + 2
+			for _, s := range observed {
+				target := ownershipTarget{s.Metric["job"], s.Metric["instance"]}
+				if pool := s.Metric["nktp_metrics_pool"]; want[target] == pool && s.Value > limit {
 					problems = append(problems, fmt.Sprintf("%s has %.0f samples in %ds from pool %s, more than one scraper's %.0f",
 						target, s.Value, seconds, poolName(pool), limit))
 				}
