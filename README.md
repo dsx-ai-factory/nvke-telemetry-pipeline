@@ -84,7 +84,7 @@ kubectl create namespace nktp
 kubectl label namespace nktp pod-security.kubernetes.io/enforce=privileged
 
 helm install nktp nvidia/nktp \
-  --version 0.1.0 \
+  --version 0.2.0 \
   --namespace nktp \
   --set global.clusterName=my-cluster \
   --wait
