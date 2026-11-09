@@ -52,6 +52,12 @@ updates:
       prefix: build
       include: scope
     ignore:
+      # Keep the cleanup hook's kubectl on the Kubernetes 1.35 minor series.
+      - dependency-name: registry.k8s.io/kubectl
+        versions: ['<1.35.0', '>=1.36.0']
+      # Stay on the node-exporter chart's 4.x series until its major upgrade is reviewed.
+      - dependency-name: prometheus-node-exporter
+        versions: ['<4.0.0', '>=5.0.0']
       # Must match the Operator bundled by opentelemetry-kube-stack. Update
       # this image deliberately alongside that chart, rather than independently.
       - dependency-name: ghcr.io/open-telemetry/opentelemetry-operator/target-allocator
