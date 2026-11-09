@@ -11,6 +11,10 @@ The node Collector now saves file offsets and journal cursors to disk so it
 can resume reading after a restart. Persistent checkpoints are enabled by
 default.
 
+On the first upgrade from memory-only tracking, receivers using `start_at: end`
+may skip unread records already present when they start; checkpoints protect
+subsequent restarts but cannot recover those skipped records.
+
 **ACTION REQUIRED:** Before upgrading, confirm that the Collector can write to
 `/var/lib/nktp/log-checkpoints`, or configure another writable host directory.
 To disable persistence, use the
