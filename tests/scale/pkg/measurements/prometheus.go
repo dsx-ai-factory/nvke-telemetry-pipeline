@@ -144,7 +144,9 @@ func validatePrometheusSpec(spec yaml.Node) error {
 // Backend warnings fail checks and remain in the report.
 // Failed checks, request errors and caller cancellation retain partial reports.
 // With a completion target, Run succeeds only after reaching it before duration.
-// The entire polling round must finish within duration to confirm completion.
+// Completion holds reset after gaps longer than twice the polling interval.
+// The entire polling round must finish within that bound and within duration
+// to confirm completion.
 // Errors in the same polling round take precedence over completion.
 // Ordinary expiry does not stop generators.
 func (p *Prometheus) Run(ctx context.Context) (report Report, err error) {
@@ -161,7 +163,7 @@ func (p *Prometheus) Run(ctx context.Context) (report Report, err error) {
 		if check := measurement.Check; check != nil {
 			query.Expression = check.Expr
 			query.Check = &CheckReport{Action: check.Action, For: check.For}
-			checks[measurement.Name] = &checkState{hold: check.For, complete: check.Action == Complete}
+			checks[measurement.Name] = &checkState{hold: check.For, complete: check.Action == Complete, maxGap: 2 * p.config.Interval}
 		}
 		queries[measurement.Name] = query
 	}
@@ -222,8 +224,13 @@ func (p *Prometheus) Run(ctx context.Context) (report Report, err error) {
 			return report, ctx.Err()
 		}
 		if complete {
-			completed = true
-			return report, nil
+			if time.Since(at) <= checks[p.completion].maxGap {
+				completed = true
+				return report, nil
+			}
+			checks[p.completion].pending = nil
+			queries[p.completion].Check.FiredAt = nil
+			queries[p.completion].Check.Series = nil
 		}
 		select {
 		case <-runCtx.Done():

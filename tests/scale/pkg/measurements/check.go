@@ -24,6 +24,10 @@ type CheckReport struct {
 type checkState struct {
 	// complete requires one finite aggregate series for a completion target.
 	complete bool
+	// maxGap bounds time between evaluations of a completion check.
+	maxGap time.Duration
+	// lastEvaluation is the previous query evaluation timestamp.
+	lastEvaluation time.Time
 	// hold is the required duration across consecutive matching evaluations.
 	hold time.Duration
 	// pending maps complete label sets to their first matching evaluation.
@@ -53,6 +57,10 @@ func (s *checkState) evaluate(observation QueryObservation) ([]model.Metric, err
 		}
 	}
 	at := observation.EvaluatedAt
+	if s.complete && !s.lastEvaluation.IsZero() && at.Sub(s.lastEvaluation) > s.maxGap {
+		s.pending = nil
+	}
+	s.lastEvaluation = at
 	current := make(map[string]time.Time, len(vector))
 	var fired []model.Metric
 	for _, sample := range vector {

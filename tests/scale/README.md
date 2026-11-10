@@ -27,6 +27,12 @@ counts, sizes and placement with benchmark results. Cluster provisioning and
 deletion are managed outside this suite. Run commands from the repository
 root. Examples expect the `nktp` release in namespace `nktp`.
 
+Start each independent scale run with a clean test environment and an empty
+telemetry backend. Collector self-telemetry is not automatically scoped by the
+run ID. With LGTM, recreate its storage between runs. Apply the same expectation
+to any replacement backend by using an empty, isolated data scope for all test
+telemetry.
+
 Authenticate with your cluster provider, then set `KUBECONFIG` to one readable
 file with a current context. Edit the path before running:
 
@@ -81,9 +87,10 @@ checks can fail a plan or complete a stage.
 ## Cleanup
 
 Each run removes the workloads it creates, including after failure or
-cancellation. The installed environment remains available for inspection and
-subsequent runs. Save observations before removing it because LGTM storage is
-temporary.
+cancellation. The installed environment remains available for inspection until
+you remove it. Save reports and observations before cleanup, then remove the test
+environment and its backend telemetry before the next independent run. LGTM
+storage is temporary. For another backend, also clear the isolated test data.
 
 For the telemetrygen setup above:
 

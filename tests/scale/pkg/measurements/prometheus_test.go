@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -15,6 +16,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/prometheus/client_golang/api"
@@ -505,6 +507,89 @@ measurements:
 				assert.NotEmpty(t, queries["z_guard"].Observations)
 			}
 			assert.NotNil(t, report["finished_at"])
+		})
+	}
+}
+
+// roundTripFunc handles HTTP requests without network waits in fake-time tests.
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+// RoundTrip returns the response supplied by the test.
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
+}
+
+// TestPrometheusCompletionTiming requires a fresh round and bounded polling gaps.
+func TestPrometheusCompletionTiming(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		delayQuery string
+		delayAt    time.Duration
+		delay      time.Duration
+		repeat     bool
+		hold       string
+		wantFinish time.Duration
+		wantError  bool
+	}{
+		{name: "regular polling", hold: "3m", wantFinish: 3 * time.Minute},
+		{name: "gap at limit", delayQuery: "guard", delayAt: time.Minute, delay: 2 * time.Minute, hold: "3m", wantFinish: 3 * time.Minute},
+		{name: "gap resets hold", delayQuery: "guard", delayAt: time.Minute, delay: 3 * time.Minute, hold: "3m", wantFinish: 7 * time.Minute},
+		{name: "slow final guard", delayQuery: "guard", delayAt: 3 * time.Minute, delay: 3 * time.Minute, hold: "3m", wantFinish: 9 * time.Minute},
+		{name: "slow completion response", delayQuery: "ready", delayAt: 3 * time.Minute, delay: 3 * time.Minute, hold: "3m", wantFinish: 9 * time.Minute},
+		{name: "immediate completion needs fresh round", delayQuery: "guard", delay: 3 * time.Minute, hold: "0s", wantFinish: 3 * time.Minute},
+		{name: "repeated gaps time out", delayQuery: "guard", delay: 3 * time.Minute, repeat: true, hold: "3m", wantFinish: 12 * time.Minute, wantError: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				started := time.Now()
+				originalTransport := api.DefaultRoundTripper
+				t.Cleanup(func() { api.DefaultRoundTripper = originalTransport })
+				api.DefaultRoundTripper = roundTripFunc(func(r *http.Request) (*http.Response, error) {
+					err := r.ParseForm()
+					require.NoError(t, err)
+					query := r.Form.Get("query")
+					if query == test.delayQuery && (test.repeat || time.Since(started) == test.delayAt) {
+						select {
+						case <-time.After(test.delay):
+						case <-r.Context().Done():
+							return nil, r.Context().Err()
+						}
+					}
+					result := `[]`
+					if query == "ready" {
+						result = `[{"metric":{},"value":[100,"1"]}]`
+					}
+					body := fmt.Sprintf(`{"status":"success","data":{"resultType":"vector","result":%s}}`, result)
+					return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body))}, nil
+				})
+				measurement, err := NewPrometheus(measurementSpec(t, fmt.Sprintf(`endpoint: http://localhost:9090
+duration: 12m
+interval: 1m
+query_timeout: 4m
+measurements:
+  - name: a_ready
+    check: {expr: ready, action: complete, for: %s}
+  - name: z_guard
+    check: {expr: guard}
+`, test.hold)))
+				require.NoError(t, err)
+				report, err := measurement.Run(t.Context())
+				if test.wantError {
+					require.ErrorContains(t, err, "was not confirmed before duration")
+				} else {
+					require.NoError(t, err)
+				}
+				assert.Equal(t, test.wantFinish, time.Since(started))
+				query := report["queries"].(map[string]QueryReport)["a_ready"]
+				assert.NotEmpty(t, query.Observations)
+				if test.wantError {
+					assert.Nil(t, query.Check.FiredAt)
+					assert.Empty(t, query.Check.Series)
+				} else {
+					require.NotNil(t, query.Check.FiredAt)
+					assert.Equal(t, started.Add(test.wantFinish).UTC(), *query.Check.FiredAt)
+				}
+			})
 		})
 	}
 }
