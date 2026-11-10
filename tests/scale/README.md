@@ -102,5 +102,11 @@ task scale:uninstall
 value as installation. With `true`, it also removes the KWOK releases and
 completion policy. It preserves cert-manager, the cluster and kubeconfig.
 
+`scale:uninstall` retains the watchdog and gateway queue PVCs. Before the
+next independent run, follow the
+[queue-storage deletion procedure](../../docs/guides/configure_exporter_queue_storage.md#delete-the-claims)
+to prevent queued telemetry from being replayed. If the backing volumes
+use the `Retain` reclaim policy, clean up their retained data as well.
+
 Failed setup leaves resources for inspection. Uninstall does not run
 automatically after a test.
