@@ -59,7 +59,10 @@ Provide the following before installing NKTP.
   for the "Configure node log checkpoints" guide covering both options.
 - **Capacity.** The defaults are sized for large clusters: about 5.2 CPU and
   14.9 GiB of memory in requests for the cluster-wide components, plus about
-  0.6 CPU and 1.2 GiB on every node for the per-node DaemonSets.
+  0.6 CPU and 1.2 GiB on every node for the per-node DaemonSets. These budgets
+  assume one NKTP installation per cluster. Multiple releases in the same
+  cluster are untested and unsupported; shared checkpoint hostPaths are one
+  source of contention.
 
 ## Install
 
@@ -92,7 +95,7 @@ Review the upgrade notes for your target version, available through
 your Helm values file before upgrading.
 
 If the target chart version updates the bundled OpenTelemetry or Prometheus
-CRDs, apply those updated CRDs before `helm upgrade`. Helm does not upgrade
+CRDs, follow [Update CRDs](#update-crds) before `helm upgrade`. Helm does not upgrade
 CRDs installed from a chart's `crds/` directory. Leaving outdated CRDs in place
 can cause fields introduced by the new version to be dropped.
 
@@ -104,19 +107,88 @@ Use `--reset-values` for both cases below. It starts from the new chart
 version's defaults and applies the settings in your values file, if supplied,
 without carrying forward previously stored settings.
 
-From the repository root, configure the Helm repositories as shown above.
-Edit the release name and existing namespace, then build dependencies:
+These commands use the published NGC chart and can run from any directory.
+Edit the release name, existing namespace, target chart version, and kubeconfig
+path. `0.2.0` is an example; choose the published version you intend to install:
 
 ```bash
 NKTP_RELEASE=nktp
 NKTP_NAMESPACE=nktp
-helm dependency build nktp
+NKTP_VERSION=0.2.0
+export KUBECONFIG=/path/to/cluster.kubeconfig
+helm repo add nvidia https://helm.ngc.nvidia.com/nvidia
+helm repo update nvidia
 ```
+
+#### Update CRDs
+
+**Run this procedure only if the upgrade notes identify CRD changes.**
+
+If both CRD groups are managed outside NKTP, skip this section. Their owners
+must ensure compatibility with the target OpenTelemetry Operator and the
+Prometheus Operator using the monitoring CRDs. If only one group is externally
+managed, update only the NKTP-managed group here. Keep
+`opentelemetry-kube-stack.crds.installOtel` or
+`opentelemetry-kube-stack.crds.installPrometheus` set to `false` for externally
+managed groups in your values file; rendering excludes them. For example, if
+your `kube-prometheus-stack` installation already manages the Prometheus CRDs,
+set `opentelemetry-kube-stack.crds.installPrometheus: false` and follow that
+installation's CRD upgrade procedure.
+
+Before continuing, review compatibility and complete migrations described in
+the upgrade notes, available through [More information](#more-information).
+Use credentials with permission to update cluster-scoped CRDs.
+
+Render the target published chart using the version and cluster settings above.
+First create a temporary directory and save its default values:
+
+```bash
+RENDER_DIR=$(mktemp -d)
+helm show values nvidia/nktp --version "$NKTP_VERSION" \
+  > "$RENDER_DIR/default-values.yaml"
+```
+
+If you maintain a Helm values file, change `NKTP_VALUES_FILE` below to its path;
+otherwise keep the saved defaults. Use the same values file for the upgrade:
+
+```bash
+NKTP_VALUES_FILE="$RENDER_DIR/default-values.yaml"
+helm template "$NKTP_RELEASE" nvidia/nktp --version "$NKTP_VERSION" \
+  --namespace "$NKTP_NAMESPACE" --include-crds -f "$NKTP_VALUES_FILE" \
+  --output-dir "$RENDER_DIR"
+find "$RENDER_DIR" -type d -name crds -print
+```
+
+Review the diffs for both rendered CRD groups before applying them. Run each
+command only if its directory appeared in the listing above; omit commands for
+groups that were not rendered:
+
+```bash
+OTEL_CRD_DIR="$RENDER_DIR/nktp/charts/opentelemetry-kube-stack/charts/otel-crds/crds"
+PROMETHEUS_CRD_DIR="$RENDER_DIR/nktp/charts/opentelemetry-kube-stack/charts/prometheus-crds/crds"
+kubectl diff --server-side --field-manager=helm -f "$OTEL_CRD_DIR"
+kubectl diff --server-side --field-manager=helm -f "$PROMETHEUS_CRD_DIR"
+```
+
+Check that the diffs are consistent with the upstream changelog changes linked
+from the upgrade notes. A diff exit status of `1` means changes were found;
+greater than `1` means an error to resolve before continuing.
+
+After reviewing the diffs, apply each rendered group you intend to update;
+omit commands for groups that were not rendered:
+
+```bash
+kubectl apply --server-side --field-manager=helm -f "$OTEL_CRD_DIR"
+kubectl apply --server-side --field-manager=helm -f "$PROMETHEUS_CRD_DIR"
+```
+
+#### Upgrade the chart
 
 **If you use chart defaults**, upgrade with the new chart defaults:
 
 ```bash
-helm upgrade "$NKTP_RELEASE" ./nktp --namespace "$NKTP_NAMESPACE" \
+helm upgrade "$NKTP_RELEASE" nvidia/nktp --version "$NKTP_VERSION" \
+  --namespace "$NKTP_NAMESPACE" \
   --reset-values --wait
 ```
 
@@ -128,7 +200,8 @@ Edit the values file path below, then upgrade:
 
 ```bash
 NKTP_VALUES_FILE=/path/to/my-values.yaml
-helm upgrade "$NKTP_RELEASE" ./nktp --namespace "$NKTP_NAMESPACE" \
+helm upgrade "$NKTP_RELEASE" nvidia/nktp --version "$NKTP_VERSION" \
+  --namespace "$NKTP_NAMESPACE" \
   --reset-values -f "$NKTP_VALUES_FILE" --wait
 ```
 
