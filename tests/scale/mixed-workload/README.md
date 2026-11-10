@@ -2,14 +2,15 @@
 
 - [Plan](plan.yaml) · [Profile](values.yaml) · [Load model](busy-node.md)
 - Load: 100k series and about 4 GiB/hour each of logs and spans per worker
-- Paths: node, Events and large-target collectors → gateways → blackhole
+- Paths: node, Events, large-target and nodeless collectors → gateways → blackhole
 - NKTP: chart resource and autoscaling defaults, with mTLS for collector-to-gateway traffic
 - Observations: blackhole self-telemetry and OTLP adapter observations and
   self-telemetry go directly to LGTM over plaintext OTLP/gRPC. NKTP
   self-telemetry keeps its watchdog path.
 
-The node collector, gateways, large-target pool and Event reader use detailed
-self-telemetry metrics. Metric views and tracing retain the chart defaults.
+The node collector, gateways, large-target and nodeless pools, and Event reader
+use detailed self-telemetry metrics. Metric views and tracing retain the chart
+defaults.
 
 ## Load
 
@@ -53,7 +54,13 @@ The large-target collector pool handles these additional targets at **60s / 55s*
 One k6 Pod per worker creates 100 Events with 1 KiB messages, then
 updates them at 10/s for about 90 minutes: **1,000 updates/s** across 10,000 objects.
 The [Kubernetes Events example](../examples/kube-events/README.md) demonstrates this generator.
-The combined workload has 24.4M synthetic series.
+The run-scoped workload has 24.4M synthetic series.
+
+The profile also installs one fixed Avalanche target with 100 synthetic series,
+scraped every 30s through a static `ScrapeConfig`. Its Service address has no
+node discovery labels, so the nodeless pool owns it. The target adds a 10m CPU
+and 32Mi memory request on the system pool. It runs from profile installation
+until `task scale:uninstall`, independently of the plan and run ID.
 
 ## Cluster
 
@@ -90,6 +97,11 @@ task scale:test TEST_TIMEOUT=125m -- \
 - Performance: generator, main collector and sidecar CPU/memory, observed peaks, throttling, queues and HPA replicas.
 - Health: readiness, restarts, termination reasons, refusals, export failures and observation freshness. Error counters can be absent when no errors occurred.
 - Events: require 10 successful updates/s per producer and 1,000/s across 100 workers, with no failed requests or dropped iterations. Exclude seeding and cleanup.
+- Nodeless: expect one fresh target for `scale_workload="mixed-workload-nodeless"`
+  with `nktp_metrics_pool="nodeless"` in `fresh_targets`. `target_series` and
+  `scrape_duration` include the same fixed target without a run-ID filter.
+  Check both collector replicas and the allocator in the component observations.
+  Only the replica assigned the target needs to show scrape activity.
 - Retain LGTM and the dashboard for review before [environment cleanup](../README.md#cleanup).
 
 Node counts include background traffic. Log body bytes measure generated load.
