@@ -878,23 +878,27 @@ stages:
         interval: 60s
         query_timeout: 60s
         measurements:
+          # The fixed nodeless target has no run ID. Preserve its actual scraper pool.
           - name: fresh_targets
             units: targets
             query: >-
-              count by (scale_node,scale_workload,scale_group,metric_bucket) (
+              count by (scale_node,scale_workload,scale_group,metric_bucket,nktp_metrics_pool) (
                 up{scale_workload=~"mixed-workload|mixed-workload-large",test_run_id="{{ .Args.runId }}"} == 1 and (time() - timestamp(up{scale_workload=~"mixed-workload|mixed-workload-large",test_run_id="{{ .Args.runId }}"}) < 120)
+                or (up{scale_workload="mixed-workload-nodeless"} == 1 and (time() - timestamp(up{scale_workload="mixed-workload-nodeless"}) < 120))
               )
           - name: target_series
             units: series
             query: >-
-              sum by (scale_node,scale_workload,scale_group,metric_bucket) (
+              sum by (scale_node,scale_workload,scale_group,metric_bucket,nktp_metrics_pool) (
                 scrape_samples_scraped{scale_workload=~"mixed-workload|mixed-workload-large",test_run_id="{{ .Args.runId }}"}
                 and (time() - timestamp(scrape_samples_scraped{scale_workload=~"mixed-workload|mixed-workload-large",test_run_id="{{ .Args.runId }}"}) < 120)
+                or (scrape_samples_scraped{scale_workload="mixed-workload-nodeless"} and (time() - timestamp(scrape_samples_scraped{scale_workload="mixed-workload-nodeless"}) < 120))
               )
           - name: scrape_duration
             units: seconds
             query: >-
               scrape_duration_seconds{scale_workload=~"mixed-workload|mixed-workload-large",test_run_id="{{ .Args.runId }}"}
+              or (scrape_duration_seconds{scale_workload="mixed-workload-nodeless"} and (time() - timestamp(scrape_duration_seconds{scale_workload="mixed-workload-nodeless"}) < 120))
           - name: producer_placement
             units: pods
             query: >-
@@ -1022,143 +1026,143 @@ stages:
           - name: component_cpu
             units: cores
             query: >-
-              rate(container_cpu_usage_seconds_total{namespace="nktp",job="kubelet-cadvisor",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+",container=~"otc-container|otc-sidecar"}[5m])
+              rate(container_cpu_usage_seconds_total{namespace="nktp",job="kubelet-cadvisor",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|otc-sidecar|ta-container|avalanche"}[5m])
           - name: component_cpu_short
             units: cores
             query: >-
-              irate(container_cpu_usage_seconds_total{namespace="nktp",job="kubelet-cadvisor",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+",container=~"otc-container|otc-sidecar"}[2m])
+              irate(container_cpu_usage_seconds_total{namespace="nktp",job="kubelet-cadvisor",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|otc-sidecar|ta-container|avalanche"}[2m])
           - name: component_working_set
             units: bytes
             query: >-
-              container_memory_working_set_bytes{namespace="nktp",job="kubelet-cadvisor",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+",container=~"otc-container|otc-sidecar"}
+              container_memory_working_set_bytes{namespace="nktp",job="kubelet-cadvisor",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|otc-sidecar|ta-container|avalanche"}
           - name: component_throttling
             units: ratio
             query: >-
-              rate(container_cpu_cfs_throttled_periods_total{namespace="nktp",job="kubelet-cadvisor",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+",container=~"otc-container|otc-sidecar"}[5m])
-              / rate(container_cpu_cfs_periods_total{namespace="nktp",job="kubelet-cadvisor",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+",container=~"otc-container|otc-sidecar"}[5m])
+              rate(container_cpu_cfs_throttled_periods_total{namespace="nktp",job="kubelet-cadvisor",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|otc-sidecar|ta-container|avalanche"}[5m])
+              / rate(container_cpu_cfs_periods_total{namespace="nktp",job="kubelet-cadvisor",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|otc-sidecar|ta-container|avalanche"}[5m])
           - name: component_heap
             units: bytes
             query: >-
-              otelcol_process_runtime_heap_alloc_bytes{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}
+              otelcol_process_runtime_heap_alloc_bytes{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}
           - name: self_metric_age
             units: seconds
             query: >-
-              time() - timestamp(otelcol_process_memory_rss_bytes{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"})
+              time() - timestamp(otelcol_process_memory_rss_bytes{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"})
           - name: queue_size
             units: bytes
             query: >-
-              otelcol_exporter_queue_size{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}
+              otelcol_exporter_queue_size{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}
           - name: queue_capacity
             units: bytes
             query: >-
-              otelcol_exporter_queue_capacity{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}
+              otelcol_exporter_queue_capacity{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}
           - name: pod_inventory
             units: info
             query: >-
               kube_pod_info{namespace="nktp"} and on (namespace,pod) (
-                kube_pod_info{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+"} or kube_pod_labels{namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}
+                kube_pod_info{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+"} or kube_pod_labels{namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}
               )
           - name: component_ready
             units: bool
             query: >-
-              kube_pod_container_status_ready{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+",container="otc-container"}
+              kube_pod_container_status_ready{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|ta-container|avalanche"}
           - name: component_restarts
             units: restarts
             query: >-
-              kube_pod_container_status_restarts_total{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+",container="otc-container"}
+              kube_pod_container_status_restarts_total{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|ta-container|avalanche"}
           - name: component_last_termination
             units: info
             query: >-
-              kube_pod_container_status_last_terminated_reason{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+",container="otc-container"}
+              kube_pod_container_status_last_terminated_reason{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|ta-container|avalanche"}
           - name: sidecar_ready
             units: bool
             query: >-
-              kube_pod_init_container_status_ready{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+",container="otc-sidecar"}
+              kube_pod_init_container_status_ready{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+",container="otc-sidecar"}
           - name: sidecar_restarts
             units: restarts
             query: >-
-              kube_pod_init_container_status_restarts_total{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+",container="otc-sidecar"}
+              kube_pod_init_container_status_restarts_total{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+",container="otc-sidecar"}
           - name: sidecar_last_termination
             units: info
             query: >-
-              kube_pod_init_container_status_last_terminated_reason{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+",container="otc-sidecar"}
+              kube_pod_init_container_status_last_terminated_reason{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+",container="otc-sidecar"}
           - name: hpa_current_replicas
             units: replicas
             query: >-
-              kube_horizontalpodautoscaler_status_current_replicas{namespace="nktp",horizontalpodautoscaler=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector"}
+              kube_horizontalpodautoscaler_status_current_replicas{namespace="nktp",horizontalpodautoscaler=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector"}
           - name: hpa_desired_replicas
             units: replicas
             query: >-
-              kube_horizontalpodautoscaler_status_desired_replicas{namespace="nktp",horizontalpodautoscaler=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector"}
+              kube_horizontalpodautoscaler_status_desired_replicas{namespace="nktp",horizontalpodautoscaler=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector"}
           - name: hpa_conditions
             units: bool
             query: >-
-              kube_horizontalpodautoscaler_status_condition{namespace="nktp",horizontalpodautoscaler=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector"}
+              kube_horizontalpodautoscaler_status_condition{namespace="nktp",horizontalpodautoscaler=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector"}
           - name: receiver_accepted_metrics
             units: points/s
             query: >-
-              rate(otelcol_receiver_accepted_metric_points_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
+              rate(otelcol_receiver_accepted_metric_points_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
           - name: receiver_refused_metrics
             units: points/s
             query: >-
-              rate(otelcol_receiver_refused_metric_points_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
+              rate(otelcol_receiver_refused_metric_points_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
           - name: exporter_sent_metrics
             units: points/s
             query: >-
-              rate(otelcol_exporter_sent_metric_points_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
+              rate(otelcol_exporter_sent_metric_points_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
           - name: exporter_enqueue_failed_metrics
             units: points/s
             query: >-
-              rate(otelcol_exporter_enqueue_failed_metric_points_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
+              rate(otelcol_exporter_enqueue_failed_metric_points_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
           - name: exporter_send_failed_metrics
             units: points/s
             query: >-
-              rate(otelcol_exporter_send_failed_metric_points_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
+              rate(otelcol_exporter_send_failed_metric_points_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
           - name: receiver_accepted_logs
             units: records/s
             query: >-
-              rate(otelcol_receiver_accepted_log_records_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
+              rate(otelcol_receiver_accepted_log_records_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
           - name: receiver_refused_logs
             units: records/s
             query: >-
-              rate(otelcol_receiver_refused_log_records_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
+              rate(otelcol_receiver_refused_log_records_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
           - name: exporter_sent_logs
             units: records/s
             query: >-
-              rate(otelcol_exporter_sent_log_records_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
+              rate(otelcol_exporter_sent_log_records_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
           - name: exporter_enqueue_failed_logs
             units: records/s
             query: >-
-              rate(otelcol_exporter_enqueue_failed_log_records_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
+              rate(otelcol_exporter_enqueue_failed_log_records_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
           - name: exporter_send_failed_logs
             units: records/s
             query: >-
-              rate(otelcol_exporter_send_failed_log_records_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
+              rate(otelcol_exporter_send_failed_log_records_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
           - name: receiver_accepted_spans
             units: spans/s
             query: >-
-              rate(otelcol_receiver_accepted_spans_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
+              rate(otelcol_receiver_accepted_spans_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
           - name: receiver_refused_spans
             units: spans/s
             query: >-
-              rate(otelcol_receiver_refused_spans_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
+              rate(otelcol_receiver_refused_spans_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
           - name: exporter_sent_spans
             units: spans/s
             query: >-
-              rate(otelcol_exporter_sent_spans_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
+              rate(otelcol_exporter_sent_spans_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
           - name: exporter_enqueue_failed_spans
             units: spans/s
             query: >-
-              rate(otelcol_exporter_enqueue_failed_spans_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
+              rate(otelcol_exporter_enqueue_failed_spans_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
           - name: exporter_send_failed_spans
             units: spans/s
             query: >-
-              rate(otelcol_exporter_send_failed_spans_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
+              rate(otelcol_exporter_send_failed_spans_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
           - name: serialized_bytes
             units: bytes/s
             query: >-
-              rate(otelcol_exporter_enqueue_size_bytes_sum{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
+              rate(otelcol_exporter_enqueue_size_bytes_sum{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
           - name: dispatched_bytes
             units: bytes/s
             query: >-
-              rate(otelcol_exporter_queue_batch_send_size_bytes_sum{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
+              rate(otelcol_exporter_queue_batch_send_size_bytes_sum{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])

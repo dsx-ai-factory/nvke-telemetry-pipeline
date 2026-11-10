@@ -1,4 +1,4 @@
-# Mixed metrics, logs, spans, Events and large-target workload.
+# Mixed metrics, logs, spans, Events, large-target and nodeless workload.
 # NKTP uses default resources and autoscaling, including self-telemetry sidecars.
 # Adapt placement and API access settings to the cluster. Install this profile alone.
 
@@ -69,6 +69,16 @@ large_target_metrics:
       service:
         telemetry: *loadTelemetry
 
+nodeless_metrics:
+  kubernetes:
+    nodeSelector: *systemSelector
+    tolerations: *systemTolerations
+    targetAllocator: *allocatorPlacement
+  otelcol:
+    config:
+      service:
+        telemetry: *loadTelemetry
+
 cluster_events:
   kubernetes:
     nodeSelector: *systemSelector
@@ -111,6 +121,78 @@ opentelemetry-kube-stack:
     nodeSelector: *systemSelector
     tolerations: *systemTolerations
   extraObjects:
+    # A fixed static target exercises nodeless discovery throughout the profile lifetime.
+    - apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: nktp-mixed-workload-nodeless
+        namespace: '{{ .Release.Namespace }}'
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            scale.nktp.io/workload: mixed-workload-nodeless
+        template:
+          metadata:
+            labels:
+              scale.nktp.io/workload: mixed-workload-nodeless
+          spec:
+            automountServiceAccountToken: false
+            nodeSelector: *systemSelector
+            tolerations: *systemTolerations
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 65532
+              seccompProfile:
+                type: RuntimeDefault
+            containers:
+              - name: avalanche
+                image: quay.io/prometheuscommunity/avalanche:v0.7.0@sha256:ea02e9599fcbb59a6fc7396656434faf200db7f1c259802e3dbb38cec81bd12a
+                command: [/bin/avalanche]
+                args:
+                  - --port=9001
+                  - --gauge-metric-count=0
+                  - --counter-metric-count=1
+                  - --series-count=100
+                  - --label-count=4
+                  - --series-interval=0
+                  - --metric-interval=0
+                  - --value-interval=30
+                  - --series-operation-mode=disabled
+                ports:
+                  - {name: metrics, containerPort: 9001}
+                readinessProbe:
+                  tcpSocket: {port: metrics}
+                  periodSeconds: 5
+                resources:
+                  requests: {cpu: 10m, memory: 32Mi}
+                  limits: {cpu: 200m, memory: 64Mi}
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  capabilities: {drop: [ALL]}
+    - apiVersion: v1
+      kind: Service
+      metadata:
+        name: nktp-mixed-workload-nodeless
+        namespace: '{{ .Release.Namespace }}'
+      spec:
+        selector:
+          scale.nktp.io/workload: mixed-workload-nodeless
+        ports:
+          - {name: metrics, port: 9001, targetPort: metrics}
+    - apiVersion: monitoring.coreos.com/v1alpha1
+      kind: ScrapeConfig
+      metadata:
+        name: nktp-mixed-workload-nodeless
+        namespace: '{{ .Release.Namespace }}'
+      spec:
+        scrapeInterval: 30s
+        scrapeTimeout: 10s
+        staticConfigs:
+          - targets: [nktp-mixed-workload-nodeless:9001]
+            labels:
+              scale_workload: mixed-workload-nodeless
     - apiVersion: monitoring.coreos.com/v1
       kind: PodMonitor
       metadata:
