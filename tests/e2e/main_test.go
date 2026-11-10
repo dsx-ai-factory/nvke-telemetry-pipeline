@@ -34,6 +34,9 @@ const ReleaseName = "nktp-e2e"
 const FieldManager = "nktp-e2e"
 
 func TestMain(t *testing.M) {
+	// Match the Helm CLI instead of recording the test binary as the field manager.
+	kube.ManagedFieldsManager = "helm"
+
 	cfg, err := envconf.NewFromFlags()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error while creating env config: %v\n", err)
