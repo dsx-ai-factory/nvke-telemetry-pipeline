@@ -188,6 +188,13 @@ resolution and the outer Go test timeout.
 | Empty check result | Resets pending holds. Does not fire. Use `absent(...)` when missing telemetry should fail |
 | Freshness | PromQL lookback can include earlier stages. Scope to the intended run/load and check sample timestamps for completion |
 
+Completion holds restart when evaluation timestamps are more than twice
+`interval` apart. A matching completion result is discarded and its hold
+restarted if the polling round finishes more than twice `interval` after its
+evaluation timestamp. Failure checks still take precedence. These guards concern
+runner timing. Check expressions must independently verify source sample
+freshness and coverage.
+
 ## Timing and cleanup
 
 | Event / deadline | Effect |

@@ -27,6 +27,12 @@ counts, sizes and placement with benchmark results. Cluster provisioning and
 deletion are managed outside this suite. Run commands from the repository
 root. Examples expect the `nktp` release in namespace `nktp`.
 
+Start each independent scale run with a clean test environment and an empty
+telemetry backend. Collector self-telemetry is not automatically scoped by the
+run ID. With LGTM, recreate its storage between runs. Apply the same expectation
+to any replacement backend by using an empty, isolated data scope for all test
+telemetry.
+
 Authenticate with your cluster provider, then set `KUBECONFIG` to one readable
 file with a current context. Edit the path before running:
 
@@ -81,9 +87,10 @@ checks can fail a plan or complete a stage.
 ## Cleanup
 
 Each run removes the workloads it creates, including after failure or
-cancellation. The installed environment remains available for inspection and
-subsequent runs. Save observations before removing it because LGTM storage is
-temporary.
+cancellation. The installed environment remains available for inspection until
+you remove it. Save reports and observations before cleanup, then remove the test
+environment and its backend telemetry before the next independent run. LGTM
+storage is temporary. For another backend, also clear the isolated test data.
 
 For the telemetrygen setup above:
 
@@ -94,6 +101,12 @@ task scale:uninstall
 `scale:uninstall` removes NKTP and stops its forwards. Use the same `INSTALL_KWOK`
 value as installation. With `true`, it also removes the KWOK releases and
 completion policy. It preserves cert-manager, the cluster and kubeconfig.
+
+`scale:uninstall` retains the watchdog and gateway queue PVCs. Before the
+next independent run, follow the
+[queue-storage deletion procedure](../../docs/guides/configure_exporter_queue_storage.md#delete-the-claims)
+to prevent queued telemetry from being replayed. If the backing volumes
+use the `Retain` reclaim policy, clean up their retained data as well.
 
 Failed setup leaves resources for inspection. Uninstall does not run
 automatically after a test.
