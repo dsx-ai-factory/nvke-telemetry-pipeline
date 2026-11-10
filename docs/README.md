@@ -17,6 +17,7 @@ each part in depth.
 - [Self-telemetry sidecars](architecture/self_telemetry.md)
 - [Size resources](guides/size_resources.md)
 - [Configure cert-manager](guides/configure_cert_manager.md)
+- [Configure namespace labels](guides/configure_namespace_labels.md)
 - [Secure gateway export](guides/secure_gateway_export.md)
 - [Configure kubelet metrics](guides/configure_kubelet_metrics.md)
 - [Restrict monitor file access](guides/restrict_monitor_file_access.md)

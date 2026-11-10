@@ -1,0 +1,222 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+suite: Release namespace labeling
+templates:
+  - templates/namespace-labeling.yaml
+tests:
+  - it: does not add resources by default
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: does not add resources when explicitly disabled
+    set:
+      namespace.labeling.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: renders labeling hooks without a Namespace resource
+    release:
+      name: telemetry
+      namespace: custom-telemetry
+    set:
+      namespace.labeling.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 4
+      - containsDocument:
+          apiVersion: v1
+          kind: Namespace
+        not: true
+      - equal:
+          path: metadata.name
+          value: telemetry-ns-labels-14793aab
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: pre-install,pre-upgrade
+  - it: grants only get and patch access to the release namespace
+    release:
+      namespace: custom-telemetry
+    set:
+      namespace.labeling.enabled: true
+    documentSelector:
+      path: kind
+      value: ClusterRole
+    asserts:
+      - equal:
+          path: rules
+          value:
+            - apiGroups: [""]
+              resources: [namespaces]
+              resourceNames: [custom-telemetry]
+              verbs: [get, patch]
+      - notExists:
+          path: metadata.namespace
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-10"
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: before-hook-creation
+  - it: creates the service account before the labeling Job
+    release:
+      namespace: custom-telemetry
+    set:
+      namespace.labeling.enabled: true
+    documentSelector:
+      path: kind
+      value: ServiceAccount
+    asserts:
+      - equal:
+          path: metadata.namespace
+          value: custom-telemetry
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-10"
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: before-hook-creation
+  - it: binds namespace access only to the hook service account
+    release:
+      name: telemetry
+      namespace: custom-telemetry
+    set:
+      namespace.labeling.enabled: true
+    documentSelector:
+      path: kind
+      value: ClusterRoleBinding
+    asserts:
+      - equal:
+          path: roleRef
+          value:
+            apiGroup: rbac.authorization.k8s.io
+            kind: ClusterRole
+            name: telemetry-ns-labels-14793aab
+      - equal:
+          path: subjects
+          value:
+            - kind: ServiceAccount
+              name: telemetry-ns-labels-14793aab
+              namespace: custom-telemetry
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-10"
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: before-hook-creation
+  - it: labels the release namespace idempotently before workloads are installed
+    release:
+      name: telemetry
+      namespace: custom-telemetry
+    set:
+      namespace.labeling.enabled: true
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: metadata.namespace
+          value: custom-telemetry
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "0"
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: before-hook-creation,hook-succeeded
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: telemetry-ns-labels-14793aab
+      - equal:
+          path: spec.template.spec.containers[0].command
+          value: [kubectl]
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value:
+            - label
+            - namespace
+            - custom-telemetry
+            - pod-security.kubernetes.io/enforce=privileged
+            - --overwrite=true
+      - matchRegex:
+          path: spec.template.spec.containers[0].image
+          pattern: '^registry\.k8s\.io/kubectl:v[0-9]+\.[0-9]+\.[0-9]+$'
+      - equal:
+          path: spec.activeDeadlineSeconds
+          value: 120
+      - equal:
+          path: spec.backoffLimit
+          value: 3
+  - it: can start under restricted Pod Security enforcement
+    set:
+      namespace.labeling.enabled: true
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext
+          value:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            fsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+      - equal:
+          path: spec.template.spec.containers[0].securityContext
+          value:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+  - it: honors image and resource overrides
+    set:
+      namespace.labeling.enabled: true
+      namespace.labeling.image:
+        registry: mirror.example.com
+        repository: tools/kubectl
+        tag: v1.35.1
+      namespace.labeling.resources:
+        requests: {cpu: 20m, memory: 64Mi}
+        limits: {cpu: 200m, memory: 256Mi}
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: mirror.example.com/tools/kubectl:v1.35.1
+      - equal:
+          path: spec.template.spec.containers[0].resources
+          value:
+            requests: {cpu: 20m, memory: 64Mi}
+            limits: {cpu: 200m, memory: 256Mi}
+  - it: honors the global image registry
+    set:
+      namespace.labeling.enabled: true
+      global.imageRegistry: mirror.example.com
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].image
+          pattern: '^mirror\.example\.com/kubectl:v[0-9]+\.[0-9]+\.[0-9]+$'
+  - it: rejects a quoted false value
+    set:
+      namespace.labeling.enabled: "false"
+    asserts:
+      - failedTemplate:
+          errorPattern: '/namespace/labeling/enabled.*got string, want boolean'
+  - it: rejects a quoted true value
+    set:
+      namespace.labeling.enabled: "true"
+    asserts:
+      - failedTemplate:
+          errorPattern: '/namespace/labeling/enabled.*got string, want boolean'
+  - it: rejects the removed namespace creation option
+    set:
+      namespace.create: true
+    asserts:
+      - failedTemplate:
+          errorPattern: '/namespace.*additional properties.*create.*not allowed'

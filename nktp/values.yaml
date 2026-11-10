@@ -1,5 +1,23 @@
 # Default values for the NKTP Helm chart.
 
+# Optionally label an existing release namespace before installing workloads.
+# Helm must still create the namespace with --create-namespace, or it must exist.
+# Leave disabled when platform automation already manages namespace labels.
+namespace:
+  labeling:
+    enabled: false
+    image:
+      registry: registry.k8s.io
+      repository: kubectl
+      tag: v1.35.10
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
 global:
   # Override image registry for every image this chart and its dependencies pull.
   #

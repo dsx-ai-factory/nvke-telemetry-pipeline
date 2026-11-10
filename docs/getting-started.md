@@ -19,6 +19,10 @@ node directory for log checkpoints. For alternatives, see:
 - [Use in-memory exporter queues](guides/configure_exporter_queue_storage.md#installing-nktp-without-persistent-storage).
 - [Keep node log checkpoints in memory](guides/configure_daemonset_log_checkpoints.md#without-persistent-checkpoints).
 
+NKTP's namespace needs `pod-security.kubernetes.io/enforce: privileged`.
+If your platform does not manage this label, enable `namespace.labeling.enabled: true`
+and follow [Configure namespace labels](guides/configure_namespace_labels.md).
+
 ## Check readiness
 
 Check the Collector `READY` column and certificate list. If readiness stalls,

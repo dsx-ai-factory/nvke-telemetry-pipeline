@@ -82,7 +82,8 @@ helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
 helm dependency build nktp
 kubectl create namespace "$NKTP_NAMESPACE"
 kubectl label namespace "$NKTP_NAMESPACE" pod-security.kubernetes.io/enforce=privileged --overwrite
-helm install "$NKTP_RELEASE" ./nktp --namespace "$NKTP_NAMESPACE" --values "$NKTP_VALUES_FILE" --wait
+helm install "$NKTP_RELEASE" ./nktp --namespace "$NKTP_NAMESPACE" \
+  --values "$NKTP_VALUES_FILE" --wait
 ```
 
 After Helm finishes, run both commands below. Repeat until every Collector's
@@ -94,6 +95,57 @@ the certificate command.
 kubectl -n "$NKTP_NAMESPACE" get opentelemetrycollector
 kubectl -n "$NKTP_NAMESPACE" get certificate
 ```
+
+### Optional namespace labeling
+
+The namespace and its lifecycle belong to the platform or installer. Leave
+`namespace.labeling.enabled: false` (the default) when platform automation
+already applies the required Pod Security label.
+
+For Helm to apply the label before workloads are created, enable:
+
+```yaml
+namespace:
+  labeling:
+    enabled: true
+```
+
+After building dependencies as above, install with the same release, namespace
+and values-file settings. The `kubectl create namespace` and `kubectl label`
+commands can be replaced by:
+
+```bash
+helm install "$NKTP_RELEASE" ./nktp --namespace "$NKTP_NAMESPACE" \
+  --create-namespace --values "$NKTP_VALUES_FILE" \
+  --set namespace.labeling.enabled=true --wait
+```
+
+A `pre-install,pre-upgrade` Job idempotently sets
+`pod-security.kubernetes.io/enforce=privileged` on the release namespace. Helm
+waits for it to succeed before creating or updating ordinary chart resources.
+The Job runs as non-root under the `restricted` Pod Security level, with access
+limited to reading and patching that namespace. Helm still needs the namespace
+before executing hooks, so use an existing namespace or `--create-namespace`.
+`task install` already passes that flag and honors the labeling option in values.
+The installer needs permission to create the helper ServiceAccount, ClusterRole
+and ClusterRoleBinding and grant `get`/`patch` access to the release namespace.
+
+The chart never renders a Namespace or modifies its ownership metadata.
+Uninstalling NKTP or disabling the hook leaves the namespace and its labels in
+place. The successful Job is removed; its helper ServiceAccount and RBAC hooks
+remain between runs and are recreated on the next enabled install or upgrade.
+They can be removed separately after uninstalling.
+
+Set `namespace.labeling.image` to override the kubectl image, or use
+`global.imageRegistry` for a registry mirror. Configure the Job's resource
+requests and limits with `namespace.labeling.resources`.
+
+For Argo CD, create the destination namespace through the Application's
+`CreateNamespace=true` sync option or platform automation; Helm's pre-install
+and pre-upgrade hooks map to Argo CD's PreSync phase. Other render-and-apply
+tools must arrange hook resource ordering and wait for the Job themselves.
+If that ordering is unavailable, keep the hook disabled and label the namespace
+through platform automation before applying NKTP workloads.
 
 ### Upgrading
 
@@ -225,7 +277,8 @@ helm upgrade "$NKTP_RELEASE" nvidia/nktp --version "$NKTP_VERSION" \
 it with `-f`. Include all custom settings you want to keep. Merge custom volume
 and mount entries into any example lists before applying them.
 
-Edit the values file path below, then upgrade:
+Edit the values file path below, then upgrade. Keep
+`namespace.labeling.enabled: true` in the values file if Helm manages these labels:
 
 ```bash
 NKTP_VALUES_FILE=/path/to/my-values.yaml
