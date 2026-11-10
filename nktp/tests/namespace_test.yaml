@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+suite: Release namespace
+templates:
+  - templates/namespace.yaml
+tests:
+  - it: does not render a namespace by default
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: does not render a namespace when explicitly disabled
+    set:
+      namespace.create: false
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: renders the release namespace with privileged Pod Security enforcement
+    release:
+      name: telemetry
+      namespace: custom-telemetry
+    set:
+      namespace.create: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isAPIVersion:
+          of: v1
+      - isKind:
+          of: Namespace
+      - equal:
+          path: metadata.name
+          value: custom-telemetry
+      - equal:
+          path: metadata.labels["pod-security.kubernetes.io/enforce"]
+          value: privileged
+      - notExists:
+          path: metadata.namespace

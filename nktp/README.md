@@ -88,6 +88,29 @@ helm install "$NKTP_RELEASE" ./nktp --namespace "$NKTP_NAMESPACE" --values "$NKT
 The Operator creates the Collectors after `helm install --wait` returns, so
 check their Pods as well.
 
+### Chart-managed namespace
+
+Set `namespace.create: true` to render a `Namespace` named after the release
+namespace (`--namespace`), with `pod-security.kubernetes.io/enforce: privileged`:
+
+```yaml
+namespace:
+  create: true
+```
+
+For a new namespace, omit the `kubectl create` and `kubectl label` steps above
+and pass this setting in your values file or with `--set namespace.create=true`.
+It also includes the Namespace in `helm template` output for Kustomize
+`helmCharts`, Argo CD and kapp.
+
+The default is `false`: you manage the namespace and its Pod Security labels
+outside the chart. Keep it disabled for an existing, externally managed namespace.
+Do not combine `namespace.create: true` with `helm install --create-namespace`:
+the namespace created by that flag conflicts with the chart-owned resource.
+**`helm uninstall` deletes a chart-owned namespace and everything in it,
+including resources outside the release.** Use a dedicated namespace; for
+render-and-apply tools, account for their namespace deletion and pruning behavior.
+
 ### Upgrading
 
 Review the upgrade notes for your target version, available through

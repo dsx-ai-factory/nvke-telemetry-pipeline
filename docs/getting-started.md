@@ -19,6 +19,32 @@ node directory for log checkpoints. For alternatives, see:
 - [Use in-memory exporter queues](guides/configure_exporter_queue_storage.md#installing-nktp-without-persistent-storage).
 - [Keep node log checkpoints in memory](guides/configure_daemonset_log_checkpoints.md#without-persistent-checkpoints).
 
+### Chart-managed namespace
+
+By default, `namespace.create` is `false`, so you create and label the release
+namespace separately. For a new, dedicated namespace, add this to your overrides
+file and skip the installation instructions' `kubectl create namespace` and
+`kubectl label namespace` steps:
+
+```yaml
+namespace:
+  create: true
+```
+
+The chart renders a `Namespace` using the release namespace (`--namespace`),
+with `pod-security.kubernetes.io/enforce: privileged`. This also includes the
+Namespace when rendering with `helm template`, including Kustomize `helmCharts`,
+Argo CD and kapp. Enable the option in their chart values, set their release
+namespace, and remove any separate Namespace manifest for that namespace.
+
+Do not combine this option with `helm install --create-namespace`: that flag
+creates a namespace that conflicts with Helm's chart ownership. Leave the option
+off for an existing namespace managed outside the chart.
+
+**`helm uninstall` deletes the chart-owned namespace and everything in it,
+including resources outside the release.** Use a dedicated namespace. For
+render-and-apply tools, account for their namespace deletion and pruning behavior.
+
 ## Check readiness
 
 - **Wait for the Collectors too.** Helm 3's `--wait` does not wait for the
