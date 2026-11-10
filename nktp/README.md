@@ -127,7 +127,10 @@ helm repo update nvidia
 If both CRD groups are managed outside NKTP, skip this section. Their owners
 must ensure compatibility with the target OpenTelemetry Operator and the
 Prometheus Operator using the monitoring CRDs. If only one group is externally
-managed, update only the NKTP-managed group here. Keep
+managed, update only the NKTP-managed group here. If your values file contains
+`opentelemetry-kube-stack.crds.install`, remove it before using the per-group
+flags: `true` enables both groups and `false` disables both, overriding the
+per-group settings. Keep
 `opentelemetry-kube-stack.crds.installOtel` or
 `opentelemetry-kube-stack.crds.installPrometheus` set to `false` for externally
 managed groups in your values file; rendering excludes them. For example, if
