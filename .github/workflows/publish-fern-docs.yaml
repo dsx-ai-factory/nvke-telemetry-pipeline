@@ -169,9 +169,11 @@ jobs:
             echo "::error::Tag '${TAG}' has no docs/index.yml, so it has no Fern docs to publish. Use a release cut after the Fern docs were added."
             exit 1
           fi
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "is_release=$IS_RELEASE" >> "$GITHUB_OUTPUT"
+          {
+            echo "tag=$TAG"
+            echo "version=$VERSION"
+            echo "is_release=$IS_RELEASE"
+          } >> "$GITHUB_OUTPUT"
           echo "Resolved target tag: $TAG, version $VERSION (is_release=$IS_RELEASE)"
 
       - name: Register new version from tag
