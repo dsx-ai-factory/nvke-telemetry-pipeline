@@ -23,7 +23,7 @@ func TestExamplePlans(t *testing.T) {
 		names[i] = entry.Name()
 	}
 	require.Equal(t, []string{"avalanche", "kube-events", "kwok", "pod-churn", "stdout-logs", "telemetrygen", "watchdog"}, names)
-	paths := []string{"../mixed-workload/plan.yaml"}
+	paths := []string{"../mixed-workload/plan.yaml", "../mixed-workload-demo/plan.yaml"}
 	for _, name := range names {
 		dir := filepath.Join("../examples", name)
 		require.FileExists(t, filepath.Join(dir, "README.md"))
