@@ -122,9 +122,11 @@ jobs:
           for version_file in fern/versions/v*.yml; do
             [ -f "$version_file" ] || continue
             version=$(basename "$version_file" .yml)
-            if git show-ref --verify --quiet "refs/tags/${version}"; then
+            # A registered version v0.3.0 is the content of the tag nktp/v0.3.0.
+            tag="nktp/${version}"
+            if git show-ref --verify --quiet "refs/tags/${tag}"; then
               mkdir -p "fern/versions/${version}-content"
-              git archive "refs/tags/${version}" -- docs/ | tar -x --strip-components=1 -C "fern/versions/${version}-content"
+              git archive "refs/tags/${tag}" -- docs/ | tar -x --strip-components=1 -C "fern/versions/${version}-content"
               # Escape {, }, < for MDX — but only outside fenced code blocks and inline code spans
               find "fern/versions/${version}-content" -name '*.md' -print0 | while IFS= read -r -d '' f; do
                 awk '
@@ -153,7 +155,7 @@ jobs:
               done
               echo "Extracted docs from $version"
             else
-              echo "::error::Tag $version not found — cannot load frozen docs content"
+              echo "::error::Tag $tag not found — cannot load frozen docs content"
               exit 1
             fi
           done
