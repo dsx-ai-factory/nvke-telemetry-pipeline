@@ -10,6 +10,8 @@ The [chart README](../nktp/README.md) summarizes the chart: prerequisites,
 installation, components, and the configuration model. The pages here cover
 each part in depth.
 
+- [Overview](overview.md)
+- [Install and upgrade](install.md)
 - [Getting started](getting-started.md)
 - [Upgrading](upgrading.md)
 - [Topology](architecture/topology.md)

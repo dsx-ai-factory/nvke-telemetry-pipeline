@@ -3,12 +3,12 @@
 NKTP is one Helm chart that collects a Kubernetes cluster's metrics, logs and
 traces and exports them over OTLP. This guide takes you through installation
 readiness, viewing telemetry, and connecting a backend. The
-[component pages](README.md#components) cover each component and its values.
+component pages, such as [Node collector](components/node_collector.md), cover each component and its values.
 
 ## Install
 
-Review the chart's [prerequisites](../nktp/README.md#prerequisites), then follow
-its [installation instructions](../nktp/README.md#install).
+Review the [prerequisites](install.md#prerequisites), then follow the
+[installation instructions](install.md#install).
 To configure a backend or cluster name during installation, put the values
 from the sections below in your overrides file.
 
@@ -32,7 +32,7 @@ node directory for log checkpoints. For alternatives, see:
   does not check this. If certificate readiness stalls, inspect the conditions
   with `kubectl describe certificate -n nktp`.
 - **Versions:** release tags and development builds are described in
-  [RELEASING.md](../RELEASING.md).
+  [RELEASING.md](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/RELEASING.md).
 
 <details>
 <summary>Example Collector and certificate readiness with cert-manager installed</summary>
@@ -75,7 +75,7 @@ localhost:
 kubectl -n nktp port-forward svc/lgtm 3000:3000 --address 127.0.0.1
 ```
 
-See [the default dashboards](../nktp/dashboards/README.md#default-autoloaded-into-lgtm)
+See [the default dashboards](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/nktp/dashboards/README.md#default-autoloaded-into-lgtm)
 for the dashboards that are included by default.
 
 ## Set a backend

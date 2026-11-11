@@ -31,7 +31,7 @@ capacity, outage tolerance, and the memory-queue alternative.
 HPA targets are relative to requests. Increasing limits does not raise the
 scaling threshold. The component dashboards show observed CPU and resident
 memory in **CPU cores · top 20** and **Memory (RSS) · top 20**, for example
-[NKTP Metrics Gateway](../../nktp/dashboards/default/nktp-gateway-metrics.json).
+[NKTP Metrics Gateway](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/nktp/dashboards/default/nktp-gateway-metrics.json).
 
 See [Large-target metrics](../components/large_target_metrics.md#sizing-large-scrapes)
 for sizing the pool for large scrape responses, and

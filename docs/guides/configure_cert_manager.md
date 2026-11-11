@@ -324,7 +324,7 @@ internal mTLS.
 
 Internal mTLS is recommended to protect telemetry, but Collectors can use
 plaintext. To disable internal mTLS, use the
-[plaintext example](../examples/disable_internal_mtls.yaml) alongside the Target
+[plaintext example](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/docs/examples/disable_internal_mtls.yaml) alongside the Target
 Allocator and webhook settings below. The Secrets in the four table rows labeled
 **Internal mTLS** (Watchdog server, Gateway server, Collector client, and Gateway
 sidecar client) become unused and may be deleted.

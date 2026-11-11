@@ -16,7 +16,7 @@ LGTM accepts gRPC through its bundled Collector, which forwards metrics and logs
 to those HTTP endpoints internally.
 
 This guide configures mTLS for the three gateway Collectors using gRPC. The
-[example](../examples/gateway_mtls.values.yaml) shows the overrides. Receiver
+[example](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/docs/examples/gateway_mtls.values.yaml) shows the overrides. Receiver
 TLS for connections into the gateways is configured separately.
 
 ## mTLS with an existing certificate
@@ -118,7 +118,7 @@ Apply the volume, mount, and exporter settings to `gateway_logs`,
 `gateway_metrics`, and `gateway_traces`. Use each gateway's own internal Secrets:
 `nktp-gateway-<signal>-server-tls` and `nktp-gateway-<signal>-client-tls`, where
 `<signal>` is `logs`, `metrics`, or `traces`. Keep the volume names and mount paths
-shown above. The complete [values example](../examples/gateway_mtls.values.yaml)
+shown above. The complete [values example](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/docs/examples/gateway_mtls.values.yaml)
 configures all three.
 
 Set `insecure: false` explicitly: the development defaults disable TLS, and

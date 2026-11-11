@@ -1,0 +1,71 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+navigation:
+  - section: Get started
+    contents:
+      - page: Overview
+        path: overview.md
+      - page: Install and upgrade
+        path: install.md
+      - page: Getting started
+        path: getting-started.md
+      - page: Upgrade notes
+        path: upgrading.md
+      - page: Send telemetry to NKTP
+        path: guides/send_telemetry.md
+
+  - section: Architecture
+    contents:
+      - page: Topology
+        path: architecture/topology.md
+      - page: Backpressure
+        path: architecture/backpressure.md
+      - page: Self-telemetry sidecars
+        path: architecture/self_telemetry.md
+
+  - section: Guides
+    contents:
+      - page: Size resources
+        path: guides/size_resources.md
+      - page: Configure cert-manager
+        path: guides/configure_cert_manager.md
+      - page: Secure gateway export
+        path: guides/secure_gateway_export.md
+      - page: Configure kubelet metrics
+        path: guides/configure_kubelet_metrics.md
+      - page: Restrict monitor file access
+        path: guides/restrict_monitor_file_access.md
+      - page: Enable host process metrics
+        path: guides/enable_host_process_metrics.md
+      - page: Configure exporter queue storage
+        path: guides/configure_exporter_queue_storage.md
+      - page: Configure node log checkpoints
+        path: guides/configure_daemonset_log_checkpoints.md
+      - page: Enable auto-instrumentation
+        path: guides/enable_auto_instrumentation.md
+      - page: Enable eBPF instrumentation
+        path: guides/enable_ebpf_instrumentation.md
+      - page: Use blueprints
+        path: guides/use_blueprints.md
+
+  - section: Components
+    contents:
+      - page: Node collector
+        path: components/node_collector.md
+      - page: Gateways
+        path: components/gateways.md
+      - page: Large-target metrics
+        path: components/large_target_metrics.md
+      - page: Nodeless metrics
+        path: components/nodeless_metrics.md
+      - page: Cluster events
+        path: components/cluster_events.md
+      - page: Watchdog
+        path: components/watchdog.md
+      - page: kube-state-metrics
+        path: components/kube_state_metrics.md
+      - page: otel-lgtm
+        path: components/otel_lgtm.md
+      - page: Managed dependencies
+        path: components/dependencies.md

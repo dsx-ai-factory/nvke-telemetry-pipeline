@@ -1,7 +1,7 @@
 # Upgrade NKTP
 
-Use the [chart README's upgrading procedure](../nktp/README.md#upgrading) for
-CRD requirements and Helm commands, after incorporating the changes below.
+Use the [upgrade procedure](install.md#upgrade) for CRD requirements and Helm
+commands, after incorporating the changes below.
 
 ## From 0.2.x to 0.3.x
 
@@ -18,7 +18,7 @@ subsequent restarts but cannot recover those skipped records.
 **ACTION REQUIRED:** Before upgrading, confirm that the Collector can write to
 `/var/lib/nktp/log-checkpoints`, or configure another writable host directory.
 To disable persistence, use the
-[memory-only values file](examples/memory_log_checkpoints.values.yaml). When
+[memory-only values file](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/docs/examples/memory_log_checkpoints.values.yaml). When
 merging it into your Helm values file, preserve custom volume and mount entries
 in its replacement lists.
 
@@ -36,7 +36,7 @@ for how file offsets are tracked and stored.
 
 To use a different host directory, set `hostPath.path` on the `log-checkpoints`
 entry in `daemonset.kubernetes.volumes`. Copy the complete volumes list from
-the [chart defaults](../nktp/values.yaml) into your values file if you do not
+the [chart defaults](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/nktp/values.yaml) into your values file if you do not
 already override it; Helm replaces this list in full. Keep any custom volumes.
 The container mount and storage extension directory can remain unchanged.
 
@@ -44,7 +44,7 @@ For persistent checkpoints, check these fields in your values file.
 
 | Field in your values file | Action before upgrading |
 | --- | --- |
-| `daemonset.kubernetes.volumes` or `daemonset.kubernetes.volumeMounts` | Include the corresponding `log-checkpoints` entry from the [`daemonset` chart defaults](../nktp/values.yaml) in each list you override. Keep your custom host and TLS mounts. |
+| `daemonset.kubernetes.volumes` or `daemonset.kubernetes.volumeMounts` | Include the corresponding `log-checkpoints` entry from the [`daemonset` chart defaults](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/nktp/values.yaml) in each list you override. Keep your custom host and TLS mounts. |
 | `daemonset.otelcol.config.service.extensions` | Include `file_storage/log-checkpoints` alongside your other extensions. |
 | `daemonset.otelcol.config.extensions["file_storage/log-checkpoints"]` | Keep the extension enabled and its `directory` aligned with the checkpoint volume mount. |
 | `daemonset.otelcol.config.receivers` | For added log readers, such as `file_log/custom`, set `storage: file_storage/log-checkpoints`. For existing readers, such as `file_log` and `journald`, preserve that storage reference if you override their `storage` field. |
