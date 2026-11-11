@@ -8,9 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"net/url"
-	"slices"
 	"time"
 
 	"github.com/prometheus/client_golang/api"
@@ -24,8 +22,8 @@ import (
 type Prometheus struct {
 	// config holds validated collection and connection settings.
 	config prometheusConfig
-	// completion names the single completion target, or is empty for observations.
-	completion string
+	// completions names the targets that must all hold in the current round.
+	completions []string
 }
 
 // prometheusConfig defines a collection window independent of generator lifetime.
@@ -88,7 +86,7 @@ func NewPrometheus(spec yaml.Node) (*Prometheus, error) {
 	if len(cfg.Measurements) == 0 {
 		return nil, errors.New("measurements must contain at least one named PromQL expression")
 	}
-	var completion string
+	var completions []string
 	for _, measurement := range cfg.Measurements {
 		check := measurement.Check
 		if check == nil {
@@ -101,17 +99,14 @@ func NewPrometheus(spec yaml.Node) (*Prometheus, error) {
 			check.Action = Fail
 		}
 		if check.Action == Complete {
-			if completion != "" {
-				return nil, errors.New("at most one complete check is allowed")
-			}
-			completion = measurement.Name
+			completions = append(completions, measurement.Name)
 		}
 	}
-	return &Prometheus{config: cfg, completion: completion}, nil
+	return &Prometheus{config: cfg, completions: completions}, nil
 }
 
-// CompletesStage reports whether successful execution requires a target match.
-func (p *Prometheus) CompletesStage() bool { return p.completion != "" }
+// CompletesStage reports whether successful execution requires completion checks.
+func (p *Prometheus) CompletesStage() bool { return len(p.completions) > 0 }
 
 // validatePrometheusSpec rejects aliases and scalar coercion before typed decoding.
 // Typed decoding additionally rejects duplicate options and unknown configuration.
@@ -136,21 +131,35 @@ func validatePrometheusSpec(spec yaml.Node) error {
 }
 
 // Run queries immediately, then polls at the configured interval until duration
-// elapses. Queries within a round run sequentially with one evaluation timestamp.
+// elapses. Queries within a round run concurrently with one evaluation timestamp.
 // Slow rounds may skip ticks. A request still running at the end of the window
 // is canceled and omitted. Completed observations are retained on every exit.
 // Queries record findings without performance verdicts. Checks act on sustained
 // vector membership. Empty check results reset pending series.
 // Backend warnings fail checks and remain in the report.
 // Failed checks, request errors and caller cancellation retain partial reports.
-// With a completion target, Run succeeds only after reaching it before duration.
+// Run succeeds only when all completion checks satisfy their holds in one round.
 // Completion holds reset after gaps longer than twice the polling interval.
 // The entire polling round must finish within that bound and within duration
 // to confirm completion.
 // Errors in the same polling round take precedence over completion.
 // Ordinary expiry does not stop generators.
-func (p *Prometheus) Run(ctx context.Context) (report Report, err error) {
-	if err := ctx.Err(); err != nil {
+func (p *Prometheus) Run(ctx context.Context) (Report, error) {
+	err := ctx.Err()
+	if err != nil {
+		return nil, err
+	}
+	client, err := api.NewClient(api.Config{Address: p.config.Endpoint})
+	if err != nil {
+		return nil, fmt.Errorf("create Prometheus client: %w", err)
+	}
+	return p.run(ctx, prometheusv1.NewAPI(client))
+}
+
+// run polls the supplied client and owns all reports, holds and request deadlines.
+func (p *Prometheus) run(ctx context.Context, client queryClient) (report Report, err error) {
+	err = ctx.Err()
+	if err != nil {
 		return report, err
 	}
 	started := time.Now().UTC()
@@ -174,63 +183,73 @@ func (p *Prometheus) Run(ctx context.Context) (report Report, err error) {
 		if err == nil {
 			err = ctx.Err()
 			if err == nil && p.CompletesStage() && !completed {
-				err = fmt.Errorf("completion check %q was not confirmed before duration", p.completion)
+				err = fmt.Errorf("completion checks %q were not confirmed before duration", p.completions)
 			}
 		}
 	}()
-	client, err := api.NewClient(api.Config{Address: p.config.Endpoint})
-	if err != nil {
-		return report, fmt.Errorf("create Prometheus client: %w", err)
-	}
-	queryAPI := prometheusv1.NewAPI(client)
-	names := slices.Sorted(maps.Keys(queries))
 	ticker := time.NewTicker(p.config.Interval)
 	defer ticker.Stop()
 	for {
-		complete := false
 		at := time.Now().UTC()
-		for _, name := range names {
-			if runCtx.Err() != nil {
-				return report, ctx.Err()
+		roundCtx, cancelRound := context.WithCancel(runCtx)
+		results := make(chan queryResult, len(queries))
+		for name, query := range queries {
+			go func() {
+				observation, queryErr := queryPrometheus(roundCtx, client, query.Expression, at, p.config.QueryTimeout)
+				results <- queryResult{name: name, observation: observation, err: queryErr}
+			}()
+		}
+		var roundErr error
+		for range queries {
+			result := <-results
+			name := result.name
+			observation, queryErr := result.observation, result.err
+			if queryErr != nil && errors.Is(queryErr, roundCtx.Err()) {
+				continue
 			}
 			query := queries[name]
-			observation, err := queryPrometheus(runCtx, queryAPI, query.Expression, at, p.config.QueryTimeout)
-			if errors.Is(err, context.DeadlineExceeded) && runCtx.Err() != nil && ctx.Err() == nil {
-				return report, nil
-			}
 			check := checks[name]
-			if err == nil && check != nil {
-				query.Check.Series, err = check.evaluate(observation)
+			if check != nil {
+				query.Check.FiredAt = nil
+				query.Check.Series = nil
+			}
+			if queryErr == nil && check != nil {
+				query.Check.Series, queryErr = check.evaluate(observation)
 				if len(query.Check.Series) > 0 {
 					query.Check.FiredAt = &at
 				}
 			}
-			if err != nil {
-				observation.Error = err.Error()
+			if queryErr != nil {
+				observation.Error = queryErr.Error()
+				roundErr = errors.Join(roundErr, fmt.Errorf("query %q: %w", name, queryErr))
+			} else if query.Check != nil && query.Check.FiredAt != nil && query.Check.Action == Fail {
+				roundErr = errors.Join(roundErr, fmt.Errorf("check %q fired for %d series", name, len(query.Check.Series)))
 			}
 			query.Observations = append(query.Observations, observation)
 			queries[name] = query
-			if err != nil {
-				return report, fmt.Errorf("query %q: %w", name, err)
+			if roundErr != nil {
+				cancelRound()
 			}
-			if query.Check != nil && query.Check.FiredAt != nil {
-				if query.Check.Action == Fail {
-					return report, fmt.Errorf("check %q fired for %d series", name, len(query.Check.Series))
-				}
-				complete = true
-			}
+		}
+		cancelRound()
+		if roundErr != nil {
+			return report, roundErr
 		}
 		if runCtx.Err() != nil {
 			return report, ctx.Err()
 		}
-		if complete {
-			if time.Since(at) <= checks[p.completion].maxGap {
-				completed = true
-				return report, nil
+		complete := p.CompletesStage()
+		for _, name := range p.completions {
+			if time.Since(at) > checks[name].maxGap {
+				checks[name].pending = nil
+				queries[name].Check.FiredAt = nil
+				queries[name].Check.Series = nil
 			}
-			checks[p.completion].pending = nil
-			queries[p.completion].Check.FiredAt = nil
-			queries[p.completion].Check.Series = nil
+			complete = complete && queries[name].Check.FiredAt != nil
+		}
+		if complete {
+			completed = true
+			return report, nil
 		}
 		select {
 		case <-runCtx.Done():
@@ -240,8 +259,20 @@ func (p *Prometheus) Run(ctx context.Context) (report Report, err error) {
 	}
 }
 
+// queryResult transfers one request result to the goroutine that owns the report.
+type queryResult struct {
+	name        string
+	observation QueryObservation
+	err         error
+}
+
+// queryClient is the instant query operation used by the runner.
+type queryClient interface {
+	Query(context.Context, string, time.Time, ...prometheusv1.Option) (model.Value, prometheusv1.Warnings, prometheusv1.Infos, error)
+}
+
 // queryPrometheus retains the official result with a deadline for the entire query.
-func queryPrometheus(ctx context.Context, client prometheusv1.API, expression string, at time.Time, timeout time.Duration) (QueryObservation, error) {
+func queryPrometheus(ctx context.Context, client queryClient, expression string, at time.Time, timeout time.Duration) (QueryObservation, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	value, warnings, _, err := client.Query(queryCtx, expression, at)

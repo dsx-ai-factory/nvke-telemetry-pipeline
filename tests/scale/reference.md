@@ -183,13 +183,22 @@ resolution and the outer Go test timeout.
 | `check.expr` | Instant-vector PromQL. Every returned series matches, including a zero-valued sample. Use filtering comparisons without `bool` |
 | `check.for` | Hold for the same labels across consecutive evaluations. Default immediate. Must be shorter than `duration` |
 | `check.action: fail` | Default action. Any matching series that satisfies the hold fails the plan |
-| `check.action: complete` | At most one per measurement. Must match one finite float series with stable labels. Stops generators and advances after cleanup |
+| `check.action: complete` | Each must match one finite float series with stable labels. All completion checks must satisfy their holds in the current round before generators stop and cleanup advances the stage |
 | Backend warnings | Fail the plan for check expressions. Ordinary queries retain warnings without failing |
 | Empty check result | Resets pending holds. Does not fire. Use `absent(...)` when missing telemetry should fail |
 | Freshness | PromQL lookback can include earlier stages. Scope to the intended run/load and check sample timestamps for completion |
 
+Queries and checks run concurrently within each polling round, using the same
+evaluation timestamp. Rounds do not overlap. Request errors and failure checks
+cancel outstanding requests and retain completed observations.
+
+Completion checks continue to be evaluated after their individual holds are met.
+A missing match clears that check's completion status and restarts its hold.
+Set `for: 30m` on every completion check to require all of them to hold throughout
+the same 30-minute window. Each check otherwise uses its own configured duration.
+
 Completion holds restart when evaluation timestamps are more than twice
-`interval` apart. A matching completion result is discarded and its hold
+`interval` apart. All completion results are discarded and their holds
 restarted if the polling round finishes more than twice `interval` after its
 evaluation timestamp. Failure checks still take precedence. These guards concern
 runner timing. Check expressions must independently verify source sample
