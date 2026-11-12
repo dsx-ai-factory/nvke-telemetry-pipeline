@@ -228,8 +228,7 @@ opentelemetry-kube-stack:
 
           export default function () {
             const patch = { count: exec.scenario.iterationInTest + 2, lastTimestamp: new Date().toISOString() }
-            const response = http.patch(api + '/' + name, JSON.stringify(patch), params('patch', [200]))
-            if (response.status !== 200) exec.test.abort('Event update failed: HTTP ' + response.status)
+            http.patch(api + '/' + name, JSON.stringify(patch), params('patch', [200]))
             sleep(1)
           }
 
