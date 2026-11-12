@@ -12,7 +12,7 @@ import (
 )
 
 // CheckReport retains the action, hold duration and matching series.
-// A nil FiredAt means the check did not fire during collection.
+// Completion status clears when a later result no longer satisfies the hold.
 type CheckReport struct {
 	Action  Action         `json:"action"`
 	For     time.Duration  `json:"for"`

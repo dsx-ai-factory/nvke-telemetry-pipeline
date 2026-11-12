@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -456,32 +455,32 @@ func TestPrometheusCompletion(t *testing.T) {
 		wantError  string
 	}{
 		{name: "target reached"},
-		{name: "target unmet", missing: true, wantError: "was not confirmed"},
+		{name: "target unmet", missing: true, wantError: "were not confirmed"},
 		{name: "failure wins", failure: true, wantError: `check "z_guard" fired`},
-		{name: "query error wins", queryError: true, wantError: "503"},
-		{name: "window expires before guard finishes", slowGuard: true, wantError: "was not confirmed"},
+		{name: "query error wins", queryError: true, wantError: "query failed"},
+		{name: "window expires before guard finishes", slowGuard: true, wantError: "were not confirmed"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				assert.NoError(t, r.ParseForm())
-				target := r.Form.Get("query") == "ready"
-				if !target && test.slowGuard {
-					<-r.Context().Done()
-					return
-				}
-				if !target && test.queryError {
-					http.Error(w, "unavailable", http.StatusServiceUnavailable)
-					return
-				}
-				result := `[]`
-				if target && !test.missing || !target && test.failure {
-					result = `[{"metric":{},"value":[100,"0"]}]`
-				}
-				_, err := fmt.Fprintf(w, `{"status":"success","data":{"resultType":"vector","result":%s}}`, result)
-				assert.NoError(t, err)
-			}))
-			defer server.Close()
-			measurement, err := NewPrometheus(measurementSpec(t, fmt.Sprintf(`endpoint: %q
+			synctest.Test(t, func(t *testing.T) {
+				client := queryFunc(func(ctx context.Context, query string, at time.Time) (model.Value, prometheusv1.Warnings, error) {
+					target := query == "ready"
+					if !target {
+						time.Sleep(time.Millisecond)
+					}
+					if !target && test.slowGuard {
+						<-ctx.Done()
+						return nil, nil, ctx.Err()
+					}
+					if !target && test.queryError {
+						return nil, nil, errors.New("query failed")
+					}
+					result := model.Vector{}
+					if target && !test.missing || !target && test.failure {
+						result = append(result, &model.Sample{Metric: model.Metric{}, Value: 0})
+					}
+					return result, nil, nil
+				})
+				measurement, err := NewPrometheus(measurementSpec(t, `endpoint: http://localhost:9090
 duration: 80ms
 interval: 5ms
 measurements:
@@ -489,34 +488,36 @@ measurements:
     check: {expr: ready, action: complete}
   - name: z_guard
     check: {expr: unhealthy}
-`, server.URL)))
-			require.NoError(t, err)
-			assert.True(t, measurement.CompletesStage())
-			report, err := measurement.Run(t.Context())
-			if test.wantError != "" {
-				assert.ErrorContains(t, err, test.wantError)
-			} else {
+`))
 				require.NoError(t, err)
-			}
-			queries := report["queries"].(map[string]QueryReport)
-			assert.NotEmpty(t, queries["a_ready"].Observations)
-			if test.slowGuard {
-				assert.NotNil(t, queries["a_ready"].Check.FiredAt)
-				assert.Empty(t, queries["z_guard"].Observations)
-			} else {
-				assert.NotEmpty(t, queries["z_guard"].Observations)
-			}
-			assert.NotNil(t, report["finished_at"])
+				assert.True(t, measurement.CompletesStage())
+				report, err := measurement.run(t.Context(), client)
+				if test.wantError != "" {
+					assert.ErrorContains(t, err, test.wantError)
+				} else {
+					require.NoError(t, err)
+				}
+				queries := report["queries"].(map[string]QueryReport)
+				assert.NotEmpty(t, queries["a_ready"].Observations)
+				if test.slowGuard {
+					assert.NotNil(t, queries["a_ready"].Check.FiredAt)
+					assert.Empty(t, queries["z_guard"].Observations)
+				} else {
+					assert.NotEmpty(t, queries["z_guard"].Observations)
+				}
+				assert.NotNil(t, report["finished_at"])
+			})
 		})
 	}
 }
 
-// roundTripFunc handles HTTP requests without network waits in fake-time tests.
-type roundTripFunc func(*http.Request) (*http.Response, error)
+// queryFunc supplies query behavior without an HTTP client.
+type queryFunc func(context.Context, string, time.Time) (model.Value, prometheusv1.Warnings, error)
 
-// RoundTrip returns the response supplied by the test.
-func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
-	return f(r)
+// Query returns the fake result with no informational annotations.
+func (f queryFunc) Query(ctx context.Context, query string, at time.Time, _ ...prometheusv1.Option) (model.Value, prometheusv1.Warnings, prometheusv1.Infos, error) {
+	value, warnings, err := f(ctx, query, at)
+	return value, warnings, nil, err
 }
 
 // TestPrometheusCompletionTiming requires a fresh round and bounded polling gaps.
@@ -542,25 +543,19 @@ func TestPrometheusCompletionTiming(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				started := time.Now()
-				originalTransport := api.DefaultRoundTripper
-				t.Cleanup(func() { api.DefaultRoundTripper = originalTransport })
-				api.DefaultRoundTripper = roundTripFunc(func(r *http.Request) (*http.Response, error) {
-					err := r.ParseForm()
-					require.NoError(t, err)
-					query := r.Form.Get("query")
-					if query == test.delayQuery && (test.repeat || time.Since(started) == test.delayAt) {
+				client := queryFunc(func(ctx context.Context, query string, at time.Time) (model.Value, prometheusv1.Warnings, error) {
+					if query == test.delayQuery && (test.repeat || at.Sub(started) == test.delayAt) {
 						select {
 						case <-time.After(test.delay):
-						case <-r.Context().Done():
-							return nil, r.Context().Err()
+						case <-ctx.Done():
+							return nil, nil, ctx.Err()
 						}
 					}
-					result := `[]`
-					if query == "ready" {
-						result = `[{"metric":{},"value":[100,"1"]}]`
+					result := model.Vector{}
+					if query == "ready" || query == "other_ready" {
+						result = append(result, &model.Sample{Value: 1})
 					}
-					body := fmt.Sprintf(`{"status":"success","data":{"resultType":"vector","result":%s}}`, result)
-					return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body))}, nil
+					return result, nil, nil
 				})
 				measurement, err := NewPrometheus(measurementSpec(t, fmt.Sprintf(`endpoint: http://localhost:9090
 duration: 12m
@@ -569,25 +564,236 @@ query_timeout: 4m
 measurements:
   - name: a_ready
     check: {expr: ready, action: complete, for: %s}
+  - name: b_ready
+    check: {expr: other_ready, action: complete, for: %s}
   - name: z_guard
     check: {expr: guard}
-`, test.hold)))
+`, test.hold, test.hold)))
 				require.NoError(t, err)
-				report, err := measurement.Run(t.Context())
+				report, err := measurement.run(t.Context(), client)
 				if test.wantError {
-					require.ErrorContains(t, err, "was not confirmed before duration")
+					require.ErrorContains(t, err, "were not confirmed before duration")
 				} else {
 					require.NoError(t, err)
 				}
 				assert.Equal(t, test.wantFinish, time.Since(started))
-				query := report["queries"].(map[string]QueryReport)["a_ready"]
-				assert.NotEmpty(t, query.Observations)
+				queries := report["queries"].(map[string]QueryReport)
+				for _, name := range []string{"a_ready", "b_ready"} {
+					query := queries[name]
+					assert.NotEmpty(t, query.Observations)
+					if test.wantError {
+						assert.Nil(t, query.Check.FiredAt)
+						assert.Empty(t, query.Check.Series)
+					} else {
+						require.NotNil(t, query.Check.FiredAt)
+						assert.Equal(t, started.Add(test.wantFinish).UTC(), *query.Check.FiredAt)
+					}
+				}
+			})
+		})
+	}
+}
+
+// TestPrometheusConcurrentRounds verifies parallel requests and shared timestamps.
+func TestPrometheusConcurrentRounds(t *testing.T) {
+	for _, delay := range []time.Duration{30 * time.Second, 90 * time.Second} {
+		t.Run(delay.String(), func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				started := time.Now()
+				timestamps := make(chan time.Time, 6)
+				var active atomic.Int32
+				client := queryFunc(func(ctx context.Context, query string, at time.Time) (model.Value, prometheusv1.Warnings, error) {
+					assert.LessOrEqual(t, active.Add(1), int32(3), "polling rounds must not overlap")
+					defer active.Add(-1)
+					timestamps <- at
+					select {
+					case <-time.After(delay):
+					case <-ctx.Done():
+						return nil, nil, ctx.Err()
+					}
+					return model.Vector{&model.Sample{Value: 1}}, nil, nil
+				})
+				measurement, err := NewPrometheus(measurementSpec(t, `endpoint: http://localhost:9090
+duration: 5m
+interval: 1m
+query_timeout: 2m
+measurements:
+  - name: metrics
+    check: {expr: metrics, action: complete, for: 1m}
+  - name: logs
+    check: {expr: logs, action: complete, for: 1m}
+  - name: observation
+    query: load
+`))
+				require.NoError(t, err)
+				report, err := measurement.run(t.Context(), client)
+				require.NoError(t, err)
+				nextRound := max(time.Minute, delay)
+				assert.Equal(t, nextRound+delay, time.Since(started))
+				assert.Zero(t, active.Load())
+				close(timestamps)
+				counts := make(map[time.Time]int)
+				for timestamp := range timestamps {
+					counts[timestamp]++
+				}
+				require.Len(t, counts, 2)
+				for _, count := range counts {
+					assert.Equal(t, 3, count)
+				}
+				for _, query := range report["queries"].(map[string]QueryReport) {
+					require.Len(t, query.Observations, 2)
+					assert.Equal(t, started.UTC(), query.Observations[0].EvaluatedAt)
+					assert.Equal(t, started.Add(nextRound).UTC(), query.Observations[1].EvaluatedAt)
+				}
+			})
+		})
+	}
+}
+
+// TestPrometheusCompletionGroups requires currently satisfied, overlapping holds.
+func TestPrometheusCompletionGroups(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		logsFrom   int
+		metricsGap int
+		metricsEnd int
+		labelAt    int
+		hold       string
+		wantMinute int
+		wantError  bool
+	}{
+		{name: "together", hold: "3m", wantMinute: 3},
+		{name: "staggered", logsFrom: 2, hold: "3m", wantMinute: 5},
+		{name: "qualified check loses match", logsFrom: 3, metricsGap: 4, hold: "3m", wantMinute: 8},
+		{name: "qualified check changes labels", logsFrom: 3, labelAt: 4, hold: "3m", wantMinute: 7},
+		{name: "different holds", logsFrom: 2, hold: "1m", wantMinute: 5},
+		{name: "nonoverlapping holds", logsFrom: 4, metricsEnd: 4, hold: "3m", wantMinute: 12, wantError: true},
+		{name: "missing group", logsFrom: 20, hold: "3m", wantMinute: 12, wantError: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				started := time.Now()
+				client := queryFunc(func(ctx context.Context, query string, at time.Time) (model.Value, prometheusv1.Warnings, error) {
+					minute := int(at.Sub(started) / time.Minute)
+					matches := query == "logs" && minute >= test.logsFrom
+					if query == "metrics" {
+						matches = (test.metricsGap == 0 || minute != test.metricsGap) && (test.metricsEnd == 0 || minute < test.metricsEnd)
+					}
+					result := model.Vector{}
+					if matches {
+						label := model.LabelValue("initial")
+						if query == "metrics" && test.labelAt > 0 && minute >= test.labelAt {
+							label = "changed"
+						}
+						result = append(result, &model.Sample{Metric: model.Metric{"version": label}, Value: 1})
+					}
+					return result, nil, nil
+				})
+				measurement, err := NewPrometheus(measurementSpec(t, fmt.Sprintf(`endpoint: http://localhost:9090
+duration: 12m
+interval: 1m
+measurements:
+  - name: metrics
+    check: {expr: metrics, action: complete, for: %s}
+  - name: logs
+    check: {expr: logs, action: complete, for: 3m}
+`, test.hold)))
+				require.NoError(t, err)
+				assert.True(t, measurement.CompletesStage())
+				report, err := measurement.run(t.Context(), client)
 				if test.wantError {
-					assert.Nil(t, query.Check.FiredAt)
-					assert.Empty(t, query.Check.Series)
+					require.ErrorContains(t, err, "were not confirmed before duration")
 				} else {
-					require.NotNil(t, query.Check.FiredAt)
-					assert.Equal(t, started.Add(test.wantFinish).UTC(), *query.Check.FiredAt)
+					require.NoError(t, err)
+				}
+				assert.Equal(t, time.Duration(test.wantMinute)*time.Minute, time.Since(started))
+				queries := report["queries"].(map[string]QueryReport)
+				if test.metricsEnd > 0 {
+					assert.Nil(t, queries["metrics"].Check.FiredAt)
+					assert.Empty(t, queries["metrics"].Check.Series)
+				}
+				if !test.wantError {
+					for _, query := range queries {
+						require.NotNil(t, query.Check.FiredAt)
+						assert.Equal(t, started.Add(time.Duration(test.wantMinute)*time.Minute).UTC(), *query.Check.FiredAt)
+					}
+				}
+			})
+		})
+	}
+}
+
+// TestPrometheusConcurrentCancellation retains results and waits for canceled peers.
+func TestPrometheusConcurrentCancellation(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		wantError string
+		wantTime  time.Duration
+	}{
+		{name: "query error", wantError: "query failed", wantTime: 10 * time.Second},
+		{name: "failure check", wantError: `check "guard" fired`, wantTime: 10 * time.Second},
+		{name: "warning", wantError: "partial response", wantTime: 10 * time.Second},
+		{name: "query timeout", wantError: "context deadline exceeded", wantTime: 20 * time.Second},
+		{name: "caller cancellation", wantError: "context canceled", wantTime: 10 * time.Second},
+		{name: "duration", wantError: "were not confirmed", wantTime: 30 * time.Second},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				started := time.Now()
+				ctx, cancel := context.WithCancel(t.Context())
+				defer cancel()
+				var stopped atomic.Bool
+				client := queryFunc(func(ctx context.Context, query string, at time.Time) (model.Value, prometheusv1.Warnings, error) {
+					switch query {
+					case "slow":
+						<-ctx.Done()
+						stopped.Store(true)
+						return nil, nil, ctx.Err()
+					case "guard":
+						time.Sleep(10 * time.Second)
+						switch test.name {
+						case "query error":
+							return nil, nil, errors.New("query failed")
+						case "query timeout":
+							<-ctx.Done()
+							return nil, nil, ctx.Err()
+						case "caller cancellation":
+							cancel()
+							return nil, nil, ctx.Err()
+						case "warning":
+							return model.Vector{}, prometheusv1.Warnings{"partial response"}, nil
+						case "duration":
+							return model.Vector{}, nil, nil
+						}
+					}
+					return model.Vector{&model.Sample{Value: 1}}, nil, nil
+				})
+				measurement, err := NewPrometheus(measurementSpec(t, `endpoint: http://localhost:9090
+duration: 30s
+interval: 10s
+query_timeout: 1m
+measurements:
+  - name: metrics
+    check: {expr: metrics, action: complete}
+  - name: logs
+    check: {expr: logs, action: complete}
+  - name: guard
+    check: {expr: guard}
+  - name: slow
+    query: slow
+`))
+				require.NoError(t, err)
+				if test.name == "query timeout" {
+					measurement.config.QueryTimeout = 20 * time.Second
+				}
+				report, err := measurement.run(ctx, client)
+				require.ErrorContains(t, err, test.wantError)
+				assert.Equal(t, test.wantTime, time.Since(started))
+				assert.True(t, stopped.Load(), "Run must wait for canceled requests")
+				queries := report["queries"].(map[string]QueryReport)
+				for _, name := range []string{"metrics", "logs"} {
+					require.Len(t, queries[name].Observations, 1)
+					assert.Empty(t, queries[name].Observations[0].Error)
 				}
 			})
 		})

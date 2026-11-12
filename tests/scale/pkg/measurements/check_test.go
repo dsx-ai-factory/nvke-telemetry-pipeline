@@ -29,7 +29,6 @@ func TestCheckValidation(t *testing.T) {
 		{name: "hold equals duration", entry: "check: {expr: up == 0, for: 1m}"},
 		{name: "hold exceeds duration", entry: "check: {expr: up == 0, for: 2m}"},
 		{name: "numeric expression", entry: "check: {expr: 1}"},
-		{name: "multiple completion targets", entry: "check: {expr: up == 1, action: complete}\n  - name: other\n    check: {expr: up == 1, action: complete}"},
 		{name: "unsupported action", entry: "check: {expr: up == 0, action: unknown}"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
