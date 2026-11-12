@@ -35,27 +35,33 @@ Use a small real cluster with a healthy Metrics Server for the default HPAs.
 Reuse an existing node exporter if one already binds port 9100. This profile
 does not require special node labels or a dedicated node per generator.
 
+The cluster must already have an SSD-backed default StorageClass for the
+watchdog and gateway queues.
+
 Run from the repository root. Edit the kubeconfig path and confirm its selected
-context before installation. The memory-queue overlay avoids a storage-class
-requirement.
+context before installation.
 
 ```sh
 export KUBECONFIG=/path/to/kubeconfig
 kubectl --kubeconfig "$KUBECONFIG" config current-context
 task scale:install \
-  BASE_HELM_VALUES_FILE="$PWD/docs/examples/memory_queue.values.yaml" \
   HELM_VALUES_FILE=tests/scale/mixed-workload-demo/values.yaml
+kubectl --kubeconfig "$KUBECONFIG" -n nktp get pvc
 RUN_ID="demo-$(date -u +%Y%m%d%H%M%S)"
 task scale:test TEST_TIMEOUT=25m -- \
   -plan "$PWD/tests/scale/mixed-workload-demo/plan.yaml" -arg run-id="$RUN_ID"
 ```
+
+The queue PVCs should be `Bound`.
 
 ## Verify
 
 The `ready` check requires all seven run-owned Pods, four fresh scrape targets,
 a fresh OTLP metric in LGTM, three active stdout emitters, successful Event updates, and
 successful gateway exports of metrics, logs, and spans to LGTM. It must hold
-for two minutes.
+for two minutes. Pod readiness uses NKTP's kube-state-metrics job,
+`nktp/nktp-ksm-pods`, so other kube-state-metrics installations do not inflate
+the Pod count.
 Missing or stale required data prevents completion. The observation deadline is
 12 minutes, the plan ceiling is 15 minutes, and the outer timeout allows cleanup.
 
@@ -73,9 +79,12 @@ These are activity checks. Aggregate Event and export counters include
 background traffic and do not prove per-record delivery or durability.
 
 Save the report before cleanup. The runner removes its seven Pods. The nodeless
-target and LGTM remain until uninstall. With the memory queues above,
-uninstall clears their data before the next independent run.
+target and LGTM remain until uninstall. Uninstall clears LGTM data but retains
+the watchdog and gateway queue PVCs.
 
 ```sh
 task scale:uninstall
 ```
+
+After uninstall, [delete the retained queue claims](../../../docs/guides/configure_exporter_queue_storage.md#delete-the-claims)
+before the next independent run so queued telemetry is not replayed into the new backend.

@@ -357,9 +357,9 @@ stages:
               action: complete
               for: 2m
               expr: >-
-                (count((kube_pod_status_ready{namespace="nktp",condition="true"} == 1)
-                  and (time() - timestamp(kube_pod_status_ready{namespace="nktp",condition="true"}) < 90) and on (namespace,pod) (kube_pod_labels{namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}
-                  and (time() - timestamp(kube_pod_labels{namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}) < 90))) == 7)
+                (count((kube_pod_status_ready{job="nktp/nktp-ksm-pods",namespace="nktp",condition="true"} == 1)
+                  and (time() - timestamp(kube_pod_status_ready{job="nktp/nktp-ksm-pods",namespace="nktp",condition="true"}) < 90) and on (namespace,pod) (kube_pod_labels{job="nktp/nktp-ksm-pods",namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}
+                  and (time() - timestamp(kube_pod_labels{job="nktp/nktp-ksm-pods",namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}) < 90))) == 7)
                 and (count((up{scale_workload=~"mixed-workload-demo|mixed-workload-demo-large",test_run_id="{{ .Args.runId }}"} == 1)
                   and (time() - timestamp(up{scale_workload=~"mixed-workload-demo|mixed-workload-demo-large",test_run_id="{{ .Args.runId }}"}) < 90)) == 3)
                 and (count((up{scale_workload="mixed-workload-demo-nodeless",nktp_metrics_pool="nodeless"} == 1)
