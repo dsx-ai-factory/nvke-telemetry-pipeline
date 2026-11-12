@@ -1,0 +1,390 @@
+# Small mixed workload with seven generator Pods. See README.md.
+# Install values.yaml first. Only runId is a plan argument.
+name: mixed-workload-demo
+timeout: 15m
+stages:
+  - name: load
+    generators:
+    - name: small-scraped
+      type: statefulset
+      spec:
+        replicas: 1
+        duration: 20m
+        podTemplate:
+          metadata:
+            namespace: nktp
+            labels:
+              scale.nktp.io/workload: mixed-workload-demo
+              scale.nktp.io/run-id: '{{ .Args.runId }}'
+          spec:
+            restartPolicy: Always
+            terminationGracePeriodSeconds: 30
+            automountServiceAccountToken: false
+            containers:
+              - name: avalanche
+                image: quay.io/prometheuscommunity/avalanche:v0.7.0@sha256:ea02e9599fcbb59a6fc7396656434faf200db7f1c259802e3dbb38cec81bd12a
+                command: [/bin/avalanche]
+                args:
+                  - --port=9001
+                  - --gauge-metric-count=0
+                  - --label-count=4
+                  - --series-interval=0
+                  - --metric-interval=0
+                  - --value-interval=30
+                  - --series-operation-mode=disabled
+                  - --counter-metric-count=1
+                  - --series-count=200
+                  - --const-label=generator_instance=$(POD_UID)
+                ports:
+                  - {name: metrics, containerPort: 9001}
+                readinessProbe:
+                  tcpSocket: {port: metrics}
+                  periodSeconds: 5
+                resources:
+                  requests: {cpu: 10m, memory: 32Mi}
+                  limits: {cpu: 200m, memory: 64Mi}
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  capabilities: {drop: [ALL]}
+                env:
+                  - name: POD_UID
+                    valueFrom: {fieldRef: {fieldPath: "metadata.uid"}}
+{{- block "stdoutContainer" "small" }}
+              - name: vector-stdout-{{ . }}
+                image: ghcr.io/vectordotdev/vector:0.58.0-debian@sha256:1c1ea358c617ea0b23003d5af87f7a678b30f8f7096437e680380c47fc13d2d9
+                args: [--threads, '1', --config, /etc/vector/common.yaml, --config, '/etc/vector/{{ . }}.yaml']
+                ports:
+                  - {name: vector-metrics, containerPort: 9598}
+                readinessProbe:
+                  tcpSocket: {port: vector-metrics}
+                resources:
+                  requests: {cpu: 25m, memory: 64Mi}
+                  limits: {cpu: 500m, memory: 128Mi}
+                volumeMounts:
+                  - {name: vector-config, mountPath: /etc/vector, readOnly: true}
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  capabilities: {drop: [ALL]}
+{{- end }}
+            volumes:
+              - name: vector-config
+                configMap: {name: nktp-mixed-workload-demo-stdout}
+
+    - name: small-instrumented
+      type: statefulset
+      spec:
+        replicas: 1
+        duration: 20m
+        podTemplate:
+          metadata:
+            namespace: nktp
+            labels:
+              scale.nktp.io/workload: mixed-workload-demo
+              scale.nktp.io/run-id: '{{ .Args.runId }}'
+          spec:
+            restartPolicy: Always
+            terminationGracePeriodSeconds: 30
+            automountServiceAccountToken: false
+            containers:
+              - name: otlp-metrics
+                image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:v0.159.0@sha256:bad7fde3119476a9177cc4b9f04307c9876fca5b5584e009aebd7123d7557658
+                command: [/telemetrygen]
+                args:
+                  - metrics
+                  - --otlp-endpoint=nktp-mixed-workload-demo-local.nktp.svc:4317
+                  - --otlp-insecure
+                  - --duration=inf
+                  - --workers=1
+                  - --rate=1
+                  - --batch-size=1
+                  - --metric-type=Gauge
+                  - --otlp-metric-name=nktp_demo_metric
+                  - --service=mixed-workload-demo-metrics
+                  - --telemetry-attributes=test_run_id="{{ .Args.runId }}"
+                  - --otlp-attributes=service.instance.id="$(POD_UID)"
+                env:
+                  - name: POD_UID
+                    valueFrom: {fieldRef: {fieldPath: "metadata.uid"}}
+                resources:
+                  requests: {cpu: 25m, memory: 64Mi}
+                  limits: {cpu: 500m, memory: 256Mi}
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  capabilities: {drop: [ALL]}
+{{ template "stdoutContainer" "small" }}
+{{- block "tracesContainer" "small" }}
+              - name: traces
+                image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:v0.159.0@sha256:bad7fde3119476a9177cc4b9f04307c9876fca5b5584e009aebd7123d7557658
+                command: [/telemetrygen]
+                args:
+                  - traces
+                  - --otlp-endpoint=nktp-mixed-workload-demo-local.nktp.svc:4317
+                  - --otlp-insecure
+                  - --duration=inf
+                  - --workers=1
+                  - --child-spans=1
+                  - --rate=$(ITEM_RATE)
+                  - --batch
+                  - --batch-size=1
+                  - --service=mixed-workload-demo-traces-{{ . }}
+                  - --telemetry-attributes=test_run_id="$(RUN_ID)"
+                  - --telemetry-attributes=payload="$(PAYLOAD)"
+                  - --otlp-attributes=service.instance.id="$(POD_UID)"
+                env:
+                  - name: ITEM_RATE
+                    valueFrom: {configMapKeyRef: {name: nktp-mixed-workload-demo-payloads, key: 'spans-{{ . }}-rate'}}
+                  - name: RUN_ID
+                    valueFrom: {fieldRef: {fieldPath: "metadata.labels['scale.nktp.io/run-id']"}}
+                  - name: POD_UID
+                    valueFrom: {fieldRef: {fieldPath: "metadata.uid"}}
+                  - name: PAYLOAD
+                    valueFrom: {configMapKeyRef: {name: nktp-mixed-workload-demo-payloads, key: 'spans-{{ . }}'}}
+                  - name: OTEL_TRACES_SAMPLER
+                    value: always_on
+                  - name: OTEL_BSP_MAX_QUEUE_SIZE
+                    value: '2048'
+                resources:
+                  requests: {cpu: 25m, memory: 64Mi}
+                  limits: {cpu: 500m, memory: 256Mi}
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  capabilities: {drop: [ALL]}
+{{- end }}
+            volumes:
+              - name: vector-config
+                configMap: {name: nktp-mixed-workload-demo-stdout}
+
+    - name: node-local-targets
+      type: statefulset
+      spec:
+        replicas: 1
+        duration: 20m
+        podTemplate:
+          metadata:
+            namespace: nktp
+            labels:
+              scale.nktp.io/workload: mixed-workload-demo
+              scale.nktp.io/run-id: '{{ .Args.runId }}'
+          spec:
+            restartPolicy: Always
+            terminationGracePeriodSeconds: 30
+            automountServiceAccountToken: false
+            containers:
+              - name: avalanche
+                image: quay.io/prometheuscommunity/avalanche:v0.7.0@sha256:ea02e9599fcbb59a6fc7396656434faf200db7f1c259802e3dbb38cec81bd12a
+                command: [/bin/avalanche]
+                args:
+                  - --port=9001
+                  - --gauge-metric-count=0
+                  - --label-count=4
+                  - --series-interval=0
+                  - --metric-interval=0
+                  - --value-interval=30
+                  - --series-operation-mode=disabled
+                  - --counter-metric-count=1
+                  - --series-count=500
+                  - --const-label=generator_instance=$(POD_UID)
+                ports:
+                  - {name: metrics, containerPort: 9001}
+                readinessProbe:
+                  tcpSocket: {port: metrics}
+                  periodSeconds: 5
+                resources:
+                  requests: {cpu: 10m, memory: 64Mi}
+                  limits: {cpu: 200m, memory: 256Mi}
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  capabilities: {drop: [ALL]}
+                env:
+                  - name: POD_UID
+                    valueFrom: {fieldRef: {fieldPath: "metadata.uid"}}
+
+    - name: large-logs
+      type: statefulset
+      spec:
+        replicas: 1
+        duration: 20m
+        podTemplate:
+          metadata:
+            namespace: nktp
+            labels:
+              scale.nktp.io/workload: mixed-workload-demo
+              scale.nktp.io/run-id: '{{ .Args.runId }}'
+          spec:
+            restartPolicy: Always
+            terminationGracePeriodSeconds: 30
+            automountServiceAccountToken: false
+            containers:
+{{ template "stdoutContainer" "large" }}
+            volumes:
+              - name: vector-config
+                configMap: {name: nktp-mixed-workload-demo-stdout}
+
+    - name: large-traces
+      type: statefulset
+      spec:
+        replicas: 1
+        duration: 20m
+        podTemplate:
+          metadata:
+            namespace: nktp
+            labels:
+              scale.nktp.io/workload: mixed-workload-demo
+              scale.nktp.io/run-id: '{{ .Args.runId }}'
+          spec:
+            restartPolicy: Always
+            terminationGracePeriodSeconds: 30
+            automountServiceAccountToken: false
+            containers:
+{{ template "tracesContainer" "large" }}
+
+    - name: events
+      type: pod
+      spec:
+        podTemplate:
+          metadata:
+            namespace: nktp
+            labels:
+              scale.nktp.io/workload: mixed-workload-demo-events
+              scale.nktp.io/run-id: '{{ .Args.runId }}'
+          spec:
+            restartPolicy: Never
+            activeDeadlineSeconds: 1500
+            terminationGracePeriodSeconds: 150
+            automountServiceAccountToken: false
+            containers:
+              - name: k6-events
+                image: grafana/k6:2.3.0@sha256:9c2dee7f8ed74d317e4027c06a10f169b625638189de8d4555d0b3486a5aeb34
+                args: [run, --out, experimental-prometheus-rw, /etc/k6/events.js]
+                env:
+                  - {name: GOMEMLIMIT, value: 409MiB}
+                  - {name: K6_NO_USAGE_REPORT, value: 'true'}
+                  - {name: K6_PROMETHEUS_RW_SERVER_URL, value: 'http://lgtm:9090/api/v1/write'}
+                  - {name: K6_PROMETHEUS_RW_TREND_STATS, value: 'p(95)'}
+                  - {name: SSL_CERT_FILE, value: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt}
+                  - name: POD_NAMESPACE
+                    valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+                  - name: POD_NAME
+                    valueFrom: {fieldRef: {fieldPath: metadata.name}}
+                  - name: POD_UID
+                    valueFrom: {fieldRef: {fieldPath: metadata.uid}}
+                  - name: NODE_NAME
+                    valueFrom: {fieldRef: {fieldPath: spec.nodeName}}
+                  - name: EVENT_RUN_ID
+                    value: '{{ .Args.runId }}'
+                resources:
+                  requests: {cpu: 50m, memory: 128Mi}
+                  limits: {cpu: 500m, memory: 512Mi}
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  runAsNonRoot: true
+                  runAsUser: 65532
+                  capabilities: {drop: [ALL]}
+                volumeMounts:
+                  - {name: events-config, mountPath: /etc/k6, readOnly: true}
+                  - {name: api-access, mountPath: /var/run/secrets/kubernetes.io/serviceaccount, readOnly: true}
+            serviceAccountName: nktp-mixed-workload-demo-events
+            volumes:
+              - name: events-config
+                configMap: {name: nktp-mixed-workload-demo-events}
+              - name: api-access
+                projected:
+                  sources:
+                    # The mounted token outlives the generator and cleanup.
+                    - serviceAccountToken: {path: token, expirationSeconds: 3600}
+                    - configMap:
+                        name: kube-root-ca.crt
+                        items: [{key: ca.crt, path: ca.crt}]
+
+    - name: large-target
+      type: statefulset
+      spec:
+        replicas: 1
+        duration: 20m
+        podTemplate:
+          metadata:
+            namespace: nktp
+            labels:
+              scale.nktp.io/workload: mixed-workload-demo-large
+              scale.nktp.io/run-id: '{{ .Args.runId }}'
+          spec:
+            restartPolicy: Always
+            terminationGracePeriodSeconds: 30
+            automountServiceAccountToken: false
+            containers:
+              - name: avalanche-large
+                image: quay.io/prometheuscommunity/avalanche:v0.7.0@sha256:ea02e9599fcbb59a6fc7396656434faf200db7f1c259802e3dbb38cec81bd12a
+                command: [/bin/avalanche]
+                ports:
+                  - {name: large-metrics, containerPort: 9002}
+                readinessProbe:
+                  tcpSocket: {port: large-metrics}
+                  periodSeconds: 5
+                resources:
+                  requests: {cpu: 10m, memory: 32Mi}
+                  limits: {cpu: 200m, memory: 128Mi}
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  capabilities: {drop: [ALL]}
+                args:
+                  - --port=9002
+                  - --gauge-metric-count=0
+                  - --label-count=4
+                  - --series-interval=0
+                  - --metric-interval=0
+                  - --value-interval=30
+                  - --series-operation-mode=disabled
+                  - --counter-metric-count=75
+                  - --series-count=2
+
+    measurement:
+      type: prometheus
+      spec:
+        endpoint: http://127.0.0.1:9090
+        duration: 12m
+        interval: 30s
+        query_timeout: 10s
+        measurements:
+          - name: ready
+            check:
+              action: complete
+              for: 2m
+              expr: >-
+                (count((kube_pod_status_ready{namespace="nktp",condition="true"} == 1)
+                  and (time() - timestamp(kube_pod_status_ready{namespace="nktp",condition="true"}) < 90) and on (namespace,pod) (kube_pod_labels{namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}
+                  and (time() - timestamp(kube_pod_labels{namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}) < 90))) == 7)
+                and (count((up{scale_workload=~"mixed-workload-demo|mixed-workload-demo-large",test_run_id="{{ .Args.runId }}"} == 1)
+                  and (time() - timestamp(up{scale_workload=~"mixed-workload-demo|mixed-workload-demo-large",test_run_id="{{ .Args.runId }}"}) < 90)) == 3)
+                and (count((up{scale_workload="mixed-workload-demo-nodeless",nktp_metrics_pool="nodeless"} == 1)
+                  and (time() - timestamp(up{scale_workload="mixed-workload-demo-nodeless",nktp_metrics_pool="nodeless"}) < 90)) == 1)
+                and (count(nktp_demo_metric{test_run_id="{{ .Args.runId }}"}
+                  and (time() - timestamp(nktp_demo_metric{test_run_id="{{ .Args.runId }}"}) < 90)) == 1)
+                and (count((rate(vector_component_sent_events_total{component_id="stdout_load",test_run_id="{{ .Args.runId }}"}[2m]) > 0)
+                  and (time() - timestamp(vector_component_sent_events_total{component_id="stdout_load",test_run_id="{{ .Args.runId }}"}) < 90)) == 3)
+                and (sum(rate(k6_http_reqs_total{name="event-patch",status="200",test_run_id="{{ .Args.runId }}"}[2m])
+                  and (time() - timestamp(k6_http_reqs_total{name="event-patch",status="200",test_run_id="{{ .Args.runId }}"}) < 90)) > 0)
+                and (sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter="otlp_grpc"}[2m])
+                  and (time() - timestamp(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter="otlp_grpc"}) < 90)) > 0)
+                and (sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter="otlp_grpc"}[2m])
+                  and (time() - timestamp(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter="otlp_grpc"}) < 90)) > 0)
+                and (sum(rate(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter="otlp_grpc"}[2m])
+                  and (time() - timestamp(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter="otlp_grpc"}) < 90)) > 0)
+          - name: sent_metric_points
+            units: points/s
+            query: >-
+              sum by (job) (rate(otelcol_exporter_sent_metric_points_total{job=~"nktp-(daemonset|large-target-metrics|nodeless-metrics|cluster-events|gateway-(metrics|logs|traces)|watchdog)"}[2m]))
+          - name: sent_log_records
+            units: records/s
+            query: >-
+              sum by (job) (rate(otelcol_exporter_sent_log_records_total{job=~"nktp-(daemonset|large-target-metrics|nodeless-metrics|cluster-events|gateway-(metrics|logs|traces)|watchdog)"}[2m]))
+          - name: sent_spans
+            units: spans/s
+            query: >-
+              sum by (job) (rate(otelcol_exporter_sent_spans_total{job=~"nktp-(daemonset|large-target-metrics|nodeless-metrics|cluster-events|gateway-(metrics|logs|traces)|watchdog)"}[2m]))

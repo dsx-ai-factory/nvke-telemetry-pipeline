@@ -1,0 +1,284 @@
+# Small mixed workload using the default Collector settings and stock LGTM.
+kube-state-metrics:
+  metricLabelsAllowlist:
+    - pods=[scale.nktp.io/run-id]
+opentelemetry-kube-stack:
+  extraObjects:
+    # A fixed static target exercises nodeless discovery throughout the profile lifetime.
+    - apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: nktp-mixed-workload-demo-nodeless
+        namespace: '{{ .Release.Namespace }}'
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            scale.nktp.io/workload: mixed-workload-demo-nodeless
+        template:
+          metadata:
+            labels:
+              scale.nktp.io/workload: mixed-workload-demo-nodeless
+          spec:
+            automountServiceAccountToken: false
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 65532
+              seccompProfile:
+                type: RuntimeDefault
+            containers:
+              - name: avalanche
+                image: quay.io/prometheuscommunity/avalanche:v0.7.0@sha256:ea02e9599fcbb59a6fc7396656434faf200db7f1c259802e3dbb38cec81bd12a
+                command: [/bin/avalanche]
+                args:
+                  - --port=9001
+                  - --gauge-metric-count=0
+                  - --counter-metric-count=1
+                  - --series-count=100
+                  - --label-count=4
+                  - --series-interval=0
+                  - --metric-interval=0
+                  - --value-interval=30
+                  - --series-operation-mode=disabled
+                ports:
+                  - {name: metrics, containerPort: 9001}
+                readinessProbe:
+                  tcpSocket: {port: metrics}
+                  periodSeconds: 5
+                resources:
+                  requests: {cpu: 10m, memory: 32Mi}
+                  limits: {cpu: 200m, memory: 64Mi}
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  capabilities: {drop: [ALL]}
+    - apiVersion: v1
+      kind: Service
+      metadata:
+        name: nktp-mixed-workload-demo-nodeless
+        namespace: '{{ .Release.Namespace }}'
+      spec:
+        selector:
+          scale.nktp.io/workload: mixed-workload-demo-nodeless
+        ports:
+          - {name: metrics, port: 9001, targetPort: metrics}
+    - apiVersion: monitoring.coreos.com/v1alpha1
+      kind: ScrapeConfig
+      metadata:
+        name: nktp-mixed-workload-demo-nodeless
+        namespace: '{{ .Release.Namespace }}'
+      spec:
+        scrapeInterval: 30s
+        scrapeTimeout: 10s
+        staticConfigs:
+          - targets: [nktp-mixed-workload-demo-nodeless:9001]
+            labels:
+              scale_workload: mixed-workload-demo-nodeless
+    - apiVersion: monitoring.coreos.com/v1
+      kind: PodMonitor
+      metadata:
+        name: nktp-mixed-workload-demo-load
+        namespace: '{{ .Release.Namespace }}'
+      spec:
+        selector:
+          matchLabels:
+            scale.nktp.io/workload: mixed-workload-demo
+        podMetricsEndpoints:
+          - port: metrics
+            scrapeTimeout: 10s
+            relabelings:
+              - targetLabel: scale_workload
+                replacement: mixed-workload-demo
+              - sourceLabels: [__meta_kubernetes_pod_label_scale_nktp_io_run_id]
+                targetLabel: test_run_id
+              - sourceLabels: [__meta_kubernetes_pod_name]
+                targetLabel: instance
+          - port: vector-metrics
+            interval: 30s
+            scrapeTimeout: 10s
+            relabelings:
+              - sourceLabels: [__meta_kubernetes_pod_name]
+                targetLabel: instance
+              - sourceLabels: [__meta_kubernetes_pod_label_scale_nktp_io_run_id]
+                targetLabel: test_run_id
+    - apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: nktp-mixed-workload-demo-payloads
+        namespace: '{{ .Release.Namespace }}'
+      data:
+        spans-small: '{{ repeat 1024 "x" }}'
+        spans-small-rate: '2'
+        spans-large: '{{ repeat 65536 "x" }}'
+        spans-large-rate: '1'
+    - apiVersion: v1
+      kind: Service
+      metadata:
+        name: nktp-mixed-workload-demo-local
+        namespace: '{{ .Release.Namespace }}'
+      spec:
+        internalTrafficPolicy: Local
+        selector:
+          app.kubernetes.io/name: nktp-daemonset-collector
+        ports:
+          - {name: otlp-grpc, port: 4317, targetPort: 4317}
+    - apiVersion: monitoring.coreos.com/v1
+      kind: PodMonitor
+      metadata:
+        name: nktp-mixed-workload-demo-large
+        namespace: '{{ .Release.Namespace }}'
+        labels:
+          nktp.nvidia.io/large-target: 'true'
+      spec:
+        selector:
+          matchLabels:
+            scale.nktp.io/workload: mixed-workload-demo-large
+        podMetricsEndpoints:
+          - port: large-metrics
+            interval: 60s
+            scrapeTimeout: 55s
+            relabelings:
+              - targetLabel: scale_workload
+                replacement: mixed-workload-demo-large
+              - sourceLabels: [__meta_kubernetes_pod_label_scale_nktp_io_run_id]
+                targetLabel: test_run_id
+              - sourceLabels: [__meta_kubernetes_pod_name, __meta_kubernetes_pod_container_port_number]
+                separator: ':'
+                targetLabel: instance
+    # One Pod-owned Event updated by k6.
+    - apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: nktp-mixed-workload-demo-events
+        namespace: '{{ .Release.Namespace }}'
+    - apiVersion: rbac.authorization.k8s.io/v1
+      kind: Role
+      metadata:
+        name: nktp-mixed-workload-demo-events
+        namespace: '{{ .Release.Namespace }}'
+      rules:
+        - apiGroups:
+            - ''
+          resources:
+            - events
+          verbs: [create, patch, delete]
+    - apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata:
+        name: nktp-mixed-workload-demo-events
+        namespace: '{{ .Release.Namespace }}'
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: Role
+        name: nktp-mixed-workload-demo-events
+      subjects:
+        - kind: ServiceAccount
+          name: nktp-mixed-workload-demo-events
+          namespace: '{{ .Release.Namespace }}'
+    - apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: nktp-mixed-workload-demo-events
+        namespace: '{{ .Release.Namespace }}'
+      data:
+        events.js: |
+          import http from 'k6/http'
+          import exec from 'k6/execution'
+          import { sleep } from 'k6'
+
+          const api = 'https://kubernetes.default.svc/api/v1/namespaces/' + __ENV.POD_NAMESPACE + '/events'
+          const token = open('/var/run/secrets/kubernetes.io/serviceaccount/token').trim()
+          const owner = { apiVersion: 'v1', kind: 'Pod', name: __ENV.POD_NAME, uid: __ENV.POD_UID }
+          const name = 'nktp-event-' + __ENV.POD_UID
+
+          export const options = {
+            vus: 1, duration: '20m',
+            systemTags: ['method', 'status', 'name'],
+            tags: { test_run_id: __ENV.EVENT_RUN_ID, producer_id: __ENV.POD_UID },
+            thresholds: { http_req_failed: ['rate==0'] },
+          }
+
+          function params(operation, statuses) {
+            return {
+              headers: { Authorization: 'Bearer ' + token, 'Content-Type': operation === 'patch' ? 'application/merge-patch+json' : 'application/json' },
+              timeout: '5s', tags: { name: 'event-' + operation },
+              responseType: operation === 'create' ? 'text' : 'none',
+              responseCallback: http.expectedStatuses(...statuses),
+            }
+          }
+
+          export function setup() {
+            const timestamp = new Date().toISOString()
+            const event = {
+              apiVersion: 'v1', kind: 'Event',
+              metadata: {
+                name, namespace: __ENV.POD_NAMESPACE, ownerReferences: [owner],
+                labels: { 'scale.nktp.io/run-id': __ENV.EVENT_RUN_ID },
+              },
+              involvedObject: { ...owner, namespace: __ENV.POD_NAMESPACE },
+              reason: 'NKTPScaleTest', type: 'Normal', action: 'Scale',
+              reportingComponent: 'nktp.nvidia.io/scale-test', reportingInstance: __ENV.EVENT_RUN_ID,
+              message: 'x'.repeat(1024), source: { component: 'k6', host: __ENV.NODE_NAME },
+              firstTimestamp: timestamp, lastTimestamp: timestamp, count: 1,
+            }
+            const response = http.post(api, JSON.stringify(event), params('create', [201]))
+            if (response.status !== 201) throw new Error('Event create failed: HTTP ' + response.status)
+            return response.json('metadata.uid')
+          }
+
+          export default function () {
+            const patch = { count: exec.scenario.iterationInTest + 2, lastTimestamp: new Date().toISOString() }
+            const response = http.patch(api + '/' + name, JSON.stringify(patch), params('patch', [200]))
+            if (response.status !== 200) exec.test.abort('Event update failed: HTTP ' + response.status)
+            sleep(1)
+          }
+
+          export function teardown(uid) {
+            const body = JSON.stringify({ apiVersion: 'v1', kind: 'DeleteOptions', preconditions: { uid } })
+            const response = http.del(api + '/' + name, body, params('delete', [200, 202, 404]))
+            if (![200, 202, 404].includes(response.status)) throw new Error('Event delete failed, Pod ownership provides GC fallback')
+          }
+    - apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: nktp-mixed-workload-demo-stdout
+        namespace: '{{ .Release.Namespace }}'
+      data:
+        common.yaml: |
+          sources:
+            self:
+              type: internal_metrics
+              scrape_interval_secs: 15
+          transforms:
+            measured:
+              type: filter
+              inputs: [self]
+              condition: >-
+                .tags.component_id == "stdout_load" &&
+                .name == "component_sent_events_total"
+          sinks:
+            stdout_load:
+              type: console
+              inputs: [load]
+              target: stdout
+              encoding: {codec: text}
+            metrics:
+              type: prometheus_exporter
+              inputs: [measured]
+              address: 0.0.0.0:9598
+        small.yaml: |
+          sources:
+            load:
+              type: demo_logs
+              format: shuffle
+              sequence: false
+              interval: 1
+              lines: ['{{ repeat 100 "x" }}']
+        large.yaml: |
+          sources:
+            load:
+              type: demo_logs
+              format: shuffle
+              sequence: false
+              interval: 5
+              lines: ['{{ repeat 65536 "x" }}']

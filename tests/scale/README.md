@@ -6,6 +6,7 @@ contains its plan, usage notes and any required Helm values.
 
 | Workload | Purpose |
 | --- | --- |
+| [Mixed workload demo](mixed-workload-demo/README.md) | Small mixed workload with stock LGTM |
 | [Mixed workload](mixed-workload/README.md) | Metrics, stdout logs, traces, Events and large scrape targets together |
 | [Backend outage](backend-outage/README.md) | Simulate a backend outage to tune the gateway sending queue. Compare delivery, client backpressure, memory usage, and recovery |
 | [Telemetrygen](examples/telemetrygen/README.md) | Send OTLP metrics, logs and traces |
