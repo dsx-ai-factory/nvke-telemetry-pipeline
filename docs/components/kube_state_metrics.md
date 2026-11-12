@@ -31,6 +31,11 @@ Secret objects, including their contents. To enable them, set
 Set that workload's `namespaces` list to limit access. An empty list grants access
 across the cluster.
 
+The `http-metrics` `PodMonitor` endpoint renames KSM's `secret` label to
+`secret_name` (for example on `kube_secret_*` and `kube_ingress_tls`) and drops
+`secret` so default credential redaction does not mask Kubernetes Secret object
+names.
+
 ## Custom resources
 
 A central workload can also report custom resources with KSM's

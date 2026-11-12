@@ -21,7 +21,17 @@ tests:
           value: nktp-ksm-workloads
       - equal:
           path: spec.podMetricsEndpoints
-          value: [{port: http-metrics, honorLabels: true}, {port: telemetry}]
+          value:
+            - port: http-metrics
+              honorLabels: true
+              metricRelabelings:
+                - sourceLabels: [secret]
+                  regex: (.+)
+                  targetLabel: secret_name
+                  action: replace
+                - regex: ^secret$
+                  action: labeldrop
+            - port: telemetry
         documentSelector:
           path: metadata.name
           value: nktp-ksm-workloads
@@ -79,4 +89,35 @@ tests:
     asserts:
       - equal:
           path: spec.podMetricsEndpoints
-          value: [{port: http-metrics, honorLabels: true}, {port: telemetry}]
+          value:
+            - port: http-metrics
+              honorLabels: true
+              metricRelabelings:
+                - sourceLabels: [secret]
+                  regex: (.+)
+                  targetLabel: secret_name
+                  action: replace
+                - regex: ^secret$
+                  action: labeldrop
+            - port: telemetry
+
+  - it: renames the KSM secret label on the metrics endpoint
+    documentSelector:
+      path: metadata.name
+      value: nktp-ksm-configuration
+    asserts:
+      - equal:
+          path: spec.podMetricsEndpoints[0].port
+          value: http-metrics
+      - equal:
+          path: spec.podMetricsEndpoints[0].metricRelabelings
+          value:
+            - sourceLabels: [secret]
+              regex: (.+)
+              targetLabel: secret_name
+              action: replace
+            - regex: ^secret$
+              action: labeldrop
+      - equal:
+          path: spec.podMetricsEndpoints[1]
+          value: {port: telemetry}

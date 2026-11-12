@@ -259,6 +259,8 @@ func redactionAttributes(surface string, redact bool) []any {
 		result = append(result, attribute(key, value("intValue", "123")))
 	}
 	result = append(result, attribute("tokens_per_second", value("doubleValue", 12.5)))
+	// Kubernetes Secret object names relabeled to secret_name must remain unmasked.
+	result = append(result, attribute("secret_name", value("stringValue", "tls-certificate")))
 	for i, text := range redactionTexts(redact) {
 		result = append(result, attribute(fmt.Sprintf("text.%d", i), value("stringValue", text)))
 	}
