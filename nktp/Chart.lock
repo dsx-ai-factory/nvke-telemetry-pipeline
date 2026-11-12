@@ -10,9 +10,9 @@ dependencies:
   version: 3.14.0
 - name: prometheus-blackbox-exporter
   repository: https://prometheus-community.github.io/helm-charts
-  version: 11.20.2
+  version: 11.21.2
 - name: nvcb
   repository: file://../nvcb/chart
   version: 0.1.0
-digest: sha256:e96107630db5f9ff4a427dae7d713b52db7f69cd49ede51bdb4f3d9936765909
-generated: "2026-11-09T22:53:07.17720953Z"
+digest: sha256:2485a50fa99252b41b70beb231d30defaada088adb80450f1dcefb5d18c69f10
+generated: "2026-11-12T05:35:31.347838055Z"
