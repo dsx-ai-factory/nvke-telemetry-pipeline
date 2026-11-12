@@ -1334,6 +1334,8 @@ stages:
                   otelcol_receiver_accepted_log_records_total{job="nktp-cluster-events",receiver="k8s_events"}
                   unless present_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-cluster-events",receiver="k8s_events"}[1m] offset 4m)
                 )
+
+          # Scrape targets
           # The fixed nodeless target has no run ID. Preserve its actual scraper pool.
           - name: fresh_targets
             units: targets
@@ -1355,6 +1357,8 @@ stages:
             query: >-
               scrape_duration_seconds{scale_workload=~"mixed-workload|mixed-workload-large",test_run_id="{{ .Args.runId }}"}
               or (scrape_duration_seconds{scale_workload="mixed-workload-nodeless"} and (time() - timestamp(scrape_duration_seconds{scale_workload="mixed-workload-nodeless"}) < 120))
+
+          # Producer health and resources
           - name: producer_placement
             units: pods
             query: >-
@@ -1394,6 +1398,8 @@ stages:
               (rate(container_cpu_cfs_throttled_periods_total{namespace="nktp",job="kubelet-cadvisor",pod=~"scale-.+",container!="",container!="POD"}[2m])
                / rate(container_cpu_cfs_periods_total{namespace="nktp",job="kubelet-cadvisor",pod=~"scale-.+",container!="",container!="POD"}[2m]))
               and on (namespace,pod) kube_pod_labels{namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}
+
+          # Offered load
           - name: stdout_records
             units: records/s
             query: >-
@@ -1425,6 +1431,8 @@ stages:
                 nktp_scale_otlp_source_up{test_run_id="{{ .Args.runId }}"} == 1
                 and (time() - timestamp(nktp_scale_otlp_source_up{test_run_id="{{ .Args.runId }}"}) < 90)
               )
+
+          # Events
           # Cluster-wide diagnostic with background Events and no run ID.
           # Matching the PATCH rate does not prove receipt of this run's Events.
           - name: event_records_accepted
@@ -1478,6 +1486,8 @@ stages:
                   and (time() - timestamp(k6_iterations_total{test_run_id="{{ .Args.runId }}"}) < 90)
                 )
               )
+
+          # Component resources
           # Shared selectors preserve each component, Pod and container in result labels.
           - name: component_cpu
             units: cores
@@ -1500,6 +1510,24 @@ stages:
             units: bytes
             query: >-
               otelcol_process_runtime_heap_alloc_bytes{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}
+          - name: component_cpu_requests
+            units: cores
+            query: >-
+              {__name__=~"kube_pod_(init_)?container_resource_requests",namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|otc-sidecar|ta-container|avalanche",resource="cpu"}
+          - name: component_cpu_limits
+            units: cores
+            query: >-
+              {__name__=~"kube_pod_(init_)?container_resource_limits",namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|otc-sidecar|ta-container|avalanche",resource="cpu"}
+          - name: component_memory_requests
+            units: bytes
+            query: >-
+              {__name__=~"kube_pod_(init_)?container_resource_requests",namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|otc-sidecar|ta-container|avalanche",resource="memory"}
+          - name: component_memory_limits
+            units: bytes
+            query: >-
+              {__name__=~"kube_pod_(init_)?container_resource_limits",namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|otc-sidecar|ta-container|avalanche",resource="memory"}
+
+          # Component health and queues
           - name: self_metric_age
             units: seconds
             query: >-
@@ -1564,6 +1592,8 @@ stages:
             units: info
             query: >-
               kube_pod_init_container_status_last_terminated_reason{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+",container="otc-sidecar"}
+
+          # Autoscaling
           - name: hpa_current_replicas
             units: replicas
             query: >-
@@ -1572,10 +1602,20 @@ stages:
             units: replicas
             query: >-
               kube_horizontalpodautoscaler_status_desired_replicas{namespace="nktp",horizontalpodautoscaler=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector"}
+          - name: hpa_min_replicas
+            units: replicas
+            query: >-
+              kube_horizontalpodautoscaler_spec_min_replicas{namespace="nktp",horizontalpodautoscaler=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector"}
+          - name: hpa_max_replicas
+            units: replicas
+            query: >-
+              kube_horizontalpodautoscaler_spec_max_replicas{namespace="nktp",horizontalpodautoscaler=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector"}
           - name: hpa_conditions
             units: bool
             query: >-
               kube_horizontalpodautoscaler_status_condition{namespace="nktp",horizontalpodautoscaler=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector"}
+
+          # Collector throughput and failures
           - name: receiver_accepted_metrics
             units: points/s
             query: >-
@@ -1636,6 +1676,8 @@ stages:
             units: spans/s
             query: >-
               rate(otelcol_exporter_send_failed_spans_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
+
+          # Exported bytes
           - name: serialized_bytes
             units: bytes/s
             query: >-
@@ -1644,3 +1686,21 @@ stages:
             units: bytes/s
             query: >-
               rate(otelcol_exporter_queue_batch_send_size_bytes_sum{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
+
+          # RPC calls and latency
+          - name: rpc_client_calls
+            units: calls/s
+            query: >-
+              rate(rpc_client_call_duration_seconds_count{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|mixed-workload-blackhole)"}[5m])
+          - name: rpc_client_latency_p95
+            units: seconds
+            query: >-
+              histogram_quantile(0.95, rate(rpc_client_call_duration_seconds_bucket{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|mixed-workload-blackhole)"}[5m]))
+          - name: rpc_server_calls
+            units: calls/s
+            query: >-
+              rate(rpc_server_call_duration_seconds_count{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|mixed-workload-blackhole)"}[5m])
+          - name: rpc_server_latency_p95
+            units: seconds
+            query: >-
+              histogram_quantile(0.95, rate(rpc_server_call_duration_seconds_bucket{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|mixed-workload-blackhole)"}[5m]))
