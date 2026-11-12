@@ -878,6 +878,462 @@ stages:
         interval: 60s
         query_timeout: 60s
         measurements:
+          # All delivery groups must qualify together while load is active.
+          - name: metrics_to_gateway
+            check:
+              action: complete
+              for: 30m
+              expr: |-
+                vector(1)
+                # Both scrape pools must carry traffic.
+                and on() (
+                  sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-large-target-metrics",exporter="otlp_grpc"}[5m])) > 0
+                )
+                and on() (
+                  sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-nodeless-metrics",exporter="otlp_grpc"}[5m])) > 0
+                )
+                # Metrics exports must match gateway acceptance.
+                and on() (
+                  (
+                    sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-daemonset",exporter="otlp_grpc/metrics"}[5m]))
+                    + sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-large-target-metrics",exporter="otlp_grpc"}[5m]))
+                    + sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-nodeless-metrics",exporter="otlp_grpc"}[5m]))
+                  ) > 0
+                )
+                and on() (
+                  abs(
+                    (
+                      sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-daemonset",exporter="otlp_grpc/metrics"}[5m]))
+                      + sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-large-target-metrics",exporter="otlp_grpc"}[5m]))
+                      + sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-nodeless-metrics",exporter="otlp_grpc"}[5m]))
+                    )
+                    - sum(rate(otelcol_receiver_accepted_metric_points_total{job="nktp-gateway-metrics",receiver="otlp"}[5m]))
+                  ) <= 0.01 * (
+                    sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-daemonset",exporter="otlp_grpc/metrics"}[5m]))
+                    + sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-large-target-metrics",exporter="otlp_grpc"}[5m]))
+                    + sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-nodeless-metrics",exporter="otlp_grpc"}[5m]))
+                  )
+                )
+                # Each worker must export metrics even if totals balance.
+                unless on() (
+                  label_replace(
+                    group by (scale_node) (
+                      k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status="200"}
+                    ),
+                    "k8s_node_name", "$1", "scale_node", "(.+)"
+                  )
+                  unless on(k8s_node_name) (
+                    sum by (k8s_node_name) (
+                      rate(otelcol_exporter_sent_metric_points_total{job="nktp-daemonset",exporter="otlp_grpc/metrics"}[5m])
+                    ) > 0
+                  )
+                )
+                # Metrics acceptance counters need a fresh, populated window without resets.
+                and on() (
+                  min(count_over_time(otelcol_receiver_accepted_metric_points_total{job="nktp-gateway-metrics",receiver="otlp"}[5m])) >= 4
+                )
+                and on() (
+                  max(time() - timestamp(otelcol_receiver_accepted_metric_points_total{job="nktp-gateway-metrics",receiver="otlp"})) < 90
+                )
+                and on() (
+                  max(resets(otelcol_receiver_accepted_metric_points_total{job="nktp-gateway-metrics",receiver="otlp"}[5m])) == 0
+                )
+                unless on() (
+                  present_over_time(otelcol_receiver_accepted_metric_points_total{job="nktp-gateway-metrics",receiver="otlp"}[5m])
+                  unless otelcol_receiver_accepted_metric_points_total{job="nktp-gateway-metrics",receiver="otlp"}
+                )
+                unless on() (
+                  otelcol_receiver_accepted_metric_points_total{job="nktp-gateway-metrics",receiver="otlp"}
+                  unless present_over_time(otelcol_receiver_accepted_metric_points_total{job="nktp-gateway-metrics",receiver="otlp"}[1m] offset 4m)
+                )
+                # Metrics export counters need a fresh, populated window without resets.
+                and on() (
+                  min(count_over_time(otelcol_exporter_sent_metric_points_total{job=~"nktp-(daemonset|large-target-metrics|nodeless-metrics)",exporter=~"otlp_grpc(/metrics)?"}[5m])) >= 4
+                )
+                and on() (
+                  max(time() - timestamp(otelcol_exporter_sent_metric_points_total{job=~"nktp-(daemonset|large-target-metrics|nodeless-metrics)",exporter=~"otlp_grpc(/metrics)?"})) < 90
+                )
+                and on() (
+                  max(resets(otelcol_exporter_sent_metric_points_total{job=~"nktp-(daemonset|large-target-metrics|nodeless-metrics)",exporter=~"otlp_grpc(/metrics)?"}[5m])) == 0
+                )
+                unless on() (
+                  present_over_time(otelcol_exporter_sent_metric_points_total{job=~"nktp-(daemonset|large-target-metrics|nodeless-metrics)",exporter=~"otlp_grpc(/metrics)?"}[5m])
+                  unless otelcol_exporter_sent_metric_points_total{job=~"nktp-(daemonset|large-target-metrics|nodeless-metrics)",exporter=~"otlp_grpc(/metrics)?"}
+                )
+                unless on() (
+                  otelcol_exporter_sent_metric_points_total{job=~"nktp-(daemonset|large-target-metrics|nodeless-metrics)",exporter=~"otlp_grpc(/metrics)?"}
+                  unless present_over_time(otelcol_exporter_sent_metric_points_total{job=~"nktp-(daemonset|large-target-metrics|nodeless-metrics)",exporter=~"otlp_grpc(/metrics)?"}[1m] offset 4m)
+                )
+          - name: metrics_to_blackhole
+            check:
+              action: complete
+              for: 30m
+              expr: |-
+                vector(1)
+                # Gateway exports must match blackhole acceptance.
+                and on() (sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter="otlp_grpc"}[5m])) > 0)
+                and on() (
+                  abs(
+                    sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter="otlp_grpc"}[5m]))
+                    - sum(rate(otelcol_receiver_accepted_metric_points_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m]))
+                  ) <= 0.01 * (
+                    sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter="otlp_grpc"}[5m]))
+                  )
+                )
+                # Metrics acceptance counters need a fresh, populated window without resets.
+                and on() (
+                  min(count_over_time(otelcol_receiver_accepted_metric_points_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m])) >= 4
+                )
+                and on() (
+                  max(time() - timestamp(otelcol_receiver_accepted_metric_points_total{job="nktp-mixed-workload-blackhole",receiver="otlp"})) < 90
+                )
+                and on() (
+                  max(resets(otelcol_receiver_accepted_metric_points_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m])) == 0
+                )
+                unless on() (
+                  present_over_time(otelcol_receiver_accepted_metric_points_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m])
+                  unless otelcol_receiver_accepted_metric_points_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}
+                )
+                unless on() (
+                  otelcol_receiver_accepted_metric_points_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}
+                  unless present_over_time(otelcol_receiver_accepted_metric_points_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[1m] offset 4m)
+                )
+                # Metrics export counters need a fresh, populated window without resets.
+                and on() (
+                  min(count_over_time(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter=~"otlp_grpc(/metrics)?"}[5m])) >= 4
+                )
+                and on() (
+                  max(time() - timestamp(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter=~"otlp_grpc(/metrics)?"})) < 90
+                )
+                and on() (
+                  max(resets(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter=~"otlp_grpc(/metrics)?"}[5m])) == 0
+                )
+                unless on() (
+                  present_over_time(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter=~"otlp_grpc(/metrics)?"}[5m])
+                  unless otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter=~"otlp_grpc(/metrics)?"}
+                )
+                unless on() (
+                  otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter=~"otlp_grpc(/metrics)?"}
+                  unless present_over_time(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter=~"otlp_grpc(/metrics)?"}[1m] offset 4m)
+                )
+          - name: logs_to_gateway
+            check:
+              action: complete
+              for: 30m
+              expr: |-
+                vector(1)
+                # The Event reader must export logs.
+                and on() (sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-cluster-events",exporter="otlp_grpc"}[5m])) > 0)
+                # Log exports must match gateway acceptance.
+                and on() (
+                  (
+                    sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-daemonset",exporter="otlp_grpc/logs"}[5m]))
+                    + sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-cluster-events",exporter="otlp_grpc"}[5m]))
+                  ) > 0
+                )
+                and on() (
+                  abs(
+                    (
+                      sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-daemonset",exporter="otlp_grpc/logs"}[5m]))
+                      + sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-cluster-events",exporter="otlp_grpc"}[5m]))
+                    )
+                    - sum(rate(otelcol_receiver_accepted_log_records_total{job="nktp-gateway-logs",receiver="otlp"}[5m]))
+                  ) <= 0.01 * (
+                    sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-daemonset",exporter="otlp_grpc/logs"}[5m]))
+                    + sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-cluster-events",exporter="otlp_grpc"}[5m]))
+                  )
+                )
+                # Each worker must export logs even if totals balance.
+                unless on() (
+                  label_replace(
+                    group by (scale_node) (
+                      k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status="200"}
+                    ),
+                    "k8s_node_name", "$1", "scale_node", "(.+)"
+                  )
+                  unless on(k8s_node_name) (
+                    sum by (k8s_node_name) (
+                      rate(otelcol_exporter_sent_log_records_total{job="nktp-daemonset",exporter="otlp_grpc/logs"}[5m])
+                    ) > 0
+                  )
+                )
+                # Logs acceptance counters need a fresh, populated window without resets.
+                and on() (
+                  min(count_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-gateway-logs",receiver="otlp"}[5m])) >= 4
+                )
+                and on() (
+                  max(time() - timestamp(otelcol_receiver_accepted_log_records_total{job="nktp-gateway-logs",receiver="otlp"})) < 90
+                )
+                and on() (max(resets(otelcol_receiver_accepted_log_records_total{job="nktp-gateway-logs",receiver="otlp"}[5m])) == 0)
+                unless on() (
+                  present_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-gateway-logs",receiver="otlp"}[5m])
+                  unless otelcol_receiver_accepted_log_records_total{job="nktp-gateway-logs",receiver="otlp"}
+                )
+                unless on() (
+                  otelcol_receiver_accepted_log_records_total{job="nktp-gateway-logs",receiver="otlp"}
+                  unless present_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-gateway-logs",receiver="otlp"}[1m] offset 4m)
+                )
+                # Logs export counters need a fresh, populated window without resets.
+                and on() (
+                  min(count_over_time(otelcol_exporter_sent_log_records_total{job=~"nktp-(daemonset|cluster-events)",exporter=~"otlp_grpc(/logs)?"}[5m])) >= 4
+                )
+                and on() (
+                  max(time() - timestamp(otelcol_exporter_sent_log_records_total{job=~"nktp-(daemonset|cluster-events)",exporter=~"otlp_grpc(/logs)?"})) < 90
+                )
+                and on() (
+                  max(resets(otelcol_exporter_sent_log_records_total{job=~"nktp-(daemonset|cluster-events)",exporter=~"otlp_grpc(/logs)?"}[5m])) == 0
+                )
+                unless on() (
+                  present_over_time(otelcol_exporter_sent_log_records_total{job=~"nktp-(daemonset|cluster-events)",exporter=~"otlp_grpc(/logs)?"}[5m])
+                  unless otelcol_exporter_sent_log_records_total{job=~"nktp-(daemonset|cluster-events)",exporter=~"otlp_grpc(/logs)?"}
+                )
+                unless on() (
+                  otelcol_exporter_sent_log_records_total{job=~"nktp-(daemonset|cluster-events)",exporter=~"otlp_grpc(/logs)?"}
+                  unless present_over_time(otelcol_exporter_sent_log_records_total{job=~"nktp-(daemonset|cluster-events)",exporter=~"otlp_grpc(/logs)?"}[1m] offset 4m)
+                )
+          - name: logs_to_blackhole
+            check:
+              action: complete
+              for: 30m
+              expr: |-
+                vector(1)
+                # Gateway exports must match blackhole acceptance.
+                and on() (sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter="otlp_grpc"}[5m])) > 0)
+                and on() (
+                  abs(
+                    sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter="otlp_grpc"}[5m]))
+                    - sum(rate(otelcol_receiver_accepted_log_records_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m]))
+                  ) <= 0.01 * (
+                    sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter="otlp_grpc"}[5m]))
+                  )
+                )
+                # Logs acceptance counters need a fresh, populated window without resets.
+                and on() (
+                  min(count_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m])) >= 4
+                )
+                and on() (
+                  max(time() - timestamp(otelcol_receiver_accepted_log_records_total{job="nktp-mixed-workload-blackhole",receiver="otlp"})) < 90
+                )
+                and on() (
+                  max(resets(otelcol_receiver_accepted_log_records_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m])) == 0
+                )
+                unless on() (
+                  present_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m])
+                  unless otelcol_receiver_accepted_log_records_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}
+                )
+                unless on() (
+                  otelcol_receiver_accepted_log_records_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}
+                  unless present_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[1m] offset 4m)
+                )
+                # Logs export counters need a fresh, populated window without resets.
+                and on() (
+                  min(count_over_time(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter=~"otlp_grpc(/logs)?"}[5m])) >= 4
+                )
+                and on() (
+                  max(time() - timestamp(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter=~"otlp_grpc(/logs)?"})) < 90
+                )
+                and on() (
+                  max(resets(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter=~"otlp_grpc(/logs)?"}[5m])) == 0
+                )
+                unless on() (
+                  present_over_time(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter=~"otlp_grpc(/logs)?"}[5m])
+                  unless otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter=~"otlp_grpc(/logs)?"}
+                )
+                unless on() (
+                  otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter=~"otlp_grpc(/logs)?"}
+                  unless present_over_time(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter=~"otlp_grpc(/logs)?"}[1m] offset 4m)
+                )
+          - name: traces_to_gateway
+            check:
+              action: complete
+              for: 30m
+              expr: |-
+                vector(1)
+                # Trace exports must match gateway acceptance.
+                and on() (
+                  sum(rate(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter="otlp_grpc/traces"}[5m])) > 0
+                )
+                and on() (
+                  abs(
+                    sum(rate(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter="otlp_grpc/traces"}[5m]))
+                    - sum(rate(otelcol_receiver_accepted_spans_total{job="nktp-gateway-traces",receiver="otlp"}[5m]))
+                  ) <= 0.01 * (
+                    sum(rate(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter="otlp_grpc/traces"}[5m]))
+                  )
+                )
+                # Each worker must export traces even if totals balance.
+                unless on() (
+                  label_replace(
+                    group by (scale_node) (
+                      k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status="200"}
+                    ),
+                    "k8s_node_name", "$1", "scale_node", "(.+)"
+                  )
+                  unless on(k8s_node_name) (
+                    sum by (k8s_node_name) (
+                      rate(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter="otlp_grpc/traces"}[5m])
+                    ) > 0
+                  )
+                )
+                # Traces acceptance counters need a fresh, populated window without resets.
+                and on() (
+                  min(count_over_time(otelcol_receiver_accepted_spans_total{job="nktp-gateway-traces",receiver="otlp"}[5m])) >= 4
+                )
+                and on() (
+                  max(time() - timestamp(otelcol_receiver_accepted_spans_total{job="nktp-gateway-traces",receiver="otlp"})) < 90
+                )
+                and on() (max(resets(otelcol_receiver_accepted_spans_total{job="nktp-gateway-traces",receiver="otlp"}[5m])) == 0)
+                unless on() (
+                  present_over_time(otelcol_receiver_accepted_spans_total{job="nktp-gateway-traces",receiver="otlp"}[5m])
+                  unless otelcol_receiver_accepted_spans_total{job="nktp-gateway-traces",receiver="otlp"}
+                )
+                unless on() (
+                  otelcol_receiver_accepted_spans_total{job="nktp-gateway-traces",receiver="otlp"}
+                  unless present_over_time(otelcol_receiver_accepted_spans_total{job="nktp-gateway-traces",receiver="otlp"}[1m] offset 4m)
+                )
+                # Traces export counters need a fresh, populated window without resets.
+                and on() (
+                  min(count_over_time(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter=~"otlp_grpc(/traces)?"}[5m])) >= 4
+                )
+                and on() (
+                  max(time() - timestamp(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter=~"otlp_grpc(/traces)?"})) < 90
+                )
+                and on() (max(resets(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter=~"otlp_grpc(/traces)?"}[5m])) == 0)
+                unless on() (
+                  present_over_time(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter=~"otlp_grpc(/traces)?"}[5m])
+                  unless otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter=~"otlp_grpc(/traces)?"}
+                )
+                unless on() (
+                  otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter=~"otlp_grpc(/traces)?"}
+                  unless present_over_time(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter=~"otlp_grpc(/traces)?"}[1m] offset 4m)
+                )
+          - name: traces_to_blackhole
+            check:
+              action: complete
+              for: 30m
+              expr: |-
+                vector(1)
+                # Gateway exports must match blackhole acceptance.
+                and on() (sum(rate(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter="otlp_grpc"}[5m])) > 0)
+                and on() (
+                  abs(
+                    sum(rate(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter="otlp_grpc"}[5m]))
+                    - sum(rate(otelcol_receiver_accepted_spans_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m]))
+                  ) <= 0.01 * (
+                    sum(rate(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter="otlp_grpc"}[5m]))
+                  )
+                )
+                # Traces acceptance counters need a fresh, populated window without resets.
+                and on() (
+                  min(count_over_time(otelcol_receiver_accepted_spans_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m])) >= 4
+                )
+                and on() (
+                  max(time() - timestamp(otelcol_receiver_accepted_spans_total{job="nktp-mixed-workload-blackhole",receiver="otlp"})) < 90
+                )
+                and on() (
+                  max(resets(otelcol_receiver_accepted_spans_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m])) == 0
+                )
+                unless on() (
+                  present_over_time(otelcol_receiver_accepted_spans_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m])
+                  unless otelcol_receiver_accepted_spans_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}
+                )
+                unless on() (
+                  otelcol_receiver_accepted_spans_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}
+                  unless present_over_time(otelcol_receiver_accepted_spans_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[1m] offset 4m)
+                )
+                # Traces export counters need a fresh, populated window without resets.
+                and on() (
+                  min(count_over_time(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter=~"otlp_grpc(/traces)?"}[5m])) >= 4
+                )
+                and on() (
+                  max(time() - timestamp(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter=~"otlp_grpc(/traces)?"})) < 90
+                )
+                and on() (
+                  max(resets(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter=~"otlp_grpc(/traces)?"}[5m])) == 0
+                )
+                unless on() (
+                  present_over_time(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter=~"otlp_grpc(/traces)?"}[5m])
+                  unless otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter=~"otlp_grpc(/traces)?"}
+                )
+                unless on() (
+                  otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter=~"otlp_grpc(/traces)?"}
+                  unless present_over_time(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter=~"otlp_grpc(/traces)?"}[1m] offset 4m)
+                )
+          - name: event_producers
+            check:
+              action: complete
+              for: 30m
+              expr: |-
+                vector(1)
+                # Successful PATCH counters identify 100 producers on distinct workers
+                # and supply the shared worker inventory for the signal checks.
+                and on() (
+                  count(group by (scale_node,producer_id) (k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status="200"})) == 100
+                )
+                and on() (
+                  count(group by (scale_node) (k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status="200"})) == 100
+                )
+                unless on() (
+                  k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status="200"}
+                  unless on(scale_node,producer_id) (
+                    rate(k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status="200"}[5m]) > 0
+                  )
+                )
+                unless on() (
+                  sum(last_over_time(k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status!="200"}[115m])) > 0
+                )
+                unless on() (sum(last_over_time(k6_dropped_iterations_total{test_run_id="{{ .Args.runId }}"}[115m])) > 0)
+                # Successful PATCH counters need a fresh, populated window without resets.
+                and on() (
+                  min(count_over_time(k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status="200"}[5m])) >= 4
+                )
+                and on() (
+                  max(time() - timestamp(k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status="200"})) < 90
+                )
+                and on() (
+                  max(resets(k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status="200"}[5m])) == 0
+                )
+                unless on() (
+                  present_over_time(k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status="200"}[5m])
+                  unless k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status="200"}
+                )
+                unless on() (
+                  k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status="200"}
+                  unless present_over_time(k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status="200"}[1m] offset 4m)
+                )
+          - name: event_delivery
+            check:
+              action: complete
+              for: 30m
+              expr: |-
+                vector(1)
+                # Event receipt allows bounded measurement skew and background traffic.
+                and on() (
+                  sum(rate(otelcol_receiver_accepted_log_records_total{job="nktp-cluster-events",receiver="k8s_events"}[5m]))
+                  >= 0.99 * sum(rate(k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status="200"}[5m]))
+                )
+                and on() (
+                  sum(rate(otelcol_receiver_accepted_log_records_total{job="nktp-cluster-events",receiver="k8s_events"}[5m]))
+                  <= 1.01 * sum(rate(k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status="200"}[5m])) + 10
+                )
+                # Event acceptance counters need a fresh, populated window without resets.
+                and on() (
+                  min(count_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-cluster-events",receiver="k8s_events"}[5m])) >= 4
+                )
+                and on() (
+                  max(time() - timestamp(otelcol_receiver_accepted_log_records_total{job="nktp-cluster-events",receiver="k8s_events"})) < 90
+                )
+                and on() (
+                  max(resets(otelcol_receiver_accepted_log_records_total{job="nktp-cluster-events",receiver="k8s_events"}[5m])) == 0
+                )
+                unless on() (
+                  present_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-cluster-events",receiver="k8s_events"}[5m])
+                  unless otelcol_receiver_accepted_log_records_total{job="nktp-cluster-events",receiver="k8s_events"}
+                )
+                unless on() (
+                  otelcol_receiver_accepted_log_records_total{job="nktp-cluster-events",receiver="k8s_events"}
+                  unless present_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-cluster-events",receiver="k8s_events"}[1m] offset 4m)
+                )
           # The fixed nodeless target has no run ID. Preserve its actual scraper pool.
           - name: fresh_targets
             units: targets
