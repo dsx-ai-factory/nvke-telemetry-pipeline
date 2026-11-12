@@ -19,12 +19,22 @@ node directory for log checkpoints. For alternatives, see:
 - [Use in-memory exporter queues](guides/configure_exporter_queue_storage.md#installing-nktp-without-persistent-storage).
 - [Keep node log checkpoints in memory](guides/configure_daemonset_log_checkpoints.md#without-persistent-checkpoints).
 
-### Chart-managed namespace
+### Namespace ownership
 
-By default, `namespace.create` is `false`, so you create and label the release
-namespace separately. For a new, dedicated namespace, add this to your overrides
-file and skip the installation instructions' `kubectl create namespace` and
-`kubectl label namespace` steps:
+For Helm installations, leave `namespace.create: false` (the default) and
+create and label the release namespace before installing, as shown in the
+chart's installation instructions. Helm's default release storage needs the
+namespace before it creates chart resources. `--create-namespace` does not add
+the Pod Security label and conflicts with a chart-rendered Namespace when
+`namespace.create: true`.
+
+The documented Helm install command overrides `namespace.create` to `false`,
+so it also works with a values file that enables namespace rendering for other
+tools. `task install` forces the same override; create and label the target
+namespace before running it.
+
+For render-and-apply workflows, such as Kustomize `helmCharts`, Argo CD and
+kapp, enable namespace rendering in your overrides file:
 
 ```yaml
 namespace:
@@ -32,18 +42,15 @@ namespace:
 ```
 
 The chart renders a `Namespace` using the release namespace (`--namespace`),
-with `pod-security.kubernetes.io/enforce: privileged`. This also includes the
-Namespace when rendering with `helm template`, including Kustomize `helmCharts`,
-Argo CD and kapp. Enable the option in their chart values, set their release
-namespace, and remove any separate Namespace manifest for that namespace.
+with `pod-security.kubernetes.io/enforce: privileged`. Set the integration's
+release namespace and let it apply this manifest before namespaced resources.
+Remove any separate Namespace manifest for that namespace, or leave the option
+off if the integration already manages it.
 
-Do not combine this option with `helm install --create-namespace`: that flag
-creates a namespace that conflicts with Helm's chart ownership. Leave the option
-off for an existing namespace managed outside the chart.
-
-**`helm uninstall` deletes the chart-owned namespace and everything in it,
-including resources outside the release.** Use a dedicated namespace. For
-render-and-apply tools, account for their namespace deletion and pruning behavior.
+**Deleting the rendered Namespace deletes everything in it, including resources
+outside NKTP.** Use a dedicated namespace and account for the integration's
+namespace deletion and pruning behavior. If a Namespace is adopted into a Helm
+release, `helm uninstall` deletes it too.
 
 ## Check readiness
 

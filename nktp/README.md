@@ -82,34 +82,42 @@ helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
 helm dependency build nktp
 kubectl create namespace "$NKTP_NAMESPACE"
 kubectl label namespace "$NKTP_NAMESPACE" pod-security.kubernetes.io/enforce=privileged --overwrite
-helm install "$NKTP_RELEASE" ./nktp --namespace "$NKTP_NAMESPACE" --values "$NKTP_VALUES_FILE" --wait
+helm install "$NKTP_RELEASE" ./nktp --namespace "$NKTP_NAMESPACE" \
+  --values "$NKTP_VALUES_FILE" --set namespace.create=false --wait
 ```
 
 The Operator creates the Collectors after `helm install --wait` returns, so
 check their Pods as well.
 
-### Chart-managed namespace
+### Namespace rendering for integrations
 
-Set `namespace.create: true` to render a `Namespace` named after the release
-namespace (`--namespace`), with `pod-security.kubernetes.io/enforce: privileged`:
+For render-and-apply workflows, set `namespace.create: true` to render a
+`Namespace` named after the release namespace (`--namespace`), with
+`pod-security.kubernetes.io/enforce: privileged`:
 
 ```yaml
 namespace:
   create: true
 ```
 
-For a new namespace, omit the `kubectl create` and `kubectl label` steps above
-and pass this setting in your values file or with `--set namespace.create=true`.
-It also includes the Namespace in `helm template` output for Kustomize
-`helmCharts`, Argo CD and kapp.
+This includes the Namespace in `helm template` output for Kustomize
+`helmCharts`, Argo CD and kapp. Let the integration apply that manifest before
+namespaced resources, and remove any separate Namespace manifest for the same
+namespace. Keep the option disabled if the integration already manages it.
 
-The default is `false`: you manage the namespace and its Pod Security labels
-outside the chart. Keep it disabled for an existing, externally managed namespace.
-Do not combine `namespace.create: true` with `helm install --create-namespace`:
-the namespace created by that flag conflicts with the chart-owned resource.
-**`helm uninstall` deletes a chart-owned namespace and everything in it,
-including resources outside the release.** Use a dedicated namespace; for
-render-and-apply tools, account for their namespace deletion and pruning behavior.
+For `helm install` and `helm upgrade --install`, keep `namespace.create: false`
+(the default) and create and label the namespace as shown above. Helm's default
+release storage needs the namespace before chart resources are created.
+`--create-namespace` creates it without the Pod Security label and, with
+`namespace.create: true`, conflicts with the chart's Namespace resource.
+The install command explicitly sets `namespace.create=false` so values files
+shared with render-and-apply integrations can be reused. `task install` also
+forces this setting; create and label its target namespace before running it.
+
+**Deleting the rendered Namespace deletes everything in it, including resources
+outside NKTP.** Use a dedicated namespace and account for the integration's
+namespace deletion and pruning behavior. If a Namespace is adopted into a Helm
+release, `helm uninstall` deletes it too.
 
 ### Upgrading
 
@@ -228,7 +236,7 @@ Edit the values file path below, then upgrade:
 NKTP_VALUES_FILE=/path/to/my-values.yaml
 helm upgrade "$NKTP_RELEASE" nvidia/nktp --version "$NKTP_VERSION" \
   --namespace "$NKTP_NAMESPACE" \
-  --reset-values -f "$NKTP_VALUES_FILE" --wait
+  --reset-values -f "$NKTP_VALUES_FILE" --set namespace.create=false --wait
 ```
 
 ## Components

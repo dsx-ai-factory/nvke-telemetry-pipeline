@@ -1,8 +1,9 @@
 # Default values for the NKTP Helm chart.
 
-# Render the release namespace with the privileged Pod Security enforcement label.
-# Do not combine with helm install --create-namespace or an externally managed namespace.
-# Helm uninstall deletes this namespace and everything in it when enabled.
+# Render the release namespace with the privileged Pod Security enforcement label
+# for helm template / render-and-apply workflows. For Helm installs, leave false
+# and create and label the namespace separately before installing.
+# Deleting the rendered namespace deletes everything in it.
 namespace:
   create: false
 

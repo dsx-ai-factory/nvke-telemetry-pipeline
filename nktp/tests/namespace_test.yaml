@@ -36,3 +36,15 @@ tests:
           value: privileged
       - notExists:
           path: metadata.namespace
+  - it: rejects a quoted false value
+    set:
+      namespace.create: "false"
+    asserts:
+      - failedTemplate:
+          errorPattern: '/namespace/create.*got string, want boolean'
+  - it: rejects a quoted true value
+    set:
+      namespace.create: "true"
+    asserts:
+      - failedTemplate:
+          errorPattern: '/namespace/create.*got string, want boolean'

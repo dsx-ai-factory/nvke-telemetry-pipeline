@@ -34,6 +34,7 @@ tasks:
         --wait --timeout {{.HELM_TIMEOUT | default "5m" | shellQuote}}
         {{if .BASE_HELM_VALUES_FILE}}--values {{.BASE_HELM_VALUES_FILE | shellQuote}}{{end}}
         {{if .RESOLVED_HELM_VALUES_FILE}}--values {{.RESOLVED_HELM_VALUES_FILE | shellQuote}}{{end}}
+        --set namespace.create=false
 
   cert-manager:install:
     internal: true
