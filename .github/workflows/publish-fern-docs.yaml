@@ -37,7 +37,9 @@
 #   3. Prunes older versions to keep only the MAX_VERSIONS most recent
 #   4. Opens a PR to persist registry changes back to main (after publish)
 #
-# Pre-releases trigger publish but skip version registration.
+# Pre-releases (release candidates) never publish: a pre-release Release does not
+# start the job, and dispatching a pre-release tag is rejected. Docs ship with the
+# stable release.
 #
 # The release trigger does not fire for a Release that the chart publishing
 # workflow creates, because that workflow uses the default GITHUB_TOKEN and GitHub
@@ -76,10 +78,6 @@ permissions:
   contents: write
   pull-requests: write
 
-concurrency:
-  group: fern-publish
-  cancel-in-progress: true
-
 env:
   YQ_VERSION: v4.53.2
   MAX_VERSIONS: 3
@@ -88,8 +86,14 @@ env:
 
 jobs:
   publish:
-    # A release of the other chart (nvcb/) does not change these docs.
-    if: github.event_name != 'release' || startsWith(github.event.release.tag_name, 'nktp/v')
+    # A release of the other chart (nvcb/) does not change these docs, and a
+    # pre-release is not published.
+    if: github.event_name != 'release' || (startsWith(github.event.release.tag_name, 'nktp/v') && !github.event.release.prerelease)
+    # On the job, not the workflow, so a skipped nvcb/ release run never joins the
+    # group and cancels an NKTP publish that is in flight.
+    concurrency:
+      group: fern-publish
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     # runs-on: linux-amd64-cpu8  # NVIDIA self-hosted runner
     timeout-minutes: 20
@@ -157,27 +161,25 @@ jobs:
           fi
           # The Fern version is the tag without its prefix: nktp/v0.3.0 is v0.3.0.
           VERSION="${TAG#"${TAG_PREFIX}"}"
-          # Pre-release detection: use the Release event flag when available,
-          # fall back to hyphen check for tag-push and dispatch triggers.
-          if [ "${IS_PRERELEASE}" = "true" ] || [[ "$VERSION" == *-* ]]; then
-            IS_RELEASE=false
-          else
-            IS_RELEASE=true
+          # Pre-releases are not published. The job condition already skips a
+          # pre-release Release, so this rejects a dispatched pre-release tag, which
+          # would otherwise report success without publishing that tag's docs.
+          if [ "${IS_PRERELEASE:-}" = "true" ] || [[ "$VERSION" == *-* ]]; then
+            echo "::error::Tag '${TAG}' is a pre-release, and pre-release docs are not published. Use a stable tag."
+            exit 1
           fi
           # Registering a version freezes the tag's docs, so the tag must have them.
-          if [ "$IS_RELEASE" = "true" ] && ! git cat-file -e "refs/tags/${TAG}:docs/index.yml" 2>/dev/null; then
+          if ! git cat-file -e "refs/tags/${TAG}:docs/index.yml" 2>/dev/null; then
             echo "::error::Tag '${TAG}' has no docs/index.yml, so it has no Fern docs to publish. Use a release cut after the Fern docs were added."
             exit 1
           fi
           {
             echo "tag=$TAG"
             echo "version=$VERSION"
-            echo "is_release=$IS_RELEASE"
           } >> "$GITHUB_OUTPUT"
-          echo "Resolved target tag: $TAG, version $VERSION (is_release=$IS_RELEASE)"
+          echo "Resolved target tag: $TAG, version $VERSION"
 
       - name: Register new version from tag
-        if: steps.resolve.outputs.is_release == 'true'
         env:
           TAG: ${{ steps.resolve.outputs.tag }}
           VERSION: ${{ steps.resolve.outputs.version }}
@@ -212,7 +214,6 @@ jobs:
           yq '.products[0].versions[].display-name' fern/docs.yml
 
       - name: Prune old versions
-        if: steps.resolve.outputs.is_release == 'true'
         run: |
           set -eo pipefail
           TOTAL=$(yq '.products[0].versions | length' fern/docs.yml)
@@ -319,11 +320,9 @@ jobs:
           fi
 
       - name: Restore unstamped docs.yml for persistence
-        if: steps.resolve.outputs.is_release == 'true'
         run: cp /tmp/docs.yml.preStamp fern/docs.yml
 
       - name: Open PR for version registry changes
-        if: steps.resolve.outputs.is_release == 'true'
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           base: main
