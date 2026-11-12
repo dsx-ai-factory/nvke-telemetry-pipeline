@@ -91,8 +91,8 @@ task scale:test TEST_TIMEOUT=125m -- \
 
 ## Results
 
-- Window: 30 minutes at full load after the ramp. Verify per-node placement and throughput before selecting the window.
-- Runtime: 90 minutes per StatefulSet after readiness and per Event producer after seeding, 110-minute observations, 115-minute plan ceiling. Cancel after saving the selected window.
+- Window: the delivery checks run concurrently and must pass together for 30 consecutive minutes while load is active.
+- Runtime: qualification stops the generators and waits for cleanup. A generator ending before qualification or an unqualified 110-minute observation window fails the run. Generator limits remain 90 minutes, with a 115-minute plan ceiling.
 - Load: targets, series, offered stdout records and body bytes, native receipt and export rates, serialized OTLP bytes and aggregate Event acceptance. Compare rates over the same time window.
 - Performance: generator, main collector and sidecar CPU/memory, observed peaks, throttling, queues and HPA replicas.
 - Health: readiness, restarts, termination reasons, refusals, export failures and observation freshness. Error counters can be absent when no errors occurred.
@@ -110,7 +110,8 @@ encoding overhead.
 
 ## Limitations
 
-- This plan records observations without automated performance checks. Missing or stale data cannot qualify the run.
-- Event acceptance is a cluster-wide diagnostic that includes background traffic. Matching rates do not prove receipt of this run's Events.
+- Passing confirms transport consistency during the observation window. Verify designed load and resource use separately.
+- Delivery checks do not prove lossless processing, exactly-once delivery or delivery after load stops.
+- Event acceptance includes cluster-wide background traffic, which can mask generated Event losses.
 - Check 64 KiB log reconstruction and rotation. Source scrape health alone does not establish OTLP delivery.
 - Repetitive payloads compress unusually well. Blackhole cannot verify durable delivery. LGTM storage is temporary.
