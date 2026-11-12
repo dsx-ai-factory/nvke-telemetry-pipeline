@@ -3,7 +3,23 @@
 Use the [chart README's upgrading procedure](../nktp/README.md#upgrading) for
 CRD requirements and Helm commands, after incorporating the changes below.
 
+When an upgrade changes bundled CRDs, review the relevant versions in the
+[OpenTelemetry Operator changelog](https://github.com/open-telemetry/opentelemetry-operator/blob/main/CHANGELOG.md)
+or [Prometheus Operator changelog](https://github.com/prometheus-operator/prometheus-operator/blob/main/CHANGELOG.md)
+and complete any required migrations before applying those CRDs.
+
 ## From 0.2.x to 0.3.x
+
+### OpenTelemetry CRDs
+
+The `opentelemetry-kube-stack` update from `0.25.1` to `0.27.0` changes the
+`opentelemetrycollectors.opentelemetry.io` and
+`instrumentations.opentelemetry.io` CRD schemas. See the upstream
+[OpenTelemetry Operator v0.162.0 release notes](https://github.com/open-telemetry/opentelemetry-operator/releases/tag/v0.162.0).
+
+**ACTION REQUIRED:** When upgrading to a chart containing this dependency
+update, follow the [README's CRD update procedure](../nktp/README.md#update-crds)
+before upgrading NKTP; `helm upgrade` does not update these CRDs.
 
 ### Persistent node log checkpoints
 
@@ -20,7 +36,8 @@ subsequent restarts but cannot recover those skipped records.
 To disable persistence, use the
 [memory-only values file](examples/memory_log_checkpoints.values.yaml). When
 merging it into your Helm values file, preserve custom volume and mount entries
-in its replacement lists.
+and other `daemonset.otelcol.config.service.extensions` entries in its
+replacement lists.
 
 **For persistent checkpoints, if your values file overrides any fields listed
 below, reconcile those settings before upgrading.** In particular, replacement

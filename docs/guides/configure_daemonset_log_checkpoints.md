@@ -25,8 +25,7 @@ unavailable, use the [configuration without persistent checkpoints](#without-per
 The host directory is mounted at `/var/lib/otelcol/log-checkpoints` inside the
 Collector. To change the host location, edit `hostPath.path` on the
 `log-checkpoints` entry in `daemonset.kubernetes.volumes`; the container mount
-and extension directory can remain unchanged. Use a different host directory
-for each NKTP release running on the same node.
+and extension directory can remain unchanged.
 
 The `file_log` and `journald` receivers reference `file_storage/log-checkpoints`
 through their `storage` settings. The extension is
