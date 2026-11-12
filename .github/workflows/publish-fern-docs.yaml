@@ -90,10 +90,12 @@ jobs:
     # pre-release is not published.
     if: github.event_name != 'release' || (startsWith(github.event.release.tag_name, 'nktp/v') && !github.event.release.prerelease)
     # On the job, not the workflow, so a skipped nvcb/ release run never joins the
-    # group and cancels an NKTP publish that is in flight.
+    # group. A publish already in flight is allowed to finish and a newer one waits
+    # behind it, because cancelling mid-publish can leave the site and the version
+    # registry out of step.
     concurrency:
       group: fern-publish
-      cancel-in-progress: true
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     # runs-on: linux-amd64-cpu8  # NVIDIA self-hosted runner
     timeout-minutes: 20
