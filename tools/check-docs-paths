@@ -205,6 +205,13 @@ def check_yaml(path: str, text: str, allowed: set[str]) -> list[str]:
                     f"{path}:{number}: [yaml] {key}: unexpected text around a quoted value"
                 )
                 continue
+            # A YAML parser decodes \uXXXX and \xXX in a double-quoted value before
+            # Fern reads it, and this checker does not, so fail closed on any escape.
+            if value[:1] == '"' and "\\" in value[1:closing]:
+                issues.append(
+                    f"{path}:{number}: [yaml] {key}: escape sequences in a double-quoted value are not checked; write a plain value"
+                )
+                continue
         why = problem(value, file_like=key.lower() in FILE_KEYS, allowed=allowed)
         if why:
             issues.append(f"{path}:{number}: [yaml] {key}: {why}")
