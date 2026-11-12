@@ -33,6 +33,14 @@ so it also works with a values file that enables namespace rendering for other
 tools. `task install` forces the same override; create and label the target
 namespace before running it.
 
+For an existing release that owns its Namespace, keep `namespace.create=true`
+on upgrades, including when using `--reset-values`. Turning it off would make
+Helm delete the Namespace and everything in it. Use direct `helm upgrade` for
+these releases; `task install` forces the option off, and the chart rejects the
+upgrade when the namespace carries the release's ownership annotations. Follow
+the chart's [namespace ownership check](../nktp/README.md#upgrade-the-chart)
+before upgrading.
+
 For render-and-apply workflows, such as Kustomize `helmCharts`, Argo CD and
 kapp, enable namespace rendering in your overrides file:
 

@@ -113,6 +113,9 @@ release storage needs the namespace before chart resources are created.
 The install command explicitly sets `namespace.create=false` so values files
 shared with render-and-apply integrations can be reused. `task install` also
 forces this setting; create and label its target namespace before running it.
+Upgrades reject `namespace.create=false` if the live namespace carries this
+release's ownership annotations, including when using `task install`.
+The check requires permission to read the release Namespace.
 
 **Deleting the rendered Namespace deletes everything in it, including resources
 outside NKTP.** Use a dedicated namespace and account for the integration's
@@ -218,6 +221,24 @@ kubectl apply --server-side --field-manager=helm -f "$PROMETHEUS_CRD_DIR"
 
 #### Upgrade the chart
 
+**Check namespace ownership before either upgrade command.** Inspect the stored
+release manifest with:
+
+```bash
+helm get manifest "$NKTP_RELEASE" --namespace "$NKTP_NAMESPACE"
+```
+
+If it includes a `kind: Namespace` resource for the release namespace, keep
+`namespace.create=true` until ownership has been safely migrated. Removing that
+resource from the next release manifest makes Helm delete the namespace and
+everything in it; `--create-namespace` does not prevent this. `--reset-values`
+also resets `namespace.create` to `false`, so add `--set namespace.create=true`
+to the defaults command below, or replace the `false` override in the values-file
+command with `true`. Use direct `helm upgrade` for these releases: `task install`
+forces the option off, and the chart rejects that upgrade when the namespace
+carries the release's ownership annotations. Merely changing those annotations
+does not remove the Namespace from Helm's stored manifest or safely transfer it.
+
 **If you use chart defaults**, upgrade with the new chart defaults:
 
 ```bash
@@ -230,7 +251,8 @@ helm upgrade "$NKTP_RELEASE" nvidia/nktp --version "$NKTP_VERSION" \
 it with `-f`. Include all custom settings you want to keep. Merge custom volume
 and mount entries into any example lists before applying them.
 
-Edit the values file path below, then upgrade:
+Edit the values file path below, then upgrade. If the release owns its Namespace,
+replace `--set namespace.create=false` with `--set namespace.create=true`:
 
 ```bash
 NKTP_VALUES_FILE=/path/to/my-values.yaml

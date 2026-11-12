@@ -97,6 +97,7 @@ tasks:
       - helm unittest {{.CLI_ARGS}} nktp
       # CLI_ARGS go to the main run only, so a -o report is not overwritten by this run.
       - helm unittest --skip-schema-validation -f 'tests/skip-schema-validation/*_test.yaml' nktp
+      - python3 -B -m unittest discover -s nktp/tests -p '*_test.py'
 
   blueprints:
     desc: Package blueprints/ as the default blueprints in nktp/values.yaml
