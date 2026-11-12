@@ -1512,6 +1512,28 @@ stages:
             units: bytes
             query: >-
               otelcol_exporter_queue_capacity{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}
+          # Retry observations retain the component, Pod, exporter and signal.
+          - name: exporter_observed_operations
+            units: operations/s
+            query: >-
+              sum by (job,instance,exporter,data_type) (rate(nktp_scale_exporter_calls_total[5m]))
+          # Retry and truncation rates report zero only when operations were observed.
+          - name: exporter_retry_attempts
+            units: attempts/s
+            query: >-
+              (
+                sum by (job,instance,exporter,data_type) (rate(nktp_scale_exporter_events_total{retry="true"}[5m]))
+                or 0 * sum by (job,instance,exporter,data_type) (rate(nktp_scale_exporter_calls_total[5m]))
+              )
+              and (sum by (job,instance,exporter,data_type) (rate(nktp_scale_exporter_calls_total[5m])) > 0)
+          - name: exporter_truncated_operations
+            units: operations/s
+            query: >-
+              (
+                sum by (job,instance,exporter,data_type) (rate(nktp_scale_exporter_calls_total{events_dropped="true"}[5m]))
+                or 0 * sum by (job,instance,exporter,data_type) (rate(nktp_scale_exporter_calls_total[5m]))
+              )
+              and (sum by (job,instance,exporter,data_type) (rate(nktp_scale_exporter_calls_total[5m])) > 0)
           - name: pod_inventory
             units: info
             query: >-
