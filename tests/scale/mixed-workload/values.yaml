@@ -381,7 +381,7 @@ opentelemetry-kube-stack:
                     IsMatch(metric.name, "^(nktp_scale_.+|vector_component_sent_(events|bytes)_total|up)$") or
                     IsMatch(metric.name, "^scrape_(duration_seconds|samples_scraped|samples_post_metric_relabeling)$") or
                     IsMatch(metric.name, "^container_(cpu_usage_seconds_total|cpu_cfs_(periods|throttled_periods)_total|memory_(working_set|usage)_bytes)$") or
-                    IsMatch(metric.name, "^kube_pod_(info|labels|status_(phase|ready)|container_(status_(ready|running|restarts_total|last_terminated_reason)|resource_(requests|limits))|init_container_status_.+)$") or
+                    IsMatch(metric.name, "^kube_pod_(info|labels|status_(phase|ready)|container_(status_(ready|running|restarts_total|last_terminated_reason)|resource_(requests|limits))|init_container_(status_.+|resource_(requests|limits)))$") or
                     IsMatch(metric.name, "^(kube_node_(info|status_condition|status_allocatable)|kube_horizontalpodautoscaler_.+|node_memory_MemAvailable_bytes)$")
                   action: move
                   pipelines:
@@ -393,6 +393,7 @@ opentelemetry-kube-stack:
                 service.name: nktp-mixed-workload-blackhole
                 service.instance.id: ${env:POD_NAME}
               metrics:
+                level: detailed
                 readers:
                   - periodic:
                       exporter:

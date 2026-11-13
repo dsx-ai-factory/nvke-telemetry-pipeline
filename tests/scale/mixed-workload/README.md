@@ -10,7 +10,8 @@
 
 The node collector, gateways, large-target and nodeless pools, and Event reader
 use detailed self-telemetry metrics and unsampled internal traces for retry
-measurements. Stored traces retain the chart sampling policy.
+measurements. Blackhole also uses detailed self-telemetry metrics. Stored traces
+retain the chart sampling policy.
 
 ## Load
 
@@ -94,7 +95,7 @@ task scale:test TEST_TIMEOUT=125m -- \
 - Window: the delivery checks run concurrently and must pass together for 30 consecutive minutes while load is active.
 - Runtime: qualification stops the generators and waits for cleanup. A generator ending before qualification or an unqualified 110-minute observation window fails the run. Generator limits remain 90 minutes, with a 115-minute plan ceiling.
 - Load: targets, series, offered stdout records and body bytes, native receipt and export rates, serialized OTLP bytes and aggregate Event acceptance. Compare rates over the same time window.
-- Performance: generator, main collector and sidecar CPU/memory, observed peaks, throttling, queues and HPA replicas.
+- Performance: CPU/memory use, component requests and limits, observed peaks, throttling, queues, HPA replicas and bounds, and RPC call rates and p95 latency.
 - Retries: workload Collector export retries by component, Pod, exporter and signal. Counts arrive after export completion and can be incomplete if self-telemetry is lost or truncated.
 - Health: readiness, restarts, termination reasons, refusals, export failures and observation freshness. Error counters can be absent when no errors occurred.
 - Events: require 10 successful updates/s per producer and 1,000/s across 100 workers, with no failed requests or dropped iterations. Exclude seeding and cleanup.
