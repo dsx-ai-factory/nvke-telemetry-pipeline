@@ -3,7 +3,7 @@
 Tests use [helm-unittest](https://github.com/helm-unittest/helm-unittest):
 
 ```sh
-helm plugin install https://github.com/helm-unittest/helm-unittest.git --version 1.1.2
+helm plugin install https://github.com/helm-unittest/helm-unittest.git --version 1.1.2 --verify=false
 task test   # from the repository root; Python 3 is also required
 ```
 

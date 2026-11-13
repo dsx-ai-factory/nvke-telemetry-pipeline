@@ -13,9 +13,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"helm.sh/helm/v3/pkg/chart/loader"
-	"helm.sh/helm/v3/pkg/chartutil"
-	"helm.sh/helm/v3/pkg/engine"
+	"helm.sh/helm/v4/pkg/chart/common"
+	"helm.sh/helm/v4/pkg/chart/v2/loader"
+	"helm.sh/helm/v4/pkg/engine"
 	"sigs.k8s.io/yaml"
 )
 
@@ -34,7 +34,7 @@ func render(t *testing.T, valuesPath string) (string, error) {
 	var input, original any
 	require.NoError(t, yaml.Unmarshal(data, &input))
 	require.NoError(t, yaml.Unmarshal(data, &original))
-	rendered, err := engine.Render(chart, chartutil.Values{"Values": input})
+	rendered, err := engine.Render(chart, common.Values{"Values": input})
 	assert.Equal(t, original, input, "NVCB must not mutate its input")
 	if err != nil {
 		return "", err

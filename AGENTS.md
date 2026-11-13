@@ -34,7 +34,7 @@
 
 ## Build, test, and verify
 
-- Required tools and versions: Helm 3 (CI pins 3.20), the helm-unittest plugin
+- Required tools and versions: Helm 4 (CI pins 4.3.2), the helm-unittest plugin
   (CI pins 1.1.2), Task, and Go as declared in the `go.mod` files. The dev loop
   additionally needs a Docker-compatible runtime, Kind, kubectl, and Tilt.
 
@@ -42,7 +42,7 @@ Run these commands from the repository root.
 
 ```bash
 # once
-helm plugin install https://github.com/helm-unittest/helm-unittest.git --version 1.1.2
+helm plugin install https://github.com/helm-unittest/helm-unittest.git --version 1.1.2 --verify=false
 
 # NKTP chart: unit tests, lint, and render
 task test

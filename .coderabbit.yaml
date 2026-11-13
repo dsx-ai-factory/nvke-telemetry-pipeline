@@ -151,7 +151,7 @@ reviews:
           code.
         - Secrets not exposed to fork-triggered runs, and never echoed.
         - Referenced composite actions (`./.github/actions/...`) exist, and
-          pinned tool versions (Helm 3.20, helm-unittest 1.1.2) stay
+          pinned tool versions (Helm 4.3.2, helm-unittest 1.1.2) stay
           consistent across workflows.
 
     - path: "nktp/README.md"

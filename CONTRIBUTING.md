@@ -64,7 +64,7 @@ Chart unit tests use [helm-unittest](https://github.com/helm-unittest/helm-unitt
 Install the plugin once:
 
 ```bash
-helm plugin install https://github.com/helm-unittest/helm-unittest.git --version 1.1.2
+helm plugin install https://github.com/helm-unittest/helm-unittest.git --version 1.1.2 --verify=false
 ```
 
 Run the checks that CI runs before opening a pull request:

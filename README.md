@@ -62,8 +62,8 @@ The pipeline includes reference Grafana dashboards. They show how to turn key Ku
 ## Quickstart
 
 You need access to a Kubernetes cluster running **1.31 or later**, with
-`kubectl` and **Helm 3** configured to use it. Choose a Helm release
-[compatible with your Kubernetes version](https://helm.sh/docs/v3/topics/version_skew/).
+`kubectl` and **Helm 4** configured to use it. Choose a Helm release
+[compatible with your Kubernetes version](https://helm.sh/docs/topics/version_skew/).
 
 The cluster needs **cert-manager**, a default **StorageClass** that provisions
 persistent volumes, and the Kubernetes resource metrics API (`metrics.k8s.io`).

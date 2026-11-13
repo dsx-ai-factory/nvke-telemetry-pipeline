@@ -21,7 +21,7 @@ Provide the following before installing NKTP.
   Collector Pod runs its self-telemetry sidecar as a native sidecar, an init
   container with `restartPolicy: Always`, which Kubernetes enables by default
   from 1.29. The bundled OpenTelemetry Operator 0.161.0 itself supports 1.25+.
-- **Helm 3.** Tested with Helm 3.20.
+- **Helm 4.** Choose a release compatible with your Kubernetes version.
 - **cert-manager.** Required with default values; install it separately.
   NKTP does not bundle or install it. It issues certificates for internal
   Collector mTLS, the Operator's admission webhook, and
@@ -85,8 +85,15 @@ kubectl label namespace "$NKTP_NAMESPACE" pod-security.kubernetes.io/enforce=pri
 helm install "$NKTP_RELEASE" ./nktp --namespace "$NKTP_NAMESPACE" --values "$NKTP_VALUES_FILE" --wait
 ```
 
-The Operator creates the Collectors after `helm install --wait` returns, so
-check their Pods as well.
+After Helm finishes, run both commands below. Repeat until every Collector's
+`READY` column shows all expected replicas ready, such as `2/2`, and every
+Certificate reports `READY=True`. If you installed without cert-manager, omit
+the certificate command.
+
+```bash
+kubectl -n "$NKTP_NAMESPACE" get opentelemetrycollector
+kubectl -n "$NKTP_NAMESPACE" get certificate
+```
 
 ### Upgrading
 
@@ -124,16 +131,20 @@ helm repo update nvidia
 
 **Run this procedure only if the upgrade notes identify CRD changes.**
 
-If both CRD groups are managed outside NKTP, skip this section. Their owners
-must ensure compatibility with the target OpenTelemetry Operator and the
-Prometheus Operator using the monitoring CRDs. If only one group is externally
-managed, update only the NKTP-managed group here. If your values file contains
+Use this procedure for CRDs installed by the NKTP chart that you maintain as
+part of your NKTP installation. If another chart or tool manages a CRD group,
+you are responsible for updating that group through its managing chart or tool
+to match the CRD versions bundled with the target NKTP chart before upgrading
+NKTP. Skip that group in the commands below. If another chart or tool manages
+both CRD groups, skip this procedure entirely.
+
+If your values file contains
 `opentelemetry-kube-stack.crds.install`, remove it before using the per-group
 flags: `true` enables both groups and `false` disables both, overriding the
-per-group settings. Keep
+per-group settings. In your values file, keep
 `opentelemetry-kube-stack.crds.installOtel` or
-`opentelemetry-kube-stack.crds.installPrometheus` set to `false` for externally
-managed groups in your values file; rendering excludes them. For example, if
+`opentelemetry-kube-stack.crds.installPrometheus` set to `false` for groups
+managed by another chart or tool; rendering excludes those groups. For example, if
 your `kube-prometheus-stack` installation already manages the Prometheus CRDs,
 set `opentelemetry-kube-stack.crds.installPrometheus: false` and follow that
 installation's CRD upgrade procedure.
@@ -176,6 +187,22 @@ kubectl diff --server-side --field-manager=helm -f "$PROMETHEUS_CRD_DIR"
 Check that the diffs are consistent with the upstream changelog changes linked
 from the upgrade notes. A diff exit status of `1` means changes were found;
 greater than `1` means an error to resolve before continuing.
+
+**CRDs originally installed with Helm 3 or another client-side workflow:**
+the server-side apply commands here may report field ownership conflicts. If
+a diff reports one, rerun that diff with `--force-conflicts`, keeping
+`--field-manager=helm`. The diff previews the changes without updating the CRDs
+or transferring ownership.
+
+Review the resulting diff and the fields named in the conflict. If the changes
+are expected and NKTP should manage those fields, add `--force-conflicts` to the
+corresponding apply command below for this update. As explained in
+[Helm's conflict forcing guidance](https://helm.sh/community/hips/hip-0023/#conflicts-and-forcing),
+forcing an apply overwrites conflicting values and transfers their ownership.
+If the changes are unexpected, stop before applying CRDs or upgrading the
+chart. The live CRDs may have been modified by another chart, tool, or
+administrator outside NKTP. Identify the source of those changes and determine
+whether they must be preserved before proceeding.
 
 After reviewing the diffs, apply each rendered group you intend to update;
 omit commands for groups that were not rendered:

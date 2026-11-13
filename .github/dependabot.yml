@@ -39,7 +39,7 @@ updates:
           - k8s.io/*
           - sigs.k8s.io/*
 
-  # Helm v3 dependencies and image references in the chart's values.yaml.
+  # Helm chart dependencies and image references in the chart's values.yaml.
   # Keep updates separate: bundled chart versions are deliberate pins, and
   # each bump needs its rendered output, snapshots, and documentation reviewed.
   # This does not maintain versions embedded in Taskfiles or Go source.
