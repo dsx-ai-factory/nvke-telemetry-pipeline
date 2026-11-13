@@ -60,7 +60,7 @@ tests:
           value:
             metrics:
               receivers: [prometheus]
-              processors: [memory_limiter, redaction/basic_v1]
+              processors: [memory_limiter, redaction/metrics_v1]
               exporters: [otlp_grpc]
       - equal:
           path: spec.config.service.telemetry.resource

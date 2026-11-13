@@ -107,19 +107,29 @@ func renderedCollector(ctx context.Context, t *testing.T) (string, object) {
 	}
 	// Each workload repeats these rules in its native defaults.
 	reference := collector.Spec.Config["processors"].(object)
+	checkPipelines := func(t *testing.T, config object) {
+		t.Helper()
+		processors := config["processors"].(object)
+		for name, raw := range config["service"].(object)["pipelines"].(object) {
+			processor, other := "redaction/basic_v1", "redaction/metrics_v1"
+			if strings.SplitN(name, "/", 2)[0] == "metrics" {
+				processor, other = other, processor
+			}
+			pipeline := raw.(object)
+			require.Contains(t, pipeline["processors"], processor, "pipeline %s", name)
+			require.NotContains(t, pipeline["processors"], other, "pipeline %s", name)
+			require.Equal(t, reference[processor], processors[processor])
+		}
+	}
+	checkPipelines(t, collector.Spec.Config)
 	t.Run("watchdog-sidecar", func(t *testing.T) {
 		require.Len(t, collector.Spec.InitContainers, 1)
 		args := collector.Spec.InitContainers[0].Args
 		require.Len(t, args, 1)
 		var sidecar object
 		require.NoError(t, json.Unmarshal([]byte(strings.TrimPrefix(args[0], "--config=yaml:")), &sidecar))
-		processors := sidecar["processors"].(object)
-		require.Equal(t, reference["redaction/basic_v1"], processors["redaction/basic_v1"])
+		checkPipelines(t, sidecar)
 		service := sidecar["service"].(object)
-		for _, signal := range []string{"logs", "metrics", "traces"} {
-			pipeline := service["pipelines"].(object)[signal].(object)
-			require.Contains(t, pipeline["processors"], "redaction/basic_v1", "sidecar %s pipeline", signal)
-		}
 		require.Equal(t, "none", service["telemetry"].(object)["traces"].(object)["level"])
 		command(t, "docker", "run", "--rm", "--pull=never", collector.Spec.Image, "validate", args[0])
 	})
@@ -130,15 +140,15 @@ func renderedCollector(ctx context.Context, t *testing.T) (string, object) {
 		"gateway-metrics",
 		"gateway-traces",
 		"large-target-metrics",
+		"nodeless-metrics",
 	} {
 		t.Run(workload, func(t *testing.T) {
 			var other struct {
-				Spec struct{ Config struct{ Processors object } }
+				Spec struct{ Config object }
 			}
 			rendered := command(t, "helm", "template", "redaction", "../../nktp", "--show-only", "templates/"+workload+".yaml")
 			require.NoError(t, yaml.Unmarshal(rendered, &other))
-			processors := other.Spec.Config.Processors
-			require.Equal(t, reference["redaction/basic_v1"], processors["redaction/basic_v1"])
+			checkPipelines(t, other.Spec.Config)
 		})
 	}
 	return collector.Spec.Image, collector.Spec.Config
@@ -154,9 +164,13 @@ func collectorUnavailable(t *testing.T, format string, args ...any) {
 
 func metadataFixture(t *testing.T, signal string) (object, object) {
 	t.Helper()
+	attributes := redactionAttributes
+	if signal == "metrics" {
+		attributes = metricRedactionAttributes
+	}
 	build := func(redact bool) object {
-		resource := object{"attributes": redactionAttributes("resource", redact)}
-		scope := object{"name": "inference-test", "version": "1", "attributes": redactionAttributes("scope", redact)}
+		resource := object{"attributes": attributes("resource", redact)}
+		scope := object{"name": "inference-test", "version": "1", "attributes": attributes("scope", redact)}
 		const timestamp = "1700000000000000000"
 		const traceID = "0102030405060708090a0b0c0d0e0f10"
 		const spanID = "0102030405060708"
@@ -164,9 +178,9 @@ func metadataFixture(t *testing.T, signal string) (object, object) {
 			span := object{
 				"traceId": traceID, "spanId": spanID, "name": "model.inference", "kind": 2,
 				"startTimeUnixNano": timestamp, "endTimeUnixNano": "1700000000000000100",
-				"attributes": redactionAttributes("span", redact), "status": object{"code": 1},
+				"attributes": attributes("span", redact), "status": object{"code": 1},
 				"events": []any{
-					object{"name": "inference.started", "timeUnixNano": timestamp, "attributes": redactionAttributes("event", redact)},
+					object{"name": "inference.started", "timeUnixNano": timestamp, "attributes": attributes("event", redact)},
 					object{"name": "clean-event", "timeUnixNano": timestamp},
 				},
 				// Link attributes are outside the pinned redaction processor's supported surfaces.
@@ -176,7 +190,7 @@ func metadataFixture(t *testing.T, signal string) (object, object) {
 		}
 		var metrics []any
 		for _, kind := range []string{"gauge", "sum", "histogram", "exponentialHistogram", "summary"} {
-			point := object{"timeUnixNano": timestamp, "startTimeUnixNano": "1699999999999999900", "attributes": redactionAttributes("datapoint", redact)}
+			point := object{"timeUnixNano": timestamp, "startTimeUnixNano": "1699999999999999900", "attributes": attributes("datapoint", redact)}
 			data := object{"dataPoints": []any{point}}
 			switch kind {
 			case "gauge":
@@ -201,6 +215,32 @@ func metadataFixture(t *testing.T, signal string) (object, object) {
 			}
 			metrics = append(metrics, object{"name": "inference." + kind, "description": "Inference measurement", "unit": "1", kind: data})
 		}
+		// KSM Secret names identify separate series and must survive every hop.
+		var points []any
+		for _, secret := range []string{"asdf", "another-secret"} {
+			points = append(points, object{
+				"timeUnixNano": timestamp, "asDouble": 1,
+				"attributes": []any{
+					attribute("secret", value("stringValue", secret)),
+					attribute("namespace", value("stringValue", "test")),
+				},
+			})
+		}
+		metrics = append(metrics, object{"name": "kube_secret_info", "gauge": object{"dataPoints": points}})
+		// automount_token describes ServiceAccount configuration, not a credential.
+		var accounts []any
+		for i, automount := range []string{"true", "false", ""} {
+			accounts = append(accounts, object{
+				"timeUnixNano": timestamp, "asDouble": 1,
+				"attributes": []any{
+					attribute("namespace", value("stringValue", "test")),
+					attribute("serviceaccount", value("stringValue", fmt.Sprintf("test-account-%d", i))),
+					attribute("uid", value("stringValue", fmt.Sprintf("test-account-uid-%d", i))),
+					attribute("automount_token", value("stringValue", automount)),
+				},
+			})
+		}
+		metrics = append(metrics, object{"name": "kube_serviceaccount_info", "gauge": object{"dataPoints": accounts}})
 		return object{"resourceMetrics": []any{object{"resource": resource, "scopeMetrics": []any{object{"scope": scope, "metrics": metrics}}}}}
 	}
 	var input, expected object
@@ -252,6 +292,7 @@ func redactionAttributes(surface string, redact bool) []any {
 		"session_token", "auth_token", "accessToken", "refreshToken", "clientSecret", "secret_key", "set-cookie",
 		"dbPassword", "userPassword", "apiToken", "bearerToken", "githubToken", "AWS_SECRET_ACCESS_KEY",
 		"x-auth-token", "x-amz-security-token", "client_secret_key", "dbPASSWORD", "appApiKey",
+		"automount_token",
 	}
 	result := []any{attribute("count", value("intValue", "7")), attribute("ok", value("boolValue", true)), attribute("message", value("stringValue", "****"))}
 	// Inference usage and configuration fields must keep their original numeric types.
@@ -268,6 +309,46 @@ func redactionAttributes(surface string, redact bool) []any {
 			v = value("stringValue", "****")
 		}
 		result = append(result, attribute(key, v), attribute(surface+"."+key, v))
+	}
+	return result
+}
+
+// metricRedactionAttributes checks explicit credential keys and preserves names
+// and counters. Log and trace fixtures retain their broader matching assertions.
+func metricRedactionAttributes(_ string, redact bool) []any {
+	var result []any
+	for _, key := range []string{
+		"secret", "label_secret", "annotation_secret", "k8s.secret", "k8s.secret.name",
+		"secret_name", "secretName", "token", "page_token", "githubToken", "automount_token",
+	} {
+		result = append(result, attribute(key, value("stringValue", "identifier")))
+	}
+	for _, key := range []string{"token_count", "tokenCount", "access_token_count", "refreshTokenCount", "input_tokens", "output_tokens", "total_tokens", "max_tokens", "gen_ai.usage.input_tokens", "token.count", "tokenizer", "secret_count", "password_length"} {
+		result = append(result, attribute(key, value("intValue", "123")))
+	}
+	result = append(result, attribute("tokens_per_second", value("doubleValue", 12.5)))
+	credentialValues := []object{
+		value("stringValue", "FAKE_CREDENTIAL"), value("stringValue", ""), {},
+		value("intValue", "12345"), value("doubleValue", 1.25), value("boolValue", true),
+		value("bytesValue", "RkFLRV9CWVRFUw=="),
+		value("arrayValue", object{"values": []any{value("stringValue", "FAKE_ARRAY")}}),
+		value("kvlistValue", object{"values": []any{attribute("nested", value("stringValue", "FAKE_MAP"))}}),
+	}
+	for i, key := range []string{
+		"password", "PASSWORD", "passwd", "dbPassword", "db_password", "api.key", "api-key", "api_key", "apiKey",
+		"private.key", "privateKey", "secret_key", "client_secret", "clientSecret", "AWS_SECRET_ACCESS_KEY",
+		"accessToken", "refresh_token", "id_token", "session_token", "auth_token",
+		"http.request.header.authorization", "http_request_header_authorization", "authorization", "proxy-authorization", "cookie", "set-cookie",
+	} {
+		v := credentialValues[i%len(credentialValues)]
+		if redact {
+			v = value("stringValue", "****")
+		}
+		result = append(result, attribute(key, v))
+	}
+	// Value checks still apply to keys outside the credential list.
+	for i, text := range redactionTexts(redact) {
+		result = append(result, attribute(fmt.Sprintf("text.%d", i), value("stringValue", text)))
 	}
 	return result
 }

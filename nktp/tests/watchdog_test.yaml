@@ -254,7 +254,7 @@ tests:
       - equal:
           path: spec.config.service.pipelines
           value:
-            metrics: {receivers: [otlp/insecure, otlp/secure, prometheus], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
+            metrics: {receivers: [otlp/insecure, otlp/secure, prometheus], processors: [memory_limiter, redaction/metrics_v1, transform/cluster], exporters: [otlp_grpc]}
             logs: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
             traces: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
       - matchRegex:
@@ -353,7 +353,7 @@ tests:
           path: spec.config.service.pipelines.metrics
           value:
             receivers: [otlp/insecure, otlp/secure, prometheus]
-            processors: [memory_limiter, redaction/basic_v1, transform/cluster]
+            processors: [memory_limiter, redaction/metrics_v1, transform/cluster]
             exporters: [otlp_grpc]
 
   - it: fills in the empty default registry with global.imageRegistry
@@ -521,7 +521,7 @@ tests:
       - equal:
           path: spec.config.service.pipelines
           value:
-            metrics: {receivers: [otlp/insecure, otlp/secure, prometheus], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
+            metrics: {receivers: [otlp/insecure, otlp/secure, prometheus], processors: [memory_limiter, redaction/metrics_v1, transform/cluster], exporters: [otlp_grpc]}
             logs: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
             traces: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
       - equal:
@@ -592,7 +592,7 @@ tests:
       - equal:
           path: spec.config.service.pipelines
           value:
-            metrics: {receivers: [otlp/insecure, otlp/secure, prometheus], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
+            metrics: {receivers: [otlp/insecure, otlp/secure, prometheus], processors: [memory_limiter, redaction/metrics_v1, transform/cluster], exporters: [otlp_grpc]}
             logs: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
             traces: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
 
@@ -641,7 +641,7 @@ tests:
       - equal:
           path: spec.config.service.pipelines
           value:
-            metrics: {receivers: [otlp/insecure, otlp/secure, prometheus], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
+            metrics: {receivers: [otlp/insecure, otlp/secure, prometheus], processors: [memory_limiter, redaction/metrics_v1, transform/cluster], exporters: [otlp_grpc]}
             logs: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
             traces: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
 
@@ -689,7 +689,7 @@ tests:
       - equal:
           path: spec.config.service.pipelines
           value:
-            metrics: {receivers: [otlp/insecure, otlp/secure, prometheus], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
+            metrics: {receivers: [otlp/insecure, otlp/secure, prometheus], processors: [memory_limiter, redaction/metrics_v1, transform/cluster], exporters: [otlp_grpc]}
             logs: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
             traces: {receivers: [otlp/secure], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
 
@@ -760,7 +760,7 @@ tests:
           path: spec.config.service.pipelines.metrics
           value:
             receivers: [otlp/insecure, otlp/secure, prometheus]
-            processors: [memory_limiter, redaction/basic_v1, transform/cluster]
+            processors: [memory_limiter, redaction/metrics_v1, transform/cluster]
             exporters: [debug]
       - equal:
           path: spec.config.exporters.debug

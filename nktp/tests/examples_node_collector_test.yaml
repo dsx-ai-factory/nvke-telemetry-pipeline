@@ -23,14 +23,14 @@ tests:
           path: spec.config.service.pipelines["metrics/process"]
           value:
             receivers: [host_metrics]
-            processors: [memory_limiter, resource/node, redaction/basic_v1]
+            processors: [memory_limiter, resource/node, redaction/metrics_v1]
             exporters: [otlp_grpc/metrics]
       # Adding the process pipeline must preserve the existing scrape pipeline.
       - equal:
           path: spec.config.service.pipelines.metrics
           value:
             receivers: [prometheus, prometheus/kubelet, otlp]
-            processors: [memory_limiter, resource/node, redaction/basic_v1]
+            processors: [memory_limiter, resource/node, redaction/metrics_v1]
             exporters: [otlp_grpc/metrics]
       - equal:
           path: spec.securityContext

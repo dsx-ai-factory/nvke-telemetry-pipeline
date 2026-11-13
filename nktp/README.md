@@ -341,6 +341,7 @@ Scale-down uses Kubernetes defaults.
 Enabled in the default Collector configurations in `values.yaml`.
 
 - Masks recognized credentials in log bodies, including nested bodies, and in log attributes, metric data point attributes, span attributes and events, and resource/scope attributes. Uses `****`, including for quoted JSON and Basic/Bearer text. Preserves keys and counters such as `token_count`. No hashing.
+- Metrics use `redaction/metrics_v1` with explicit credential keys such as `client_secret`, `api_key`, and `authorization`. Bare `secret` and `token` keys are preserved, including KSM Secret names. Logs and traces use the broader `redaction/basic_v1` rules. Both processors still scan values for credential text; add application-specific credential keys explicitly.
 - Runs last in the default source and gateway pipelines. Customize rules under `<workload>.otelcol.config.processors`, or disable redaction by removing its references from the relevant pipeline processor lists. Custom pipelines must include redaction explicitly.
 - Basic matching does not cover OTLP `Metric.metadata`, exemplar `filtered_attributes`, span names, span link attributes, recursive key matching inside attribute maps and arrays, unknown credential names, or complex and encoded secrets. Attribute maps and arrays can still match value patterns through their text representation.
 - Watchdog redacts other collectors' diagnostic exports (`service.telemetry`) because internal logs can include samples of rejected data. Sending these exports directly to a backend bypasses redaction.

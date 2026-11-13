@@ -31,6 +31,13 @@ Secret objects, including their contents. To enable them, set
 Set that workload's `namespaces` list to limit access. An empty list grants access
 across the cluster.
 
+The default metrics redaction processor, `redaction/metrics_v1`, preserves the
+`secret` label containing the Secret object name, so distinct Secrets retain
+distinct metric series. It also preserves `automount_token` on
+`kube_serviceaccount_info`, whose value is `true`, `false`, or empty. It matches
+explicit credential keys such as `client_secret` and `api_key`; it still scans
+label values for credential text.
+
 ## Custom resources
 
 A central workload can also report custom resources with KSM's
