@@ -32,6 +32,9 @@ tests:
           path: metadata.name
           value: custom-telemetry
       - equal:
+          path: metadata.annotations["helm.sh/resource-policy"]
+          value: keep
+      - equal:
           path: metadata.labels["pod-security.kubernetes.io/enforce"]
           value: privileged
       - notExists:

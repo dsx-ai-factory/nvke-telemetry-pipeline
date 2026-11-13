@@ -24,6 +24,7 @@ class NamespaceUpgradeTest(unittest.TestCase):
             ("owned namespace cannot be dropped", owned, False, True, 200, "Refusing namespace.create=false"),
             ("owned namespace can be retained", owned, True, True, 200, None),
             ("external namespace", {}, False, True, 200, None),
+            ("retained namespace without ownership annotations", {"helm.sh/resource-policy": "keep"}, False, True, 200, None),
             ("another release", {**owned, "meta.helm.sh/release-name": "other"}, False, True, 200, None),
             ("another release namespace", {**owned, "meta.helm.sh/release-namespace": "other"}, False, True, 200, None),
             ("missing namespace", {}, False, True, 404, None),
@@ -108,6 +109,8 @@ class NamespaceUpgradeTest(unittest.TestCase):
                 else:
                     self.assertEqual(result.returncode, 0, result.stderr)
                     self.assertEqual("kind: Namespace" in result.stdout, create)
+                    if create:
+                        self.assertIn("helm.sh/resource-policy: keep", result.stdout)
         finally:
             server.shutdown()
             server.server_close()

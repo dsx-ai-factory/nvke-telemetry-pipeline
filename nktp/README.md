@@ -117,10 +117,34 @@ Upgrades reject `namespace.create=false` if the live namespace carries this
 release's ownership annotations, including when using `task install`.
 The check requires permission to read the release Namespace.
 
-**Deleting the rendered Namespace deletes everything in it, including resources
-outside NKTP.** Use a dedicated namespace and account for the integration's
-namespace deletion and pruning behavior. If a Namespace is adopted into a Helm
-release, `helm uninstall` deletes it too.
+The rendered Namespace carries `helm.sh/resource-policy: keep`. Helm retains it
+when it leaves the release manifest or the release is uninstalled; other release
+resources are deleted normally. A retained namespace needs external lifecycle
+management and can require ownership cleanup before reinstalling. Older release
+manifests without this annotation need the upgrade procedure below first.
+
+**Deleting the Namespace still deletes everything in it, including resources
+outside NKTP.** Helm's keep policy does not protect it from Argo CD pruning or
+other tools' deletion policies. Use a dedicated namespace.
+
+Before turning `namespace.create` off in a pruning integration:
+
+1. Keep it `true` while applying the integration's per-resource retention or
+   orphan policy to the Namespace. For Argo CD, use your manifest overlay to add
+   `argocd.argoproj.io/sync-options: Prune=false,Delete=false`, preserving any
+   existing sync options. Sync this change alone and verify the live Namespace
+   carries the protection.
+2. In a separate change, set `namespace.create: false` and sync with the
+   protection still active. Confirm the Namespace and its privileged Pod
+   Security label remain. Argo CD can report a skipped prune as out of sync
+   during this handoff.
+3. Transfer the Namespace to its new manager and orphan it from the old
+   integration's tracking/inventory before removing any pruning protection.
+   If the integration cannot retain or orphan individual resources, keep
+   namespace rendering enabled until you have a supported handoff procedure.
+
+The Helm upgrade guard does not run during Argo CD's `helm template` rendering
+and cannot protect this transition.
 
 ### Upgrading
 
@@ -229,9 +253,13 @@ helm get manifest "$NKTP_RELEASE" --namespace "$NKTP_NAMESPACE"
 ```
 
 If it includes a `kind: Namespace` resource for the release namespace, keep
-`namespace.create=true` until ownership has been safely migrated. Removing that
-resource from the next release manifest makes Helm delete the namespace and
-everything in it; `--create-namespace` does not prevent this. `--reset-values`
+`namespace.create=true` until ownership has been safely migrated. Older installed
+revisions may lack `helm.sh/resource-policy: keep`: first upgrade to this chart
+with `namespace.create=true`, then verify that both the stored release manifest
+and the live Namespace carry the keep annotation. A Helm upgrade that omits an
+unprotected Namespace deletes it and everything in it; `--create-namespace` does
+not prevent this. Do not remove Helm ownership annotations before verifying
+retention and arranging external namespace management. `--reset-values`
 also resets `namespace.create` to `false`, so add `--set namespace.create=true`
 to the defaults command below, or replace the `false` override in the values-file
 command with `true`. Use direct `helm upgrade` for these releases: `task install`
