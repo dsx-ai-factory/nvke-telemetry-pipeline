@@ -1,7 +1,7 @@
 dependencies:
 - name: opentelemetry-kube-stack
   repository: https://open-telemetry.github.io/opentelemetry-helm-charts
-  version: 0.27.0
+  version: 0.27.1
 - name: prometheus-node-exporter
   repository: https://prometheus-community.github.io/helm-charts
   version: 4.56.1
@@ -14,5 +14,5 @@ dependencies:
 - name: nvcb
   repository: file://../nvcb/chart
   version: 0.1.0
-digest: sha256:e96107630db5f9ff4a427dae7d713b52db7f69cd49ede51bdb4f3d9936765909
-generated: "2026-11-09T22:53:07.17720953Z"
+digest: sha256:ae290b08ad901d5d7b7363fc6889dfd3b696b119abc47e64b260bacd7014b289
+generated: "2026-11-12T05:35:57.353960051Z"
