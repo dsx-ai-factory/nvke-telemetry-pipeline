@@ -34,6 +34,7 @@ tasks:
         --wait --timeout {{.HELM_TIMEOUT | default "5m" | shellQuote}}
         {{if .BASE_HELM_VALUES_FILE}}--values {{.BASE_HELM_VALUES_FILE | shellQuote}}{{end}}
         {{if .RESOLVED_HELM_VALUES_FILE}}--values {{.RESOLVED_HELM_VALUES_FILE | shellQuote}}{{end}}
+        --set namespace.create=false
 
   cert-manager:install:
     internal: true
@@ -96,6 +97,7 @@ tasks:
       - helm unittest {{.CLI_ARGS}} nktp
       # CLI_ARGS go to the main run only, so a -o report is not overwritten by this run.
       - helm unittest --skip-schema-validation -f 'tests/skip-schema-validation/*_test.yaml' nktp
+      - python3 -B -m unittest discover -s nktp/tests -p '*_test.py'
 
   blueprints:
     desc: Package blueprints/ as the default blueprints in nktp/values.yaml

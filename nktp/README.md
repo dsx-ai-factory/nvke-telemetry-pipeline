@@ -82,11 +82,69 @@ helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
 helm dependency build nktp
 kubectl create namespace "$NKTP_NAMESPACE"
 kubectl label namespace "$NKTP_NAMESPACE" pod-security.kubernetes.io/enforce=privileged --overwrite
-helm install "$NKTP_RELEASE" ./nktp --namespace "$NKTP_NAMESPACE" --values "$NKTP_VALUES_FILE" --wait
+helm install "$NKTP_RELEASE" ./nktp --namespace "$NKTP_NAMESPACE" \
+  --values "$NKTP_VALUES_FILE" --set namespace.create=false --wait
 ```
 
 The Operator creates the Collectors after `helm install --wait` returns, so
 check their Pods as well.
+
+### Namespace rendering for integrations
+
+For render-and-apply workflows, set `namespace.create: true` to render a
+`Namespace` named after the release namespace (`--namespace`), with
+`pod-security.kubernetes.io/enforce: privileged`:
+
+```yaml
+namespace:
+  create: true
+```
+
+This includes the Namespace in `helm template` output for Kustomize
+`helmCharts`, Argo CD and kapp. Let the integration apply that manifest before
+namespaced resources, and remove any separate Namespace manifest for the same
+namespace. Keep the option disabled if the integration already manages it.
+
+For `helm install` and `helm upgrade --install`, keep `namespace.create: false`
+(the default) and create and label the namespace as shown above. Helm's default
+release storage needs the namespace before chart resources are created.
+`--create-namespace` creates it without the Pod Security label and, with
+`namespace.create: true`, conflicts with the chart's Namespace resource.
+The install command explicitly sets `namespace.create=false` so values files
+shared with render-and-apply integrations can be reused. `task install` also
+forces this setting; create and label its target namespace before running it.
+Upgrades reject `namespace.create=false` if the live namespace carries this
+release's ownership annotations, including when using `task install`.
+The check requires permission to read the release Namespace.
+
+The rendered Namespace carries `helm.sh/resource-policy: keep`. Helm retains it
+when it leaves the release manifest or the release is uninstalled; other release
+resources are deleted normally. A retained namespace needs external lifecycle
+management and can require ownership cleanup before reinstalling. Older release
+manifests without this annotation need the upgrade procedure below first.
+
+**Deleting the Namespace still deletes everything in it, including resources
+outside NKTP.** Helm's keep policy does not protect it from Argo CD pruning or
+other tools' deletion policies. Use a dedicated namespace.
+
+Before turning `namespace.create` off in a pruning integration:
+
+1. Keep it `true` while applying the integration's per-resource retention or
+   orphan policy to the Namespace. For Argo CD, use your manifest overlay to add
+   `argocd.argoproj.io/sync-options: Prune=false,Delete=false`, preserving any
+   existing sync options. Sync this change alone and verify the live Namespace
+   carries the protection.
+2. In a separate change, set `namespace.create: false` and sync with the
+   protection still active. Confirm the Namespace and its privileged Pod
+   Security label remain. Argo CD can report a skipped prune as out of sync
+   during this handoff.
+3. Transfer the Namespace to its new manager and orphan it from the old
+   integration's tracking/inventory before removing any pruning protection.
+   If the integration cannot retain or orphan individual resources, keep
+   namespace rendering enabled until you have a supported handoff procedure.
+
+The Helm upgrade guard does not run during Argo CD's `helm template` rendering
+and cannot protect this transition.
 
 ### Upgrading
 
@@ -187,6 +245,28 @@ kubectl apply --server-side --field-manager=helm -f "$PROMETHEUS_CRD_DIR"
 
 #### Upgrade the chart
 
+**Check namespace ownership before either upgrade command.** Inspect the stored
+release manifest with:
+
+```bash
+helm get manifest "$NKTP_RELEASE" --namespace "$NKTP_NAMESPACE"
+```
+
+If it includes a `kind: Namespace` resource for the release namespace, keep
+`namespace.create=true` until ownership has been safely migrated. Older installed
+revisions may lack `helm.sh/resource-policy: keep`: first upgrade to this chart
+with `namespace.create=true`, then verify that both the stored release manifest
+and the live Namespace carry the keep annotation. A Helm upgrade that omits an
+unprotected Namespace deletes it and everything in it; `--create-namespace` does
+not prevent this. Do not remove Helm ownership annotations before verifying
+retention and arranging external namespace management. `--reset-values`
+also resets `namespace.create` to `false`, so add `--set namespace.create=true`
+to the defaults command below, or replace the `false` override in the values-file
+command with `true`. Use direct `helm upgrade` for these releases: `task install`
+forces the option off, and the chart rejects that upgrade when the namespace
+carries the release's ownership annotations. Merely changing those annotations
+does not remove the Namespace from Helm's stored manifest or safely transfer it.
+
 **If you use chart defaults**, upgrade with the new chart defaults:
 
 ```bash
@@ -199,13 +279,14 @@ helm upgrade "$NKTP_RELEASE" nvidia/nktp --version "$NKTP_VERSION" \
 it with `-f`. Include all custom settings you want to keep. Merge custom volume
 and mount entries into any example lists before applying them.
 
-Edit the values file path below, then upgrade:
+Edit the values file path below, then upgrade. If the release owns its Namespace,
+replace `--set namespace.create=false` with `--set namespace.create=true`:
 
 ```bash
 NKTP_VALUES_FILE=/path/to/my-values.yaml
 helm upgrade "$NKTP_RELEASE" nvidia/nktp --version "$NKTP_VERSION" \
   --namespace "$NKTP_NAMESPACE" \
-  --reset-values -f "$NKTP_VALUES_FILE" --wait
+  --reset-values -f "$NKTP_VALUES_FILE" --set namespace.create=false --wait
 ```
 
 ## Components

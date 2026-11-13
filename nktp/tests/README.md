@@ -7,6 +7,9 @@ helm plugin install https://github.com/helm-unittest/helm-unittest.git --version
 task test   # from the repository root; Python 3 is also required
 ```
 
+The task also checks namespace upgrade protection using Helm against a local
+fake Kubernetes API. These tests do not connect to a real cluster.
+
 The default output of NKTP's own templates is always covered by a snapshot
 (`default_snapshot_test.yaml`, goldens in `__snapshot__/`). Its post-renderer
 validates known dependency image tags and upstream chart labels as numeric

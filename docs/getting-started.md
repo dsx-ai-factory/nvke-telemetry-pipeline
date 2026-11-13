@@ -19,6 +19,75 @@ node directory for log checkpoints. For alternatives, see:
 - [Use in-memory exporter queues](guides/configure_exporter_queue_storage.md#installing-nktp-without-persistent-storage).
 - [Keep node log checkpoints in memory](guides/configure_daemonset_log_checkpoints.md#without-persistent-checkpoints).
 
+### Namespace ownership
+
+For Helm installations, leave `namespace.create: false` (the default) and
+create and label the release namespace before installing, as shown in the
+chart's installation instructions. Helm's default release storage needs the
+namespace before it creates chart resources. `--create-namespace` does not add
+the Pod Security label and conflicts with a chart-rendered Namespace when
+`namespace.create: true`.
+
+The documented Helm install command overrides `namespace.create` to `false`,
+so it also works with a values file that enables namespace rendering for other
+tools. `task install` forces the same override; create and label the target
+namespace before running it.
+
+For an existing release that owns its Namespace, keep `namespace.create=true`
+on upgrades, including when using `--reset-values`, until ownership is safely
+transferred. First upgrade older releases with that option enabled so the keep
+annotation is recorded in both the release manifest and live Namespace. Omitting
+an unprotected Namespace makes Helm delete it and everything in it. Use direct
+`helm upgrade` for these releases; `task install` forces the option off, and the chart rejects the
+upgrade when the namespace carries the release's ownership annotations. Follow
+the chart's [namespace ownership check](../nktp/README.md#upgrade-the-chart)
+before upgrading.
+
+For render-and-apply workflows, such as Kustomize `helmCharts`, Argo CD and
+kapp, enable namespace rendering in your overrides file:
+
+```yaml
+namespace:
+  create: true
+```
+
+The chart renders a `Namespace` using the release namespace (`--namespace`),
+with `pod-security.kubernetes.io/enforce: privileged`. Set the integration's
+release namespace and let it apply this manifest before namespaced resources.
+Remove any separate Namespace manifest for that namespace, or leave the option
+off if the integration already manages it.
+
+The rendered Namespace has `helm.sh/resource-policy: keep`. Helm retains it on
+uninstall or removal from the release manifest; other release resources are
+deleted normally. The retained namespace needs external lifecycle management
+and may need ownership cleanup before reinstalling. This policy does not stop
+Argo CD pruning, and the Helm upgrade guard does not run in its template renders.
+
+**Deleting the Namespace deletes everything in it, including resources outside
+NKTP.** Use a dedicated namespace. To stop rendering it in a pruning integration,
+use a staged handoff:
+
+1. Keep `namespace.create: true`. Add the integration's per-resource retention
+   or orphan policy through its manifest overlay. For Argo CD, add the following
+   Namespace annotation, merging any existing sync options, then sync this
+   change separately and verify the annotation on the live Namespace:
+
+   ```yaml
+   metadata:
+     annotations:
+       argocd.argoproj.io/sync-options: Prune=false,Delete=false
+   ```
+
+   Argo CD documents [pruning protection and deletion protection](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/#no-prune-resources)
+   as separate options; both protect the Namespace during handoff.
+2. In a later change, set `namespace.create: false` and sync while retaining
+   that protection. Verify that the Namespace and its privileged Pod Security
+   label remain. A skipped Argo CD prune can leave the Application out of sync.
+3. Have the new manager take over the Namespace, then orphan it from the old
+   integration's tracking/inventory before removing protection. If your tool
+   cannot retain or orphan individual resources, leave rendering enabled until
+   a supported handoff is available.
+
 ## Check readiness
 
 - **Wait for the Collectors too.** Helm 3's `--wait` does not wait for the

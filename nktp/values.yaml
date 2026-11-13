@@ -1,5 +1,13 @@
 # Default values for the NKTP Helm chart.
 
+# Render the release namespace with the privileged Pod Security enforcement label
+# for helm template / render-and-apply workflows. For Helm installs, leave false
+# and create and label the namespace separately before installing.
+# The rendered namespace has helm.sh/resource-policy: keep, so Helm retains it.
+# Other deployment tools need their own pruning protection before disabling this.
+namespace:
+  create: false
+
 global:
   # Override image registry for every image this chart and its dependencies pull.
   #

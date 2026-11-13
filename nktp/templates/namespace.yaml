@@ -1,0 +1,21 @@
+{{- /*
+SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if and .Release.IsUpgrade (not .Values.namespace.create) }}
+{{- $namespace := lookup "v1" "Namespace" "" .Release.Namespace }}
+{{- $annotations := dig "metadata" "annotations" (dict) $namespace | default dict }}
+{{- if and (eq (get $annotations "meta.helm.sh/release-name") .Release.Name) (eq (get $annotations "meta.helm.sh/release-namespace") .Release.Namespace) }}
+{{- fail "Refusing namespace.create=false: the release owns its Namespace and Helm could delete it during upgrade. Use helm upgrade with --set namespace.create=true until Namespace ownership has been safely migrated; task install forces namespace.create=false." }}
+{{- end }}
+{{- end }}
+{{- if .Values.namespace.create }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Release.Namespace | quote }}
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+{{- end }}
