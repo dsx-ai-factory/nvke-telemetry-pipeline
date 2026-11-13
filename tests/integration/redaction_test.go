@@ -130,6 +130,7 @@ func renderedCollector(ctx context.Context, t *testing.T) (string, object) {
 		"gateway-metrics",
 		"gateway-traces",
 		"large-target-metrics",
+		"nodeless-metrics",
 	} {
 		t.Run(workload, func(t *testing.T) {
 			var other struct {
@@ -201,6 +202,32 @@ func metadataFixture(t *testing.T, signal string) (object, object) {
 			}
 			metrics = append(metrics, object{"name": "inference." + kind, "description": "Inference measurement", "unit": "1", kind: data})
 		}
+		// KSM Secret names identify separate series and must survive every hop.
+		var points []any
+		for _, secret := range []string{"asdf", "another-secret"} {
+			points = append(points, object{
+				"timeUnixNano": timestamp, "asDouble": 1,
+				"attributes": []any{
+					attribute("secret", value("stringValue", secret)),
+					attribute("namespace", value("stringValue", "test")),
+				},
+			})
+		}
+		metrics = append(metrics, object{"name": "kube_secret_info", "gauge": object{"dataPoints": points}})
+		// automount_token describes ServiceAccount configuration, not a credential.
+		var accounts []any
+		for i, automount := range []string{"true", "false", ""} {
+			accounts = append(accounts, object{
+				"timeUnixNano": timestamp, "asDouble": 1,
+				"attributes": []any{
+					attribute("namespace", value("stringValue", "test")),
+					attribute("serviceaccount", value("stringValue", fmt.Sprintf("test-account-%d", i))),
+					attribute("uid", value("stringValue", fmt.Sprintf("test-account-uid-%d", i))),
+					attribute("automount_token", value("stringValue", automount)),
+				},
+			})
+		}
+		metrics = append(metrics, object{"name": "kube_serviceaccount_info", "gauge": object{"dataPoints": accounts}})
 		return object{"resourceMetrics": []any{object{"resource": resource, "scopeMetrics": []any{object{"scope": scope, "metrics": metrics}}}}}
 	}
 	var input, expected object
@@ -253,7 +280,14 @@ func redactionAttributes(surface string, redact bool) []any {
 		"dbPassword", "userPassword", "apiToken", "bearerToken", "githubToken", "AWS_SECRET_ACCESS_KEY",
 		"x-auth-token", "x-amz-security-token", "client_secret_key", "dbPASSWORD", "appApiKey",
 	}
-	result := []any{attribute("count", value("intValue", "7")), attribute("ok", value("boolValue", true)), attribute("message", value("stringValue", "****"))}
+	result := []any{attribute("count", value("intValue", "7")), attribute("ok", value("boolValue", true)), attribute("message", value("stringValue", "****")),
+		attribute("automount_token", value("stringValue", "false"))}
+	// The exception is exact: a prefixed key still follows the blocking rules.
+	automount := "true"
+	if redact {
+		automount = "****"
+	}
+	result = append(result, attribute(surface+".automount_token", value("stringValue", automount)))
 	// Inference usage and configuration fields must keep their original numeric types.
 	for _, key := range []string{"token_count", "tokenCount", "access_token_count", "refreshTokenCount", "input_tokens", "output_tokens", "total_tokens", "max_tokens", "gen_ai.usage.input_tokens", "token.count", "tokenizer", "secret_count", "password_length"} {
 		result = append(result, attribute(key, value("intValue", "123")))
@@ -264,10 +298,18 @@ func redactionAttributes(surface string, redact bool) []any {
 	}
 	for i, key := range keys {
 		v := secretValues[i%len(secretValues)]
+		exactValue := v
+		if key == "secret" {
+			// Ignored keys bypass value scanning too, for every signal and surface.
+			exactValue = value("stringValue", "password=reference-only")
+		}
 		if redact {
 			v = value("stringValue", "****")
+			if key != "secret" {
+				exactValue = v
+			}
 		}
-		result = append(result, attribute(key, v), attribute(surface+"."+key, v))
+		result = append(result, attribute(key, exactValue), attribute(surface+"."+key, v))
 	}
 	return result
 }
@@ -290,6 +332,8 @@ func redactionTexts(redact bool) []string {
 		{input: "Authorization: bEaReR FAKE_BEARER==", want: "****"},
 		{input: "https://example.test/?token=FAKE_URL", want: "https://example.test/?****"},
 		{input: "basic configuration token_count=123", want: "basic configuration token_count=123"},
+		// Structured-key exceptions do not exempt assignments inside free text.
+		{input: "secret=FAKE_TEXT automount_token=true", want: "**** ****"},
 	}
 	var texts []string
 	for _, fixture := range fixtures {
@@ -331,7 +375,11 @@ func redactionFixture(t *testing.T) (object, object) {
 			// Native masking also visits nested bodies and text inside map values.
 			object{"body": value("kvlistValue", object{"values": []any{
 				attribute("MESSAGE", value("stringValue", nestedText)),
-				attribute("nested", value("kvlistValue", object{"values": []any{attribute("password", value("stringValue", nestedSecret))}})),
+				attribute("nested", value("kvlistValue", object{"values": []any{
+					attribute("password", value("stringValue", nestedSecret)),
+					attribute("secret", value("stringValue", "password=reference-only")),
+					attribute("automount_token", value("stringValue", "true")),
+				}})),
 			}})},
 		}
 		for _, text := range redactionTexts(redact) {
