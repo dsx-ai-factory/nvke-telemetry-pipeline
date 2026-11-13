@@ -321,6 +321,8 @@ watchdog:
           allow_all_keys: true
           redact_all_types: true
           summary: silent
+          # Preserve KSM object names and settings across every signal.
+          ignored_keys: [secret, automount_token]
           blocked_key_patterns:
             - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
           blocked_values:
@@ -463,6 +465,8 @@ watchdog:
             allow_all_keys: true
             redact_all_types: true
             summary: silent
+            # Preserve KSM object names and settings across every signal.
+            ignored_keys: [secret, automount_token]
             blocked_key_patterns:
               - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
             blocked_values:
@@ -692,6 +696,8 @@ gateway_logs:
           allow_all_keys: true
           redact_all_types: true
           summary: silent
+          # Preserve KSM object names and settings across every signal.
+          ignored_keys: [secret, automount_token]
           blocked_key_patterns:
             - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
           blocked_values:
@@ -1029,6 +1035,8 @@ gateway_metrics:
           allow_all_keys: true
           redact_all_types: true
           summary: silent
+          # Preserve KSM object names and settings across every signal.
+          ignored_keys: [secret, automount_token]
           blocked_key_patterns:
             - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
           blocked_values:
@@ -1366,6 +1374,8 @@ gateway_traces:
           allow_all_keys: true
           redact_all_types: true
           summary: silent
+          # Preserve KSM object names and settings across every signal.
+          ignored_keys: [secret, automount_token]
           blocked_key_patterns:
             - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
           blocked_values:
@@ -1996,6 +2006,8 @@ daemonset:
           allow_all_keys: true
           redact_all_types: true
           summary: silent
+          # Preserve KSM object names and settings across every signal.
+          ignored_keys: [secret, automount_token]
           blocked_key_patterns:
             - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
           blocked_values:
@@ -2460,6 +2472,8 @@ large_target_metrics:
           allow_all_keys: true
           redact_all_types: true
           summary: silent
+          # Preserve KSM object names and settings across every signal.
+          ignored_keys: [secret, automount_token]
           blocked_key_patterns:
             - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
           blocked_values:
@@ -2817,6 +2831,8 @@ nodeless_metrics:
           allow_all_keys: true
           redact_all_types: true
           summary: silent
+          # Preserve KSM object names and settings across every signal.
+          ignored_keys: [secret, automount_token]
           blocked_key_patterns:
             - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
           blocked_values:
@@ -3102,6 +3118,8 @@ cluster_events:
           allow_all_keys: true
           redact_all_types: true
           summary: silent
+          # Preserve KSM object names and settings across every signal.
+          ignored_keys: [secret, automount_token]
           blocked_key_patterns:
             - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
           blocked_values:

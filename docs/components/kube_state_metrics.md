@@ -31,6 +31,14 @@ Secret objects, including their contents. To enable them, set
 Set that workload's `namespaces` list to limit access. An empty list grants access
 across the cluster.
 
+Kube-state-metrics uses `secret` for the Secret object name on `kube_secret_*`
+metrics and `automount_token` for the ServiceAccount setting on
+`kube_serviceaccount_info`. Because these labels describe object identity and
+configuration rather than credentials, the redaction processor preserves keys
+named exactly `secret` and `automount_token`, including their values. This keeps
+Secret metric series distinct and retains the ServiceAccount's `true`, `false`,
+or empty setting.
+
 ## Custom resources
 
 A central workload can also report custom resources with KSM's

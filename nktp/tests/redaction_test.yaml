@@ -15,6 +15,11 @@ tests:
       - equal:
           path: spec.config.processors["redaction/basic_v1"].summary
           value: silent
+  - it: preserves KSM keys in the shared processor
+    asserts:
+      - equal:
+          path: spec.config.processors["redaction/basic_v1"].ignored_keys
+          value: [secret, automount_token]
   - it: respects native rule overrides and processor order
     template: templates/gateway-metrics.yaml
     set:
