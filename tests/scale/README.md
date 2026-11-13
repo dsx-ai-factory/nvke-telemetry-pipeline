@@ -22,7 +22,7 @@ to write or adapt plans.
 
 ## Setup
 
-Requires an existing Kubernetes cluster, kubectl, Helm 3 or 4, Task and Go.
+Requires an existing Kubernetes cluster, kubectl, Helm 4, Task and Go.
 Use real worker and system pools sized for the workload. Record their node
 counts, sizes and placement with benchmark results. Cluster provisioning and
 deletion are managed outside this suite. Run commands from the repository

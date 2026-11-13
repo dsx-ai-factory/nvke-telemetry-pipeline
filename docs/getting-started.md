@@ -21,40 +21,38 @@ node directory for log checkpoints. For alternatives, see:
 
 ## Check readiness
 
-- **Wait for the Collectors too.** Helm 3's `--wait` does not wait for the
-  Operator-managed Collector workloads. Run
-  `kubectl get opentelemetrycollector -n nktp` and repeat until every
-  Collector's `READY` column shows all expected replicas ready, such as `2/2`.
-  If readiness stalls, inspect the Collector Pods with
-  `kubectl get pods -n nktp`.
-  When cert-manager is installed, also run `kubectl get certificate -n nktp`
-  and wait for every NKTP Certificate to show `READY=True`; Helm 3's `--wait`
-  does not check this. If certificate readiness stalls, inspect the conditions
-  with `kubectl describe certificate -n nktp`.
-- **Versions:** release tags and development builds are described in
-  [RELEASING.md](../RELEASING.md).
+Check the Collector `READY` column and certificate list. If readiness stalls,
+inspect the Collector Pods and certificate conditions.
+Edit the namespace below to match your release; omit the certificate commands
+if you installed without cert-manager:
+
+```bash
+NKTP_NAMESPACE=nktp
+kubectl -n "$NKTP_NAMESPACE" get opentelemetrycollector
+kubectl -n "$NKTP_NAMESPACE" get certificate
+kubectl -n "$NKTP_NAMESPACE" get pods
+kubectl -n "$NKTP_NAMESPACE" describe certificate
+```
+
+Release tags and development builds are described in
+[RELEASING.md](../RELEASING.md).
 
 <details>
 <summary>Example Collector and certificate readiness with cert-manager installed</summary>
-
-```bash
-kubectl get opentelemetrycollector -A
-kubectl get certificate -A
-```
 
 Example output for chart version `0.1.0`; names and replica counts depend on the
 chart version and values. `READY=2/2` means both expected Collector replicas
 are ready; certificates should show `READY=True`.
 
 ```text
-NAMESPACE   NAME                  MODE          VERSION   READY   AGE   IMAGE                                      MANAGEMENT
-nktp        nktp-cluster-events   statefulset   0.159.0   2/2     23h   otel/opentelemetry-collector-k8s:0.162.0   managed
+NAME                  MODE          VERSION   READY   AGE   IMAGE                                      MANAGEMENT
+nktp-cluster-events   statefulset   0.159.0   2/2     23h   otel/opentelemetry-collector-k8s:0.162.0   managed
 ...
 ```
 
 ```text
-NAMESPACE   NAME                         READY   SECRET                          AGE
-nktp        nktp-cluster-events-client   True    nktp-cluster-events-client-tls  23h
+NAME                         READY   SECRET                          AGE
+nktp-cluster-events-client   True    nktp-cluster-events-client-tls  23h
 ...
 ```
 
@@ -131,7 +129,12 @@ See [Send telemetry to NKTP](guides/send_telemetry.md).
 Helm never upgrades CRDs it installed from a chart's `crds/` directory. The
 OpenTelemetry and Prometheus CRDs come from there, so a chart version that bumps
 the Operator leaves the old CRDs in place, and fields only the new version knows
-are silently dropped. Apply the new CRDs before `helm upgrade`.
+are silently dropped. Follow the chart's
+[CRD update procedure](../nktp/README.md#update-crds) before `helm upgrade`
+when CRDs change.
+
+See [Helm's conflict forcing guidance](https://helm.sh/community/hips/hip-0023/#conflicts-and-forcing)
+for the effect of `--force-conflicts` on conflicting values and field ownership.
 
 Changes to watchdog and gateway volume claim templates cause the Operator to
 recreate their StatefulSets and restart Collectors. See

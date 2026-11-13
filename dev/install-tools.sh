@@ -6,7 +6,7 @@ set -euo pipefail
 
 KIND_VERSION=v0.33.0
 KUBECTL_VERSION=v1.35.9
-HELM_VERSION=v3.20.2
+HELM_VERSION=v4.3.2
 TILT_VERSION=v0.37.8
 
 bin_dir="$(cd "$(dirname "$0")" && pwd)/.bin"
