@@ -2067,6 +2067,14 @@ matches the snapshot with default values:
     spec:
       podMetricsEndpoints:
         - honorLabels: true
+          metricRelabelings:
+            - action: replace
+              regex: (.+)
+              sourceLabels:
+                - secret
+              targetLabel: secret_name
+            - action: labeldrop
+              regex: ^secret$
           port: http-metrics
         - port: telemetry
       selector:
@@ -2088,6 +2096,14 @@ matches the snapshot with default values:
     spec:
       podMetricsEndpoints:
         - honorLabels: true
+          metricRelabelings:
+            - action: replace
+              regex: (.+)
+              sourceLabels:
+                - secret
+              targetLabel: secret_name
+            - action: labeldrop
+              regex: ^secret$
           port: http-metrics
         - port: telemetry
       selector:
@@ -2109,6 +2125,14 @@ matches the snapshot with default values:
     spec:
       podMetricsEndpoints:
         - honorLabels: true
+          metricRelabelings:
+            - action: replace
+              regex: (.+)
+              sourceLabels:
+                - secret
+              targetLabel: secret_name
+            - action: labeldrop
+              regex: ^secret$
           port: http-metrics
         - port: telemetry
       selector:
@@ -2129,6 +2153,14 @@ matches the snapshot with default values:
     spec:
       podMetricsEndpoints:
         - honorLabels: true
+          metricRelabelings:
+            - action: replace
+              regex: (.+)
+              sourceLabels:
+                - secret
+              targetLabel: secret_name
+            - action: labeldrop
+              regex: ^secret$
           port: http-metrics
         - port: telemetry
       selector:
@@ -2150,6 +2182,14 @@ matches the snapshot with default values:
     spec:
       podMetricsEndpoints:
         - honorLabels: true
+          metricRelabelings:
+            - action: replace
+              regex: (.+)
+              sourceLabels:
+                - secret
+              targetLabel: secret_name
+            - action: labeldrop
+              regex: ^secret$
           port: http-metrics
         - port: telemetry
       selector:
@@ -2171,6 +2211,14 @@ matches the snapshot with default values:
     spec:
       podMetricsEndpoints:
         - honorLabels: true
+          metricRelabelings:
+            - action: replace
+              regex: (.+)
+              sourceLabels:
+                - secret
+              targetLabel: secret_name
+            - action: labeldrop
+              regex: ^secret$
           port: http-metrics
         - port: telemetry
       selector:
@@ -2192,6 +2240,14 @@ matches the snapshot with default values:
     spec:
       podMetricsEndpoints:
         - honorLabels: true
+          metricRelabelings:
+            - action: replace
+              regex: (.+)
+              sourceLabels:
+                - secret
+              targetLabel: secret_name
+            - action: labeldrop
+              regex: ^secret$
           port: http-metrics
         - port: telemetry
       selector:

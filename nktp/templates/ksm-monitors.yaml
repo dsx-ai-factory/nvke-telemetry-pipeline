@@ -20,5 +20,13 @@ spec:
     - port: http-metrics
       # Preserve the namespace and Pod labels of the objects described by KSM.
       honorLabels: true
+      # Rename KSM's secret object-name label so credential redaction does not mask it.
+      metricRelabelings:
+        - sourceLabels: [secret]
+          regex: (.+)
+          targetLabel: secret_name
+          action: replace
+        - regex: ^secret$
+          action: labeldrop
     - port: telemetry
 {{- end }}
