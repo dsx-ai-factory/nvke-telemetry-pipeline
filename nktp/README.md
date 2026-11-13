@@ -196,9 +196,8 @@ or transferring ownership.
 
 Review the resulting diff and the fields named in the conflict. If the changes
 are expected and NKTP should manage those fields, add `--force-conflicts` to the
-corresponding apply command below for this update. As explained in
-[Helm's conflict forcing guidance](https://helm.sh/community/hips/hip-0023/#conflicts-and-forcing),
-forcing an apply overwrites conflicting values and transfers their ownership.
+corresponding apply command below for this update. Forcing an apply overwrites
+conflicting values and transfers their ownership.
 If the changes are unexpected, stop before applying CRDs or upgrading the
 chart. The live CRDs may have been modified by another chart, tool, or
 administrator outside NKTP. Identify the source of those changes and determine

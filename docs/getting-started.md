@@ -21,12 +21,15 @@ node directory for log checkpoints. For alternatives, see:
 
 ## Check readiness
 
-If readiness stalls, inspect the Collector Pods and certificate conditions.
-Edit the namespace below to match your release; omit the certificate command
+Check the Collector `READY` column and certificate list. If readiness stalls,
+inspect the Collector Pods and certificate conditions.
+Edit the namespace below to match your release; omit the certificate commands
 if you installed without cert-manager:
 
 ```bash
 NKTP_NAMESPACE=nktp
+kubectl -n "$NKTP_NAMESPACE" get opentelemetrycollector
+kubectl -n "$NKTP_NAMESPACE" get certificate
 kubectl -n "$NKTP_NAMESPACE" get pods
 kubectl -n "$NKTP_NAMESPACE" describe certificate
 ```
@@ -42,14 +45,14 @@ chart version and values. `READY=2/2` means both expected Collector replicas
 are ready; certificates should show `READY=True`.
 
 ```text
-NAMESPACE   NAME                  MODE          VERSION   READY   AGE   IMAGE                                      MANAGEMENT
-nktp        nktp-cluster-events   statefulset   0.159.0   2/2     23h   otel/opentelemetry-collector-k8s:0.162.0   managed
+NAME                  MODE          VERSION   READY   AGE   IMAGE                                      MANAGEMENT
+nktp-cluster-events   statefulset   0.159.0   2/2     23h   otel/opentelemetry-collector-k8s:0.162.0   managed
 ...
 ```
 
 ```text
-NAMESPACE   NAME                         READY   SECRET                          AGE
-nktp        nktp-cluster-events-client   True    nktp-cluster-events-client-tls  23h
+NAME                         READY   SECRET                          AGE
+nktp-cluster-events-client   True    nktp-cluster-events-client-tls  23h
 ...
 ```
 
@@ -129,6 +132,9 @@ the Operator leaves the old CRDs in place, and fields only the new version knows
 are silently dropped. Follow the chart's
 [CRD update procedure](../nktp/README.md#update-crds) before `helm upgrade`
 when CRDs change.
+
+See [Helm's conflict forcing guidance](https://helm.sh/community/hips/hip-0023/#conflicts-and-forcing)
+for the effect of `--force-conflicts` on conflicting values and field ownership.
 
 Changes to watchdog and gateway volume claim templates cause the Operator to
 recreate their StatefulSets and restart Collectors. See
