@@ -69,7 +69,7 @@ sum by (instance) (
 
 Replace the job with the component being sized. Use periods with zero enqueue
 failures (**Enqueue failures** in
-[NKTP Health](../../nktp/dashboards/default/nktp-health.json)): this histogram
+[NKTP Health](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/nktp/dashboards/default/nktp-health.json)): this histogram
 records enqueue attempts, so retries after failures can count telemetry again.
 This metric is available at detailed telemetry level and is not currently shown in
 the bundled dashboards. Watchdog's histogram combines its three signals;
@@ -85,13 +85,13 @@ For broader pipeline resilience, follow OpenTelemetry's
 For either storage option, check these panels:
 
 - **Exporter queue use · top 20** in the component dashboards, such as
-  [NKTP Metrics Gateway](../../nktp/dashboards/default/nktp-gateway-metrics.json),
+  [NKTP Metrics Gateway](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/nktp/dashboards/default/nktp-gateway-metrics.json),
   shows `otelcol_exporter_queue_size / otelcol_exporter_queue_capacity`.
   Growing queues indicate export is falling behind. Check both the gateway
   and the Collectors sending to it: growing sender queues can indicate that
   the gateway is slow to accept telemetry.
 - **Enqueue failures** in
-  [NKTP Health](../../nktp/dashboards/default/nktp-health.json) shows
+  [NKTP Health](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/nktp/dashboards/default/nktp-health.json) shows
   `otelcol_exporter_enqueue_failed_metric_points` and its log/span equivalents.
   With `block_on_overflow: true`, full queues make requests wait, so queue
   growth can precede failures.
@@ -102,7 +102,7 @@ CPU and memory remain below the scaling thresholds. Use these panels to
 observe queue pressure independently of autoscaling.
 
 For a fresh installation with either queue type, first complete the
-[chart README's Helm repository, namespace creation, and Pod Security setup](../../nktp/README.md#install).
+[chart README's Helm repository, namespace creation, and Pod Security setup](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/nktp/README.md#install).
 Use that namespace in the installation commands below.
 
 ## Installing NKTP with persistent storage
@@ -145,7 +145,7 @@ The default capacities and volume requests are:
 | Watchdog | `85899346` | Approximately 82MiB per signal, 246MiB total | `1Gi` |
 | Each gateway | `515396076` | Approximately 0.48GiB | `1Gi` |
 
-The [volume measurement](../../tests/scale/backend-outage/README.md#measure-persistent-queue-volume-usage-and-io)
+The [volume measurement](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/tests/scale/backend-outage/README.md#measure-persistent-queue-volume-usage-and-io)
 observed peak allocated storage of 144.6MiB and peak serialized queue occupancy
 of 114.9MiB, about **1.26×**. This limited synthetic metrics experiment on a
 Kind cluster informs the 2× starting budget. It does not establish a reliable
@@ -216,7 +216,7 @@ With `Delete`, the claims are deleted.
 
 When switching from memory queues, use **Exporter queue use · top 20** in the
 component dashboards, such as
-[NKTP Metrics Gateway](../../nktp/dashboards/default/nktp-gateway-metrics.json),
+[NKTP Metrics Gateway](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/nktp/dashboards/default/nktp-gateway-metrics.json),
 to check the backlog over time. If utilization keeps rising, defer the switch
 until export catches up and the backlog subsides.
 
@@ -285,7 +285,7 @@ starting memory budget = 4 × sum of serialized queue capacities
                          + baseline and processing memory + headroom
 ```
 
-The [heap measurement](../../tests/scale/backend-outage/README.md#measure-in-memory-queue-heap-overhead)
+The [heap measurement](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/tests/scale/backend-outage/README.md#measure-in-memory-queue-heap-overhead)
 observed **3.38×** additional retained heap per serialized queue byte after
 subtracting baseline heap. This limited synthetic metrics experiment on a Kind
 cluster informs the 4× starting budget. It does not establish a reliable factor
@@ -302,14 +302,14 @@ Choose serialized queue capacity using
 [Size queues for outage tolerance](#size-queues-for-outage-tolerance), then
 account for heap overhead in the memory budget. The container memory limit is
 `<component>.kubernetes.resources.limits.memory`. The **Memory (RSS) · top 20**
-panel in [NKTP Metrics Gateway](../../nktp/dashboards/default/nktp-gateway-metrics.json)
-and [NKTP Watchdog](../../nktp/dashboards/default/nktp-watchdog.json) shows
+panel in [NKTP Metrics Gateway](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/nktp/dashboards/default/nktp-gateway-metrics.json)
+and [NKTP Watchdog](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/nktp/dashboards/default/nktp-watchdog.json) shows
 observed resident memory. [Size resources](size_resources.md) lists the default
 container limits and runtime memory targets.
 
 ### Configure the queue
 
-Use the [memory-queue values example](../examples/memory_queue.values.yaml) to
+Use the [memory-queue values example](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/docs/examples/memory_queue.values.yaml) to
 keep watchdog and gateway queues in memory. From the repository root, edit
 the release name and namespace, then install or upgrade:
 

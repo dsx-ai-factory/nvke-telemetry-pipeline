@@ -1,6 +1,6 @@
 # Use blueprints
 
-Every NKTP Collector configuration can use [NVCB](../../nvcb/README.md)
+Every NKTP Collector configuration can use [NVCB](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/nvcb/README.md)
 blueprints. NKTP expands them into native Collector configuration when Helm
 renders the chart.
 

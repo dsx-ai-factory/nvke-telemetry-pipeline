@@ -15,7 +15,7 @@ is replaced.
 ## With persistent checkpoints (default)
 
 No overrides are needed. The `daemonset` section in
-[chart defaults](../../nktp/values.yaml) defines the storage configuration.
+[chart defaults](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/nktp/values.yaml) defines the storage configuration.
 
 Each node must allow the Collector to write to `/var/lib/nktp/log-checkpoints`.
 SELinux policies, non-root users, or read-only node filesystems may require
@@ -43,7 +43,7 @@ node, where they contend for the same checkpoint database files.
 
 ## Without persistent checkpoints
 
-Use the [memory-checkpoint values example](../examples/memory_log_checkpoints.values.yaml)
+Use the [memory-checkpoint values example](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/docs/examples/memory_log_checkpoints.values.yaml)
 to disable persistent checkpoints. It removes receiver storage references,
 the storage extension, and the checkpoint volume and mount, while retaining
 host-log and TLS mounts.

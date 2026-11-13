@@ -3,7 +3,7 @@
 To enable `denyFSAccessThroughSMs: true`, first replace file references in every
 monitor selected by the allocator with Secret or ConfigMap references. All three
 allocators default to `false`; the preparation is the same for every pool.
-See [rationale and compatibility](../designs/monitor_file_access.md) for why
+See [rationale and compatibility](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/docs/designs/monitor_file_access.md) for why
 `denyFSAccessThroughSMs` defaults to `false` and how enabling it protects the
 Collector's mounted credentials from disclosure through monitor file references.
 

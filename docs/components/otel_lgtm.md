@@ -36,7 +36,7 @@ self-telemetry sidecar. Panels that show replicas show the 20 largest. A
 includes the kube-state-metrics scrape panels: samples, sample-count growth,
 duration, watch errors and shard coverage.
 
-See the [dashboards README](../../nktp/dashboards/README.md) for every
+See the [dashboards README](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/nktp/dashboards/README.md) for every
 dashboard and how to import them into your own Grafana.
 
 ## Configuration

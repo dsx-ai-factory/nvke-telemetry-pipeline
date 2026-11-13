@@ -16,6 +16,10 @@
 - Docs home: [docs/README.md](docs/README.md). Contribution rules:
   [CONTRIBUTING.md](CONTRIBUTING.md). Design principles, which every change
   must follow: [docs/design_principles.md](docs/design_principles.md).
+- Documentation: the repository's Markdown is the source of truth for
+  contributors and operators. The Fern site, built from `fern/` and
+  `docs/index.yml`, publishes only the operator-facing pages. Working rules 9
+  and 10 apply.
 
 ## Repository map
 
@@ -28,7 +32,9 @@
 | `nvcb/tests/` | Go golden tests for NVCB | `pass/<scenario>/values.yaml` renders to `output.yaml`; `test-chart/` is the fixture chart |
 | `tests/` | Go suites for integration, e2e, scale, and perf | Build-tagged; integration runs locally without a Kubernetes cluster; e2e and scale have Taskfiles for cluster setup and execution; only e2e runs in CI |
 | `dev/` | Local Kind and Tilt loop | Uses only `dev/.kubeconfig` and never other kubectl contexts |
-| `docs/` | Getting started, architecture, per-component pages, guides, and design documents | Each component's behavior and values are documented under `docs/components/`; design proposals go under `docs/designs/` |
+| `docs/` | Overview, install, getting started, architecture, per-component pages, guides, and design documents | Each component's behavior and values are documented under `docs/components/`; design proposals go under `docs/designs/`. Only the pages listed in `docs/index.yml` are published to operators; the rest is GitHub-only |
+| `fern/` | Fern site configuration for the operator docs | `docs.yml` holds hosting, theme and branding; navigation is `docs/index.yml`. Fern reads only files under `docs/` |
+| `tools/` | Go tool that packages blueprints, plus the Fern docs checkers | `check-docs-mdx` and `check-docs-paths` are stdlib Python scripts that CI runs on every docs change |
 | `.github/` | Workflows, composite action, PR template, CODEOWNERS, issue forms | Changes here need explicit instruction |
 | `RELEASING.md` | Release, tagging, and publishing process | Maintainer-owned |
 
@@ -110,6 +116,61 @@ task dev:down
    compatibility notes, or decision rationale only when they affect a user's
    actions or understanding; keep other details in code comments, design docs,
    or pull request descriptions.
+9. **The repository's Markdown is the source of truth for both readers.** All
+   documentation content lives in this repository and serves two readers:
+   contributors and operators. The Fern site is a published projection of it,
+   not a separate body of content. Fern exposes only the operator-facing pages
+   listed in `docs/index.yml`. The contributor-facing Markdown is never
+   published: the root, chart, `dev/`, `tests/` and `nvcb/` READMEs,
+   `CONTRIBUTING.md`, `RELEASING.md`, `docs/README.md`,
+   `docs/design_principles.md`, and `docs/designs/`. Do not author content that
+   exists only in `fern/` or on the site. A fact that appears in more than one
+   file must say the same thing in all of them.
+   - Before you finish a documentation change, search for every fact you
+     changed across the READMEs and the docs pages, such as commands, versions,
+     prerequisites, values keys, defaults, ports, and capacity figures, for
+     example
+     `grep -rn "<fact>" README.md nktp/README.md docs/ dev/ tests/ nvcb/`.
+     Update every copy in the same pull request.
+   - When you change a README or other unpublished Markdown, update the
+     published pages that cover the same material as needed. The root README's
+     overview and quickstart correspond to `docs/overview.md` and
+     `docs/install.md`, and the chart README's prerequisites, install and
+     upgrade sections correspond to `docs/install.md`.
+   - When you change a published page, update the READMEs and other unpublished
+     Markdown that cover the same material as needed. When you add or remove a
+     published page, change `docs/index.yml` and the index in `docs/README.md`
+     together.
+   - Publish only operator content. Do not put contributor material, such as
+     design rationale or test and release procedures, on a published page, and
+     do not add a page to `docs/index.yml` without an operator-facing reason.
+     A published page is still ordinary Markdown in the repository, so it must
+     read correctly on GitHub too.
+10. **Keep published pages valid for Fern.**
+    - Fern reads only files under `docs/`. A published page links to anything
+      that is not a published page, including `docs/designs/`, `docs/examples/`,
+      and files outside `docs/`, with an absolute GitHub URL of the form
+      `https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/<path>`.
+      Links between published pages stay relative.
+    - Run these from the repository root, with Fern installed by
+      `npm install -g fern-api@latest`. Do not pin the Fern CLI version.
+
+      ```bash
+      python3 tools/check-docs-mdx docs fern
+      python3 tools/check-docs-paths --exclude '*docs/examples/*' --allow '../docs/index.yml' docs fern
+      fern check
+      fern docs md check
+      fern docs broken-links
+      ```
+
+    - `fern docs broken-links` does not report a link to a file that is not a
+      page. Check the rendered site with `fern docs dev`. Restart the preview
+      before judging links, because pages edited while it runs can show
+      unresolved links.
+    - Keep MDX safe in prose: no bare `<` or `{`, no HTML comments, and no
+      `<https://...>` autolinks. `tools/check-docs-mdx` enforces this.
+    - `docs/examples/` and `docs/overview/` hold files that are not pages. Keep
+      them out of `docs/index.yml`.
 
 ## Secrets and credentials
 
@@ -212,3 +273,6 @@ Always:
 | Skip, delete, or loosen a failing test | Fix the actual issue, or say plainly that it is not fixed |
 | Create a new file when editing an existing one suffices | Prefer editing; new top-level files and directories need a reason |
 | Guess at a missing value or intent | Ask, or state the assumption explicitly in the PR |
+| Change a README or a published docs page and update only that one | Search the READMEs and the docs pages for the same fact and update every copy in the same pull request |
+| Write operator content that exists only in `fern/` or on the site | Put it in a page under `docs/` and list it in `docs/index.yml`; the repository's Markdown is the source of truth |
+| Link a published page to a design doc, example file, or file outside `docs/` with a relative path | Use the absolute GitHub URL; Fern renders a relative link to an unpublished file as a dead link |

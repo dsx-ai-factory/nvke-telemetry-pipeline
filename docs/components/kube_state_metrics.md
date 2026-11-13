@@ -104,5 +104,5 @@ Increase `shards` when a central workload exceeds its memory or scrape response
 budget. Helm supplies `--shard` and `--total-shards`. Each shard runs as one
 Deployment and briefly stops collection during replacement.
 
-The [kube-state-metrics design](../designs/kube_state_metrics.md) compares the
+The [kube-state-metrics design](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/docs/designs/kube_state_metrics.md) compares the
 approaches considered for scaling KSM collection.

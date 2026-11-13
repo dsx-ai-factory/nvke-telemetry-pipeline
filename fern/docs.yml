@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+instances:
+  - url: nvidia-nktp.docs.buildwithfern.com/nvke/nktp
+    custom-domain: docs.nvidia.com/nvke/nktp
+    multi-source: true
+
+redirects:
+  - source: /nvke/nktp/index.html
+    destination: /nvke/nktp
+
+title: NVIDIA NVKE Telemetry Pipeline
+
+global-theme: nvidia
+
+logo:
+  href: /nvke/nktp
+  right-text: NKTP
+
+navbar-links:
+  - type: github
+    value: https://github.com/dsx-ai-factory/nvke-telemetry-pipeline
+
+products:
+  - display-name: NKTP
+    path: ../docs/index.yml
+    slug: /

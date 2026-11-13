@@ -10,7 +10,7 @@ chart, creates each Collector and Target Allocator from an
 `OpenTelemetryCollector` resource that the chart renders. Each Collector's
 configuration is the native YAML under `<component>.otelcol.config` in
 `values.yaml`, rendered unchanged; see the
-[design principles](../design_principles.md). The flows below are the ones those
+[design principles](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/docs/design_principles.md). The flows below are the ones those
 default configurations define.
 
 ## Data path
@@ -57,7 +57,7 @@ change the exporter in that Collector's configuration.
 ## Metrics scraping
 
 Four Target Allocators decide which Collector replica scrapes each target. The
-[target allocation design](../designs/target_allocation.md) explains why each
+[target allocation design](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/docs/designs/target_allocation.md) explains why each
 scraping Collector requires one.
 
 | Target Allocator | Strategy | Discovers | Assigns to |

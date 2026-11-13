@@ -8,7 +8,7 @@ each process on each node.
 
 Some environments need extra privileges for the scraper to read host processes
 fully. See [Troubleshooting](#troubleshooting) for commonly observed issues. The
-[values example](../examples/host_process_metrics.values.yaml) enables every
+[values example](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/docs/examples/host_process_metrics.values.yaml) enables every
 privilege, mount, and mute option in this guide.
 
 ## Enable the scraper

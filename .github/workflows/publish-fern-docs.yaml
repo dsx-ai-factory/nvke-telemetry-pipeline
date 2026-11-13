@@ -1,0 +1,344 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Publishes the Fern documentation site on a GitHub Release or manual dispatch.
+#
+# This repository releases two charts, so release tags carry a prefix:
+# nktp/vX.Y.Z for NKTP and nvcb/vX.Y.Z for NVCB. The docs describe NKTP, so only
+# nktp/ tags publish them. The Fern version is the tag without the prefix
+# (nktp/v0.3.0 is version v0.3.0).
+#
+# All versions serve frozen content extracted from their git tag — there is no
+# "live docs" entry. The newest version is stamped "Latest · vX.Y.Z" at publish
+# time so readers know which is current; the stamp is transient and not persisted.
+#
+# Manual dispatch accepts an optional `tag` input:
+#   - empty: resolves to the newest published, non-prerelease nktp/ release
+#   - explicit (e.g. nktp/v0.3.0): publishes that tag
+#
+# A tag can be registered only if it contains docs/index.yml, so releases cut
+# before the Fern docs existed (up to nktp/v0.2.0) cannot be published.
+#
+# On an nktp/vX.Y.Z release (publish or dispatch), the workflow also:
+#   1. Generates fern/versions/vX.Y.Z.yml from the tag's docs/index.yml
+#   2. Adds a version entry to fern/docs.yml, sorted by semver descending
+#   3. Prunes older versions to keep only the MAX_VERSIONS most recent
+#   4. Opens a PR to persist registry changes back to main (after publish)
+#
+# Pre-releases (release candidates) never publish: a pre-release Release does not
+# start the job, and dispatching a pre-release tag is rejected. Docs ship with the
+# stable release.
+#
+# The release trigger does not fire for a Release that the chart publishing
+# workflow creates, because that workflow uses the default GITHUB_TOKEN and GitHub
+# does not start workflows from events caused by it. Until that is addressed,
+# run this workflow by hand after an NKTP release.
+#
+# Required configuration:
+# - Organization secret: FERN_TOKEN (from `fern token` for the nvidia Fern org)
+
+name: Publish Fern Docs
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish (e.g. nktp/v0.3.0). Leave empty to use the newest published nktp/ release."
+        required: false
+        type: string
+  ## --- OPTION: tag-push trigger ---
+  ## Use this instead of `release` for repos that push tags without creating
+  ## GitHub Releases. The resolve step handles both triggers, but the release
+  ## trigger is preferred because the Release object always exists at workflow
+  ## start — no race between tag push and Release creation.
+  ## Neither trigger fires when the release or tag is created with GITHUB_TOKEN
+  ## (for example by a release workflow); use a PAT/App token there, or have that
+  ## job run `gh workflow run publish-fern-docs.yaml -f tag=<tag>` (release branches
+  ## need that step too), or replace the triggers with `workflow_run` on the
+  ## release workflow. See references/bot-created-releases.md in the skill.
+  # push:
+  #   tags:
+  #     - "nktp/v[0-9]*.[0-9]*.[0-9]*"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  YQ_VERSION: v4.53.2
+  MAX_VERSIONS: 3
+  # The release tag prefix for the chart these docs describe.
+  TAG_PREFIX: nktp/
+
+jobs:
+  publish:
+    # A release of the other chart (nvcb/) does not change these docs, and a
+    # pre-release is not published.
+    if: github.event_name != 'release' || (startsWith(github.event.release.tag_name, 'nktp/v') && !github.event.release.prerelease)
+    # On the job, not the workflow, so a skipped nvcb/ release run never joins the
+    # group. A publish already in flight is allowed to finish and a newer one waits
+    # behind it, because cancelling mid-publish can leave the site and the version
+    # registry out of step.
+    concurrency:
+      group: fern-publish
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    # runs-on: linux-amd64-cpu8  # NVIDIA self-hosted runner
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Install yq
+        run: |
+          if command -v yq &>/dev/null; then
+            echo "yq already installed: $(yq --version)"
+          else
+            OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+            ARCH=$(uname -m)
+            case "$ARCH" in
+              x86_64)  ARCH="amd64" ;;
+              aarch64) ARCH="arm64" ;;
+            esac
+            mkdir -p "$HOME/.local/bin"
+            curl -sSfL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_${OS}_${ARCH}" -o "$HOME/.local/bin/yq"
+            chmod +x "$HOME/.local/bin/yq"
+            echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          fi
+
+      - name: Resolve target tag
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
+        run: |
+          set -eo pipefail
+          if [ "${GITHUB_EVENT_NAME}" = "release" ]; then
+            TAG="${RELEASE_TAG}"
+            IS_PRERELEASE="${RELEASE_PRERELEASE}"
+          elif [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          elif [ -n "${INPUT_TAG}" ]; then
+            TAG="${INPUT_TAG}"
+          else
+            # Two charts release from this repository and neither Release is
+            # marked latest, so `gh release view` has no latest release to return.
+            # Take the newest published, non-prerelease release of this chart; the
+            # list is newest first.
+            TAG=$(gh release list --repo "${GITHUB_REPOSITORY}" --limit 100 \
+              --json tagName,isPrerelease,isDraft \
+              --jq "[.[] | select((.tagName | startswith(\"${TAG_PREFIX}v\")) and (.isPrerelease | not) and (.isDraft | not))][0].tagName // empty")
+            if [ -z "$TAG" ]; then
+              echo "::error::Could not find a published ${TAG_PREFIX}v* release"
+              exit 1
+            fi
+          fi
+          if ! [[ "$TAG" =~ ^${TAG_PREFIX}v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?$ ]]; then
+            echo "::error::Tag '${TAG}' is not a release tag of this chart (expected ${TAG_PREFIX}vMAJOR.MINOR.PATCH[-PRERELEASE])"
+            exit 1
+          fi
+          if ! git show-ref --verify --quiet "refs/tags/${TAG}"; then
+            echo "::error::Tag '${TAG}' does not exist in this repository"
+            exit 1
+          fi
+          # The Fern version is the tag without its prefix: nktp/v0.3.0 is v0.3.0.
+          VERSION="${TAG#"${TAG_PREFIX}"}"
+          # Pre-releases are not published. The job condition already skips a
+          # pre-release Release, so this rejects a dispatched pre-release tag, which
+          # would otherwise report success without publishing that tag's docs.
+          if [ "${IS_PRERELEASE:-}" = "true" ] || [[ "$VERSION" == *-* ]]; then
+            echo "::error::Tag '${TAG}' is a pre-release, and pre-release docs are not published. Use a stable tag."
+            exit 1
+          fi
+          # Registering a version freezes the tag's docs, so the tag must have them.
+          if ! git cat-file -e "refs/tags/${TAG}:docs/index.yml" 2>/dev/null; then
+            echo "::error::Tag '${TAG}' has no docs/index.yml, so it has no Fern docs to publish. Use a release cut after the Fern docs were added."
+            exit 1
+          fi
+          {
+            echo "tag=$TAG"
+            echo "version=$VERSION"
+          } >> "$GITHUB_OUTPUT"
+          echo "Resolved target tag: $TAG, version $VERSION"
+
+      - name: Register new version from tag
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          set -eo pipefail
+
+          if [ -f "fern/versions/${VERSION}.yml" ]; then
+            echo "Version ${VERSION} already registered — skipping"
+            exit 0
+          fi
+
+          mkdir -p fern/versions
+          echo "Generating fern/versions/${VERSION}.yml from tag $TAG"
+          git archive "refs/tags/${TAG}" -- docs/index.yml | tar -xO docs/index.yml | \
+            sed "s|path: |path: ${VERSION}-content/|g" > "fern/versions/${VERSION}.yml"
+
+          export VERSION
+          EXPR='.products[0].versions += [{"display-name": env(VERSION),'
+          EXPR+=' "path": "versions/" + env(VERSION) + ".yml",'
+          EXPR+=' "slug": env(VERSION), "availability": "stable"}]'
+          yq -i "$EXPR" fern/docs.yml
+
+          # Sort all version entries by semver descending
+          SORTED_SLUGS=$(yq '.products[0].versions[].slug' fern/docs.yml | sort -rV)
+          yq -i '.products[0].versions = []' fern/docs.yml
+          for slug in $SORTED_SLUGS; do
+            export slug
+            yq -i '.products[0].versions += [{"display-name": env(slug), "path": "versions/" + env(slug) + ".yml", "slug": env(slug), "availability": "stable"}]' fern/docs.yml
+          done
+
+          echo "--- docs.yml versions after insert + sort ---"
+          yq '.products[0].versions[].display-name' fern/docs.yml
+
+      - name: Prune old versions
+        run: |
+          set -eo pipefail
+          TOTAL=$(yq '.products[0].versions | length' fern/docs.yml)
+
+          if [ "$TOTAL" -le "$MAX_VERSIONS" ]; then
+            echo "Only $TOTAL versions — nothing to prune (keeping $MAX_VERSIONS)"
+            exit 0
+          fi
+
+          PRUNED=$(yq ".products[0].versions[$MAX_VERSIONS:][].slug" fern/docs.yml)
+          yq -i ".products[0].versions |= .[:$MAX_VERSIONS]" fern/docs.yml
+
+          for slug in $PRUNED; do
+            rm -f "fern/versions/${slug}.yml"
+            echo "Pruned $slug"
+          done
+
+          echo "--- docs.yml versions after prune ---"
+          yq '.products[0].versions[].display-name' fern/docs.yml
+
+      - name: Checkout frozen version content
+        run: |
+          set -eo pipefail
+          for version_file in fern/versions/v*.yml; do
+            [ -f "$version_file" ] || continue
+            version=$(basename "$version_file" .yml)
+            # A registered version v0.3.0 is the content of the tag nktp/v0.3.0.
+            tag="${TAG_PREFIX}${version}"
+            if git show-ref --verify --quiet "refs/tags/${tag}"; then
+              mkdir -p "fern/versions/${version}-content"
+              git archive "refs/tags/${tag}" -- docs/ | tar -x --strip-components=1 -C "fern/versions/${version}-content"
+              # Escape {, }, < for MDX — but only outside fenced code blocks and inline code spans
+              find "fern/versions/${version}-content" -name '*.md' -print0 | while IFS= read -r -d '' f; do
+                awk '
+                  /^[ \t]*(```|~~~)/ { fence = !fence; print; next }
+                  fence { print; next }
+                  {
+                    n = split($0, p, "`")
+                    out = ""
+                    for (i = 1; i <= n; i++) {
+                      if (i % 2 == 1) {
+                        # Keep braces the author already escaped (\{ must not become \\{).
+                        gsub(/\\\{/, "\001", p[i])
+                        gsub(/\\\}/, "\002", p[i])
+                        gsub(/{/, "\\{", p[i])
+                        gsub(/}/, "\\}", p[i])
+                        gsub(/</, "\\&lt;", p[i])
+                        gsub(/\001/, "\\{", p[i])
+                        gsub(/\002/, "\\}", p[i])
+                      }
+                      out = out p[i]
+                      if (i < n) out = out "`"
+                    }
+                    print out
+                  }
+                ' "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+              done
+              echo "Extracted docs from $version"
+            else
+              echo "::error::Tag $tag not found — cannot pin frozen docs content"
+              exit 1
+            fi
+          done
+
+      - name: Check docs paths before using FERN_TOKEN
+        # The Fern CLI runs with FERN_TOKEN and reads any local file a page names.
+        # Reject paths that leave the docs directory (see tools/check-docs-paths).
+        # Frozen content drops the docs/ prefix, so exclude its examples as well.
+        run: python3 tools/check-docs-paths --exclude '*docs/examples/*' --exclude '*-content/examples/*' --allow '../docs/index.yml' docs fern
+
+      - name: Stamp newest version as Latest
+        run: |
+          cp fern/docs.yml /tmp/docs.yml.preStamp
+          NEWEST=$(yq '.products[0].versions[0].display-name' fern/docs.yml)
+          if [ -n "$NEWEST" ] && [ "$NEWEST" != "null" ]; then
+            export NEWEST
+            yq -i '.products[0].versions[0].display-name = "Latest · " + env(NEWEST)' fern/docs.yml
+          fi
+          echo "--- docs.yml versions after stamp ---"
+          yq '.products[0].versions[].display-name' fern/docs.yml
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+
+      - name: Install Fern CLI
+        # Intentionally unpinned: Fern ships often with no LTS channel and the
+        # NVIDIA global theme tracks the latest CLI, so a pin goes stale and
+        # breaks more than it protects. Do not pin.
+        run: npm install -g fern-api@latest
+
+      - name: Publish docs
+        env:
+          FERN_TOKEN: ${{ secrets.FERN_TOKEN }}
+        working-directory: ./fern
+        run: |
+          set -eo pipefail
+          fern generate --docs 2>&1 | tee /tmp/fern-output.log
+          # Fern prints "Published docs to URL", sometimes followed by " (URL)".
+          URL=$(sed -n 's/.*Published docs to \(https:[^[:space:]]*\).*/\1/p' /tmp/fern-output.log | tail -1)
+          if [ -n "$URL" ]; then
+            echo "### Published: [$URL]($URL)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Restore unstamped docs.yml for persistence
+        run: cp /tmp/docs.yml.preStamp fern/docs.yml
+
+      - name: Open PR for version registry changes
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          base: main
+          branch: chore/fern-register-${{ steps.resolve.outputs.version }}
+          delete-branch: true
+          sign-commits: true
+          # The repository's DCO check requires a sign-off on every commit.
+          signoff: true
+          commit-message: "chore(fern): register ${{ steps.resolve.outputs.version }}, keep latest ${{ env.MAX_VERSIONS }} versions [automated]"
+          title: "chore(fern): register ${{ steps.resolve.outputs.version }}"
+          body: |
+            Automated registration of version `${{ steps.resolve.outputs.version }}`, from the tag `${{ steps.resolve.outputs.tag }}`, in the Fern docs versions registry.
+
+            Generated by the `Publish Fern Docs` workflow.
+          add-paths: |
+            fern/versions/v*.yml
+            fern/docs.yml
