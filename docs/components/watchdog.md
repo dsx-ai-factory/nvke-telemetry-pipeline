@@ -71,5 +71,8 @@ OTLP `Metric.metadata`, and exemplar `filtered_attributes` pass through unchange
 
 Watchdog's sidecar redacts watchdog's own logs, metrics, and traces before export,
 along with its own logs and metrics. Configure its rules under
-`watchdog.sidecar.otelcol.config.processors.redaction/basic_v1`. Watchdog keeps
+`watchdog.sidecar.otelcol.config.processors`: `redaction/metrics_v1` for metrics
+and `redaction/basic_v1` for logs and traces. The metrics rules match explicit
+credential keys and preserve object identifiers such as KSM's `secret` label.
+Watchdog keeps
 `basic` tracing and the sidecar's own tracing stays disabled.

@@ -18,24 +18,24 @@ tests:
   - it: respects native rule overrides and processor order
     template: templates/gateway-metrics.yaml
     set:
-      gateway_metrics.otelcol.config.processors.redaction/basic_v1.blocked_key_patterns: ['^password$$']
+      gateway_metrics.otelcol.config.processors.redaction/metrics_v1.blocked_key_patterns: ['^password$$']
       gateway_metrics.otelcol.config.processors.batch: {}
-      gateway_metrics.otelcol.config.service.pipelines.metrics.processors: [memory_limiter, redaction/basic_v1, batch]
+      gateway_metrics.otelcol.config.service.pipelines.metrics.processors: [memory_limiter, redaction/metrics_v1, batch]
     asserts:
       - equal:
-          path: spec.config.processors["redaction/basic_v1"].blocked_key_patterns
+          path: spec.config.processors["redaction/metrics_v1"].blocked_key_patterns
           value: ['^password$$']
       - equal:
           path: spec.config.service.pipelines.metrics.processors
-          value: [memory_limiter, redaction/basic_v1, batch]
+          value: [memory_limiter, redaction/metrics_v1, batch]
   - it: allows removing redaction through native overrides
     template: templates/gateway-metrics.yaml
     set:
-      gateway_metrics.otelcol.config.processors.redaction/basic_v1: null
+      gateway_metrics.otelcol.config.processors.redaction/metrics_v1: null
       gateway_metrics.otelcol.config.service.pipelines.metrics.processors: [memory_limiter]
     asserts:
       - notExists:
-          path: spec.config.processors["redaction/basic_v1"]
+          path: spec.config.processors["redaction/metrics_v1"]
       - equal:
           path: spec.config.service.pipelines.metrics.processors
           value: [memory_limiter]

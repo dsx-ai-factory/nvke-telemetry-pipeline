@@ -326,6 +326,18 @@ watchdog:
           blocked_values:
             - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
             - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
+        # Explicit metric credential keys preserve object names such as KSM secret.
+        redaction/metrics_v1:
+          allow_all_keys: true
+          redact_all_types: true
+          summary: silent
+          blocked_key_patterns:
+            - '(?i)^(?:password|passwd|db[._-]?password)$$'
+            - '(?i)^(?:(?:access|refresh|id|session|auth)[._-]?token|(?:api|private|secret)[._-]?key|(?:aws[._-]?)?secret[._-]?access[._-]?key|client[._-]?secret)$$'
+            - '(?i)^(?:authorization|proxy[._-]?authorization|cookie|set[._-]?cookie|http[._]request[._]header[._](?:authorization|proxy[._-]?authorization|cookie))$$'
+          blocked_values:
+            - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
+            - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
         memory_limiter:
           check_interval: 500ms # Poll Go heap Alloc. Bursts can allocate between checks.
           limit_percentage: 80 # Hard heap threshold, 819.2Mi. Leaves room below the container cap.
@@ -397,7 +409,7 @@ watchdog:
         pipelines:
           metrics:
             receivers: [otlp/insecure, otlp/secure, prometheus]
-            processors: [memory_limiter, redaction/basic_v1, transform/cluster]
+            processors: [memory_limiter, redaction/metrics_v1, transform/cluster]
             exporters: [otlp_grpc]
           logs:
             receivers: [otlp/secure]
@@ -465,6 +477,18 @@ watchdog:
             summary: silent
             blocked_key_patterns:
               - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
+            blocked_values:
+              - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
+              - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
+          # Explicit metric credential keys preserve object names such as KSM secret.
+          redaction/metrics_v1:
+            allow_all_keys: true
+            redact_all_types: true
+            summary: silent
+            blocked_key_patterns:
+              - '(?i)^(?:password|passwd|db[._-]?password)$$'
+              - '(?i)^(?:(?:access|refresh|id|session|auth)[._-]?token|(?:api|private|secret)[._-]?key|(?:aws[._-]?)?secret[._-]?access[._-]?key|client[._-]?secret)$$'
+              - '(?i)^(?:authorization|proxy[._-]?authorization|cookie|set[._-]?cookie|http[._]request[._]header[._](?:authorization|proxy[._-]?authorization|cookie))$$'
             blocked_values:
               - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
               - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
@@ -547,7 +571,7 @@ watchdog:
           pipelines:
             metrics:
               receivers: [otlp]
-              processors: [memory_limiter, redaction/basic_v1, transform/cluster]
+              processors: [memory_limiter, redaction/metrics_v1, transform/cluster]
               exporters: [otlp_grpc]
             logs:
               receivers: [otlp]
@@ -1025,12 +1049,15 @@ gateway_metrics:
                   max_connection_age: 1m
                   max_connection_age_grace: 30s # Increase if in-flight exports need longer before forced closure.
       processors:
-        redaction/basic_v1:
+        # Explicit metric credential keys preserve object names such as KSM secret.
+        redaction/metrics_v1:
           allow_all_keys: true
           redact_all_types: true
           summary: silent
           blocked_key_patterns:
-            - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
+            - '(?i)^(?:password|passwd|db[._-]?password)$$'
+            - '(?i)^(?:(?:access|refresh|id|session|auth)[._-]?token|(?:api|private|secret)[._-]?key|(?:aws[._-]?)?secret[._-]?access[._-]?key|client[._-]?secret)$$'
+            - '(?i)^(?:authorization|proxy[._-]?authorization|cookie|set[._-]?cookie|http[._]request[._]header[._](?:authorization|proxy[._-]?authorization|cookie))$$'
           blocked_values:
             - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
             - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
@@ -1097,7 +1124,7 @@ gateway_metrics:
         pipelines:
           metrics:
             receivers: [otlp]
-            processors: [memory_limiter, redaction/basic_v1, transform/cluster]
+            processors: [memory_limiter, redaction/metrics_v1, transform/cluster]
             exporters: [otlp_grpc]
   # Native sidecar for this workload's own telemetry. It buffers through outages,
   # keeps only error and slow traces, and exports over gRPC to nktp-watchdog-collector:4317.
@@ -2001,6 +2028,18 @@ daemonset:
           blocked_values:
             - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
             - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
+        # Explicit metric credential keys preserve object names such as KSM secret.
+        redaction/metrics_v1:
+          allow_all_keys: true
+          redact_all_types: true
+          summary: silent
+          blocked_key_patterns:
+            - '(?i)^(?:password|passwd|db[._-]?password)$$'
+            - '(?i)^(?:(?:access|refresh|id|session|auth)[._-]?token|(?:api|private|secret)[._-]?key|(?:aws[._-]?)?secret[._-]?access[._-]?key|client[._-]?secret)$$'
+            - '(?i)^(?:authorization|proxy[._-]?authorization|cookie|set[._-]?cookie|http[._]request[._]header[._](?:authorization|proxy[._-]?authorization|cookie))$$'
+          blocked_values:
+            - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
+            - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
         memory_limiter:
           check_interval: 500ms # Poll Go heap Alloc. Bursts can allocate between checks.
           limit_percentage: 80 # Hard heap threshold, 1638.4Mi. Leaves room below the container cap.
@@ -2147,7 +2186,7 @@ daemonset:
             exporters: [otlp_grpc/watchdog]
           metrics:
             receivers: [prometheus, prometheus/kubelet, otlp]
-            processors: [memory_limiter, resource/node, redaction/basic_v1]
+            processors: [memory_limiter, resource/node, redaction/metrics_v1]
             exporters: [otlp_grpc/metrics]
           traces:
             receivers: [otlp]
@@ -2456,12 +2495,15 @@ large_target_metrics:
             # The Target Allocator supplies scrape jobs and assigned targets from monitoring CRs.
             scrape_configs: []
       processors:
-        redaction/basic_v1:
+        # Explicit metric credential keys preserve object names such as KSM secret.
+        redaction/metrics_v1:
           allow_all_keys: true
           redact_all_types: true
           summary: silent
           blocked_key_patterns:
-            - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
+            - '(?i)^(?:password|passwd|db[._-]?password)$$'
+            - '(?i)^(?:(?:access|refresh|id|session|auth)[._-]?token|(?:api|private|secret)[._-]?key|(?:aws[._-]?)?secret[._-]?access[._-]?key|client[._-]?secret)$$'
+            - '(?i)^(?:authorization|proxy[._-]?authorization|cookie|set[._-]?cookie|http[._]request[._]header[._](?:authorization|proxy[._-]?authorization|cookie))$$'
           blocked_values:
             - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
             - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
@@ -2525,7 +2567,7 @@ large_target_metrics:
         pipelines:
           metrics:
             receivers: [prometheus]
-            processors: [memory_limiter, redaction/basic_v1, batch]
+            processors: [memory_limiter, redaction/metrics_v1, batch]
             exporters: [otlp_grpc]
   # Native sidecar for this workload's own telemetry. It buffers through outages,
   # keeps only error and slow traces, and exports over gRPC to nktp-watchdog-collector:4317.
@@ -2813,12 +2855,15 @@ nodeless_metrics:
             # The Target Allocator supplies scrape jobs and assigned targets from monitoring CRs.
             scrape_configs: []
       processors:
-        redaction/basic_v1:
+        # Explicit metric credential keys preserve object names such as KSM secret.
+        redaction/metrics_v1:
           allow_all_keys: true
           redact_all_types: true
           summary: silent
           blocked_key_patterns:
-            - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
+            - '(?i)^(?:password|passwd|db[._-]?password)$$'
+            - '(?i)^(?:(?:access|refresh|id|session|auth)[._-]?token|(?:api|private|secret)[._-]?key|(?:aws[._-]?)?secret[._-]?access[._-]?key|client[._-]?secret)$$'
+            - '(?i)^(?:authorization|proxy[._-]?authorization|cookie|set[._-]?cookie|http[._]request[._]header[._](?:authorization|proxy[._-]?authorization|cookie))$$'
           blocked_values:
             - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
             - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
@@ -2878,7 +2923,7 @@ nodeless_metrics:
         pipelines:
           metrics:
             receivers: [prometheus]
-            processors: [memory_limiter, redaction/basic_v1]
+            processors: [memory_limiter, redaction/metrics_v1]
             exporters: [otlp_grpc]
   # Native sidecar for this workload's own telemetry. It buffers through outages,
   # keeps only error and slow traces, and exports over gRPC to nktp-watchdog-collector:4317.
