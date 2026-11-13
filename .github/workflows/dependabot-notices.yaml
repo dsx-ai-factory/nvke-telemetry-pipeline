@@ -156,7 +156,8 @@ jobs:
               expectedHeadOid: process.env.EXPECTED_HEAD,
               message: {
                 headline: 'build(nktp): synchronize chart lock and notices',
-                body: `Signed-off-by: ${name} <${email}>`,
+                // These generated files can be recreated after Dependabot rebases.
+                body: `[dependabot skip]\n\nSigned-off-by: ${name} <${email}>`,
               },
               fileChanges: {additions},
             }});

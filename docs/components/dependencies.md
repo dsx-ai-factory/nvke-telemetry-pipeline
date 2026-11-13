@@ -4,6 +4,32 @@ NKTP installs these upstream charts as Helm dependencies. Their versions are
 pinned in `nktp/Chart.yaml` and `nktp/Chart.lock`. Settings for each pass
 through under its values key using the upstream chart's own values.
 
+## Dependency update restrictions
+
+[Dependabot's configuration](../../.github/dependabot.yml) distinguishes between
+dependencies whose updates are limited to a compatible version series and images
+whose versions are managed alongside another component. An owning component below
+identifies the integration that determines compatibility, rather than a separate
+team or an upstream maintenance commitment.
+
+| Dependency | Owning component and pin location | Reason for the restriction | Review trigger |
+| --- | --- | --- | --- |
+| `registry.k8s.io/kubectl` | NKTP's OTel uninstall hook; `opentelemetry-kube-stack.cleanupJob.image.tag` in `nktp/values.yaml`. | Allow the 1.35 series. Kubernetes supports kubectl within one minor of the API server; 1.35 fits both ends of the current 1.34/1.36 e2e matrix. | When changing the tested Kubernetes range, review the hook image and Dependabot range together, and verify uninstall on each tested version. |
+| `prometheus-node-exporter` | NKTP's node-exporter integration; the direct chart dependency in `nktp/Chart.yaml` and `nktp/Chart.lock`. | Allow chart 4.x updates while the 5.x security-default changes are reviewed, including dropped capabilities, disabled privilege escalation, and RuntimeDefault seccomp for containers and sidecars. This is a chart-version restriction, not an exporter-image version. | When adopting chart 5.x, review upstream migration guidance and configured security overrides, verify scraping, and update the range alongside the chart pin. |
+| `ghcr.io/open-telemetry/opentelemetry-operator/target-allocator` | The Operator bundled by `opentelemetry-kube-stack`; `targetallocator_image.tag` in `nktp/values.yaml`. | Ignore all independent image updates so Target Allocator is updated deliberately with its owning Operator. Ignoring it does not automatically align the versions. | On every kube-stack upgrade, inspect the bundled Operator version and align the Target Allocator pin in the same change. Review any workload-specific `kubernetes.targetAllocator.image` overrides and verify target discovery and mTLS. |
+
+The kubectl range reflects the current e2e matrix; it does not establish support
+for every Kubernetes version mentioned elsewhere in the documentation. See the
+[Kubernetes version-skew policy](https://kubernetes.io/releases/version-skew-policy/#kubectl)
+and the [node-exporter chart 5.x migration guide](https://github.com/prometheus-community/helm-charts/blob/prometheus-node-exporter-5.0.0/charts/prometheus-node-exporter/README.md#4x-to-5x).
+
+When adding or changing an ignore rule, keep its rationale, owning component, pin
+location, and review trigger together here and link to this section from the
+configuration. Version ranges continue to permit updates inside the range; full
+ignores require an explicit update with the owning component. Neither replaces
+compatibility testing. A restriction on a direct chart also does not constrain
+the versions bundled inside other upstream charts.
+
 ## OpenTelemetry Operator and CRDs
 
 NKTP depends on the published [opentelemetry-kube-stack 0.25.1](https://github.com/open-telemetry/opentelemetry-helm-charts/tree/opentelemetry-kube-stack-0.25.1/charts/opentelemetry-kube-stack)
