@@ -149,3 +149,30 @@ Settings pass through under `metrics-server` using the upstream chart's own valu
 of which NKTP overrides. See the [chart's values reference](https://github.com/kubernetes-sigs/metrics-server/blob/metrics-server-helm-chart-3.13.1/charts/metrics-server/README.md)
 for what is configurable, including the TLS defaults for the APIService and for kubelet
 certificate verification.
+
+By default, metrics-server verifies each kubelet's serving certificate. The certificate
+must be signed by a CA that metrics-server trusts and include a subject alternative
+name (SAN) matching the node address metrics-server uses to reach the kubelet. For
+production, provision valid kubelet serving certificates and configure metrics-server
+to trust their issuing CA, using `--kubelet-certificate-authority` when needed. Keep
+kubelet certificate verification enabled.
+
+On clusters with self-signed or otherwise unverifiable kubelet certificates, including
+typical Kind clusters, metrics-server can fail to scrape nodes and remain unready.
+Its logs show `x509` certificate verification errors, and `helm install --wait` can
+time out waiting for the metrics-server Deployment to become ready. Increasing Helm's
+timeout does not fix certificate trust.
+
+For local testing on Kind only, add this override to your installation values:
+
+```yaml
+metrics-server:
+  enabled: true
+  args:
+    - --kubelet-insecure-tls
+```
+
+`--kubelet-insecure-tls` disables verification of kubelet serving certificates. Do not
+use it in production. This testing override leaves NKTP's defaults unchanged and is
+separate from `metrics-server.apiService.insecureSkipTLSVerify`, which controls the
+Kubernetes API server's verification of metrics-server's own serving certificate.
