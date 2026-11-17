@@ -7,9 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"net"
-	"syscall"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -20,7 +17,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
@@ -289,7 +285,7 @@ func TestCleanupPods(t *testing.T) {
 					name := action.(ktesting.GetAction).GetName()
 					key := fmt.Sprintf("%s/%t", name, deleted[name])
 					reads[key]++
-					if mode == "owned" && reads[key] < podReadAttempts {
+					if mode == "owned" && reads[key] < 3 {
 						return true, nil, apierrors.NewServiceUnavailable("try again")
 					}
 					if deleted[name] && mode != "deadline" {
@@ -317,79 +313,6 @@ func TestCleanupPods(t *testing.T) {
 					assert.NoError(t, err)
 					assert.Len(t, deleted, 2)
 				}
-			})
-		})
-	}
-}
-
-func TestRetryPodRead(t *testing.T) {
-	for _, test := range []struct {
-		name         string
-		err          error
-		wantAttempts int
-	}{
-		{name: "success", wantAttempts: 1},
-		{name: "throttled", err: apierrors.NewTooManyRequests("busy", 0), wantAttempts: 3},
-		{name: "internal error", err: apierrors.NewInternalError(errors.New("server failed")), wantAttempts: 3},
-		{name: "unavailable", err: apierrors.NewServiceUnavailable("restarting"), wantAttempts: 3},
-		{name: "bad gateway", err: apierrors.NewGenericServerResponse(502, "get", schema.GroupResource{Resource: "pods"}, "test", "proxy failed", 0, false), wantAttempts: 3},
-		{name: "API timeout", err: apierrors.NewTimeoutError("timed out", 0), wantAttempts: 3},
-		{name: "server timeout", err: apierrors.NewServerTimeout(schema.GroupResource{Resource: "pods"}, "get", 0), wantAttempts: 3},
-		{name: "network timeout", err: &net.DNSError{Err: "timed out", IsTimeout: true}, wantAttempts: 3},
-		{name: "connection reset", err: fmt.Errorf("read: %w", syscall.ECONNRESET), wantAttempts: 3},
-		{name: "connection refused", err: fmt.Errorf("dial: %w", syscall.ECONNREFUSED), wantAttempts: 3},
-		{name: "unexpected EOF", err: io.ErrUnexpectedEOF, wantAttempts: 3},
-		{name: "unauthorized", err: apierrors.NewUnauthorized("credentials"), wantAttempts: 1},
-		{name: "forbidden", err: apierrors.NewForbidden(schema.GroupResource{Resource: "pods"}, "test", errors.New("denied")), wantAttempts: 1},
-		{name: "forbidden transport message", err: apierrors.NewForbidden(schema.GroupResource{Resource: "pods"}, "test", errors.New("connection reset by peer")), wantAttempts: 1},
-		{name: "bad request", err: apierrors.NewBadRequest("invalid"), wantAttempts: 1},
-		{name: "not found", err: apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "test"), wantAttempts: 1},
-		{name: "canceled", err: context.Canceled, wantAttempts: 1},
-		{name: "other error", err: errors.New("permanent failure"), wantAttempts: 1},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			synctest.Test(t, func(t *testing.T) {
-				attempts := 0
-				started := time.Now()
-				err := retryPodRead(t.Context(), func(context.Context) error {
-					attempts++
-					return test.err
-				})
-				assert.ErrorIs(t, err, test.err)
-				assert.Equal(t, test.wantAttempts, attempts)
-				assert.Equal(t, time.Duration(test.wantAttempts-1)*podPollInterval, time.Since(started))
-			})
-		})
-	}
-}
-
-func TestRetryPodReadCancellation(t *testing.T) {
-	for _, mode := range []string{"already canceled", "cancel during wait", "deadline during wait"} {
-		t.Run(mode, func(t *testing.T) {
-			synctest.Test(t, func(t *testing.T) {
-				ctx, cancel := context.WithCancel(t.Context())
-				defer cancel()
-				wantErr := context.Canceled
-				wantAttempts := 1
-				switch mode {
-				case "already canceled":
-					cancel()
-					wantAttempts = 0
-				case "cancel during wait":
-					timer := time.AfterFunc(podPollInterval/2, cancel)
-					defer timer.Stop()
-				case "deadline during wait":
-					ctx, cancel = context.WithTimeout(ctx, podPollInterval/2)
-					defer cancel()
-					wantErr = context.DeadlineExceeded
-				}
-				attempts := 0
-				err := retryPodRead(ctx, func(context.Context) error {
-					attempts++
-					return apierrors.NewServiceUnavailable("try later")
-				})
-				assert.ErrorIs(t, err, wantErr)
-				assert.Equal(t, wantAttempts, attempts)
 			})
 		})
 	}

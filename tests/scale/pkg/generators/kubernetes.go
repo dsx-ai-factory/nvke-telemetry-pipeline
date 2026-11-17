@@ -181,10 +181,13 @@ func kubernetesNode(group kubernetesNodeGroup, owner string, index int) *corev1.
 }
 
 // waitForKubernetesNodes waits until every node selected by owner is Ready.
-// A missing node or API error fails the wait. The caller controls its deadline.
+// A missing node or unrecovered API error fails the wait.
+// The caller controls its deadline.
 func waitForKubernetesNodes(ctx context.Context, nodes coreclient.NodeInterface, owner string, count int) error {
 	return wait.PollUntilContextCancel(ctx, kubernetesNodePollInterval, true, func(ctx context.Context) (bool, error) {
-		current, err := nodes.List(ctx, metav1.ListOptions{LabelSelector: kubernetesOwnerLabel + "=" + owner})
+		current, err := retryAPIRead(ctx, func(ctx context.Context) (*corev1.NodeList, error) {
+			return nodes.List(ctx, metav1.ListOptions{LabelSelector: kubernetesOwnerLabel + "=" + owner})
+		})
 		if err != nil {
 			return false, err
 		}
@@ -236,7 +239,9 @@ func cleanupKubernetesNodes(ctx context.Context, nodes coreclient.NodeInterface,
 // cleanupKubernetesNode checks ownership even when a Create response was lost.
 // The UID precondition prevents deleting a replacement node.
 func cleanupKubernetesNode(ctx context.Context, nodes coreclient.NodeInterface, original *corev1.Node) error {
-	current, err := nodes.Get(ctx, original.Name, metav1.GetOptions{})
+	current, err := retryAPIRead(ctx, func(ctx context.Context) (*corev1.Node, error) {
+		return nodes.Get(ctx, original.Name, metav1.GetOptions{})
+	})
 	if apierrors.IsNotFound(err) {
 		return nil
 	}
@@ -251,7 +256,9 @@ func cleanupKubernetesNode(ctx context.Context, nodes coreclient.NodeInterface, 
 		return fmt.Errorf("delete Node %s: %w", original.Name, err)
 	}
 	err = wait.PollUntilContextCancel(ctx, kubernetesNodePollInterval, true, func(ctx context.Context) (bool, error) {
-		node, err := nodes.Get(ctx, original.Name, metav1.GetOptions{})
+		node, err := retryAPIRead(ctx, func(ctx context.Context) (*corev1.Node, error) {
+			return nodes.Get(ctx, original.Name, metav1.GetOptions{})
+		})
 		if apierrors.IsNotFound(err) {
 			return true, nil
 		}

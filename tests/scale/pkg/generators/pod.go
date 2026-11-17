@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"time"
 
 	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/scale/pkg/internal/lifecycle"
@@ -16,7 +15,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	netutil "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/wait"
 	coreclient "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
@@ -26,8 +24,6 @@ import (
 const (
 	// podPollInterval spaces completion and cleanup checks.
 	podPollInterval = time.Second
-	// podReadAttempts bounds consecutive transient failures of one Pod read.
-	podReadAttempts = 3
 	// podCleanupTimeout bounds cleanup independently of run cancellation.
 	podCleanupTimeout = 5 * time.Minute
 )
@@ -130,14 +126,8 @@ func (g *PodGenerator) run(ctx context.Context, core coreclient.CoreV1Interface)
 func waitForPods(ctx context.Context, pods coreclient.PodInterface, owner string, owned []*corev1.Pod) error {
 	// err retains context and API failures from polling for the caller.
 	err := wait.PollUntilContextCancel(ctx, podPollInterval, true, func(ctx context.Context) (bool, error) {
-		// list contains only Pods labeled for this invocation.
-		var list *corev1.PodList
-		// err includes the last read failure if the retry budget is exhausted.
-		err := retryPodRead(ctx, func(ctx context.Context) error {
-			// readErr belongs to this attempt, independently of the polling result.
-			var readErr error
-			list, readErr = pods.List(ctx, metav1.ListOptions{LabelSelector: generatorOwnerLabel + "=" + owner})
-			return readErr
+		list, err := retryAPIRead(ctx, func(ctx context.Context) (*corev1.PodList, error) {
+			return pods.List(ctx, metav1.ListOptions{LabelSelector: generatorOwnerLabel + "=" + owner})
 		})
 		if err != nil {
 			return false, err
@@ -225,60 +215,7 @@ func cleanupPods(ctx context.Context, pods coreclient.PodInterface, owner string
 // getPodForCleanup gives each Pod GET its own retry budget. NotFound is returned
 // immediately so cleanup can treat an absent Pod as success.
 func getPodForCleanup(ctx context.Context, pods coreclient.PodInterface, name string) (*corev1.Pod, error) {
-	// pod holds the result of the last GET attempt.
-	var pod *corev1.Pod
-	// err reports retry exhaustion or cancellation without discarding the cause.
-	err := retryPodRead(ctx, func(ctx context.Context) error {
-		// readErr belongs to this GET attempt.
-		var readErr error
-		pod, readErr = pods.Get(ctx, name, metav1.GetOptions{})
-		return readErr
+	return retryAPIRead(ctx, func(ctx context.Context) (*corev1.Pod, error) {
+		return pods.Get(ctx, name, metav1.GetOptions{})
 	})
-	return pod, err
-}
-
-// retryPodRead retries transient read failures at the Pod polling interval.
-// The counter belongs to this call, so successful reads reset the budget and
-// different Pod names never share it. Client-go's own retries remain in effect.
-func retryPodRead(ctx context.Context, read func(context.Context) error) error {
-	// failures counts consecutive failed calls, including the initial attempt.
-	failures := 0
-	return wait.PollUntilContextCancel(ctx, podPollInterval, true, func(ctx context.Context) (bool, error) {
-		if err := ctx.Err(); err != nil {
-			return false, err
-		}
-		// err is returned unchanged when the read cannot be retried.
-		err := read(ctx)
-		if err == nil {
-			return true, nil
-		}
-		if ctx.Err() != nil {
-			return false, ctx.Err()
-		}
-		failures++
-		if failures >= podReadAttempts || !transientPodReadError(err) {
-			return false, err
-		}
-		return false, nil
-	})
-}
-
-// transientPodReadError identifies API and transport failures worth retrying.
-// Invalid requests, authorization failures and missing resources are terminal.
-func transientPodReadError(err error) bool {
-	if apierrors.IsTooManyRequests(err) || apierrors.IsTimeout(err) || apierrors.IsServerTimeout(err) {
-		return true
-	}
-	// status takes precedence over transport heuristics, including error text.
-	var status apierrors.APIStatus
-	if errors.As(err, &status) {
-		// code uses Kubernetes's decoded response instead of parsing error text.
-		code := status.Status().Code
-		return code >= 500 && code < 600
-	}
-	// networkErr covers transport timeouts while the caller's context is live.
-	var networkErr net.Error
-	return (errors.As(err, &networkErr) && networkErr.Timeout()) ||
-		netutil.IsConnectionReset(err) || netutil.IsConnectionRefused(err) ||
-		netutil.IsHTTP2ConnectionLost(err) || netutil.IsProbableEOF(err)
 }

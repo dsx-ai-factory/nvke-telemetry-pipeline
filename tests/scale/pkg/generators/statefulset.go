@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/scale/pkg/internal/lifecycle"
@@ -16,7 +15,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	netutil "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/wait"
 	appsclient "k8s.io/client-go/kubernetes/typed/apps/v1"
 	coreclient "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -27,8 +25,6 @@ import (
 const (
 	// statefulSetPollInterval spaces readiness and deletion observations.
 	statefulSetPollInterval = time.Second
-	// statefulSetReadAttempts bounds consecutive transient read failures.
-	statefulSetReadAttempts = 3
 	// statefulSetCleanupTimeout bounds cleanup after the run context expires.
 	statefulSetCleanupTimeout = 5 * time.Minute
 )
@@ -77,8 +73,9 @@ func NewStatefulSetGenerator(spec yaml.Node, kubeconfig string) (*StatefulSetGen
 // Run creates StatefulSets with headless Services and observes their replicas.
 // Each StatefulSet runs for Duration after its replicas first become Ready and
 // must be Ready again before completion, allowing replacement during the run.
-// Cancellation and API failures stop the run. Cleanup removes owned resources
-// and has its own five-minute timeout. Run returns both run and cleanup errors.
+// Cancellation and unrecovered API failures stop the run. Cleanup removes owned
+// resources and has its own five-minute timeout. Run returns both run and cleanup
+// errors.
 func (g *StatefulSetGenerator) Run(ctx context.Context) error {
 	if ctx.Err() != nil {
 		return lifecycle.RunError(ctx, ctx.Err())
@@ -180,29 +177,15 @@ func newStatefulSet(cfg statefulSetConfig) *appsv1.StatefulSet {
 func waitForStatefulSet(ctx context.Context, sets appsclient.StatefulSetInterface, owned *appsv1.StatefulSet, duration time.Duration) error {
 	// readyAt records first readiness without resetting on Pod replacement.
 	var readyAt time.Time
-	readFailures := 0
 	// err retains lookup failures and the caller's cancellation cause.
 	err := wait.PollUntilContextCancel(ctx, statefulSetPollInterval, true, func(ctx context.Context) (bool, error) {
 		// current must still be the controller created by this run.
-		current, err := sets.Get(ctx, owned.Name, metav1.GetOptions{})
+		current, err := retryAPIRead(ctx, func(ctx context.Context) (*appsv1.StatefulSet, error) {
+			return sets.Get(ctx, owned.Name, metav1.GetOptions{})
+		})
 		if err != nil {
-			readFailures++
-			// Retry server overload and ordinary connection closure on this read.
-			// API status takes precedence, keeping authentication failures terminal.
-			transient := apierrors.IsTimeout(err) || apierrors.IsServerTimeout(err) ||
-				apierrors.IsTooManyRequests(err) || apierrors.IsServiceUnavailable(err)
-			var status apierrors.APIStatus
-			if !errors.As(err, &status) {
-				transient = netutil.IsProbableEOF(err)
-			}
-			if ctx.Err() == nil && transient && readFailures < statefulSetReadAttempts {
-				slog.WarnContext(ctx, "StatefulSet read delayed", "name", owned.Name,
-					"attempt", readFailures, "error", err)
-				return false, nil
-			}
 			return false, err
 		}
-		readFailures = 0
 		if current.UID != owned.UID || current.DeletionTimestamp != nil {
 			return false, errors.New("StatefulSet was replaced or is being deleted")
 		}
@@ -224,7 +207,9 @@ func waitForStatefulSet(ctx context.Context, sets appsclient.StatefulSetInterfac
 // A lost Create response is recoverable through the generated ownership label.
 func cleanupStatefulSet(ctx context.Context, sets appsclient.StatefulSetInterface, owned *appsv1.StatefulSet) error {
 	// current supplies an API UID even when the original Create response was lost.
-	current, err := sets.Get(ctx, owned.Name, metav1.GetOptions{})
+	current, err := retryAPIRead(ctx, func(ctx context.Context) (*appsv1.StatefulSet, error) {
+		return sets.Get(ctx, owned.Name, metav1.GetOptions{})
+	})
 	if apierrors.IsNotFound(err) {
 		return nil
 	}
@@ -244,7 +229,9 @@ func cleanupStatefulSet(ctx context.Context, sets appsclient.StatefulSetInterfac
 	}
 	err = wait.PollUntilContextCancel(ctx, statefulSetPollInterval, true, func(ctx context.Context) (bool, error) {
 		// remaining can be absent or replaced once the owned controller is removed.
-		remaining, err := sets.Get(ctx, owned.Name, metav1.GetOptions{})
+		remaining, err := retryAPIRead(ctx, func(ctx context.Context) (*appsv1.StatefulSet, error) {
+			return sets.Get(ctx, owned.Name, metav1.GetOptions{})
+		})
 		if apierrors.IsNotFound(err) {
 			return true, nil
 		}

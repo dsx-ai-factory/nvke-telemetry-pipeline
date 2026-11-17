@@ -6,8 +6,10 @@ package generators
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -356,18 +358,20 @@ func TestStatefulSetReadFailures(t *testing.T) {
 		{name: "server timeout recovers", failures: []error{apierrors.NewTimeoutError("busy", 1)}, wantReads: 2},
 		{name: "server timeout response recovers", failures: []error{apierrors.NewServerTimeout(resource, "get", 1)}, wantReads: 2},
 		{name: "overload recovers", failures: []error{apierrors.NewTooManyRequests("busy", 1), apierrors.NewServiceUnavailable("busy")}, wantReads: 3},
-		{name: "bounded failures", failures: []error{apierrors.NewServiceUnavailable("busy"), apierrors.NewServiceUnavailable("busy"), apierrors.NewServiceUnavailable("busy")}, wantReads: 3, wantErr: true},
+		{name: "three failures recover", failures: []error{apierrors.NewServiceUnavailable("busy"), apierrors.NewServiceUnavailable("busy"), apierrors.NewServiceUnavailable("busy")}, wantReads: 4},
 		{name: "budget resets after success", failures: []error{apierrors.NewServiceUnavailable("busy"), nil, apierrors.NewServiceUnavailable("busy"), apierrors.NewServiceUnavailable("busy")}, wantReads: 5},
 		{name: "GOAWAY recovers", failures: []error{goaway}, wantReads: 2},
 		{name: "unexpected EOF recovers", failures: []error{io.ErrUnexpectedEOF}, wantReads: 2},
-		{name: "GOAWAY budget exhausted", failures: []error{goaway, goaway, goaway}, wantReads: 3, wantErr: true},
+		{name: "three GOAWAY failures recover", failures: []error{goaway, goaway, goaway}, wantReads: 4},
 		{name: "GOAWAY budget resets after success", failures: []error{goaway, nil, goaway, goaway}, wantReads: 5},
 		{name: "unauthorized GOAWAY stops", failures: []error{apierrors.NewUnauthorized(goaway.Error())}, wantReads: 1, wantErr: true},
 		{name: "forbidden GOAWAY stops", failures: []error{apierrors.NewForbidden(resource, "owned", goaway)}, wantReads: 1, wantErr: true},
 		{name: "VPN route failure stops", failures: []error{errors.New("no route to host")}, wantReads: 1, wantErr: true},
 		{name: "unauthorized stops", failures: []error{apierrors.NewUnauthorized("expired")}, wantReads: 1, wantErr: true},
 		{name: "forbidden stops", failures: []error{apierrors.NewForbidden(resource, "owned", errors.New("denied"))}, wantReads: 1, wantErr: true},
-		{name: "transport timeout stops", failures: []error{&net.DNSError{Err: "timeout", IsTimeout: true}}, wantReads: 1, wantErr: true},
+		{name: "request deadline recovers", failures: []error{&url.Error{Op: "Get", URL: "https://example.invalid", Err: context.DeadlineExceeded}}, wantReads: 2},
+		{name: "response body timeout recovers", failures: []error{fmt.Errorf("unexpected error when reading response body. Please retry. Original error: %w", context.DeadlineExceeded)}, wantReads: 2},
+		{name: "transport timeout recovers", failures: []error{&net.DNSError{Err: "timeout", IsTimeout: true}}, wantReads: 2},
 		{name: "missing stops", failures: []error{apierrors.NewNotFound(resource, "owned")}, wantReads: 1, wantErr: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {

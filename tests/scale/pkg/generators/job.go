@@ -148,7 +148,9 @@ func (g *JobGenerator) runJob(ctx context.Context, batch batchclient.BatchV1Inte
 	}
 	job = created
 	err = wait.PollUntilContextCancel(ctx, jobPollInterval, true, func(ctx context.Context) (bool, error) {
-		current, err := jobs.Get(ctx, job.Name, metav1.GetOptions{})
+		current, err := retryAPIRead(ctx, func(ctx context.Context) (*batchv1.Job, error) {
+			return jobs.Get(ctx, job.Name, metav1.GetOptions{})
+		})
 		if err != nil {
 			return false, err
 		}
@@ -213,7 +215,9 @@ func (g *JobGenerator) manifest(deadline time.Time) *batchv1.Job {
 // unknown UID by name after a lost Create response. The caller must supply a
 // bounded context independent of run cancellation.
 func cleanupJob(ctx context.Context, jobs batchclient.JobInterface, pods coreclient.PodInterface, job *batchv1.Job) error {
-	current, err := jobs.Get(ctx, job.Name, metav1.GetOptions{})
+	current, err := retryAPIRead(ctx, func(ctx context.Context) (*batchv1.Job, error) {
+		return jobs.Get(ctx, job.Name, metav1.GetOptions{})
+	})
 	if apierrors.IsNotFound(err) && job.UID == "" {
 		return nil
 	}
@@ -233,14 +237,18 @@ func cleanupJob(ctx context.Context, jobs batchclient.JobInterface, pods corecli
 		}
 	}
 	err = wait.PollUntilContextCancel(ctx, jobPollInterval, true, func(ctx context.Context) (bool, error) {
-		current, err := jobs.Get(ctx, job.Name, metav1.GetOptions{})
+		current, err := retryAPIRead(ctx, func(ctx context.Context) (*batchv1.Job, error) {
+			return jobs.Get(ctx, job.Name, metav1.GetOptions{})
+		})
 		if err != nil && !apierrors.IsNotFound(err) {
 			return false, err
 		}
 		if err == nil && current.UID == uid {
 			return false, nil
 		}
-		remaining, err := pods.List(ctx, metav1.ListOptions{LabelSelector: "batch.kubernetes.io/controller-uid=" + string(uid)})
+		remaining, err := retryAPIRead(ctx, func(ctx context.Context) (*corev1.PodList, error) {
+			return pods.List(ctx, metav1.ListOptions{LabelSelector: "batch.kubernetes.io/controller-uid=" + string(uid)})
+		})
 		if err != nil {
 			return false, err
 		}
