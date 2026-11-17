@@ -90,7 +90,7 @@ tests:
             exporters: [otlp_grpc/logs]
       - equal:
           path: spec.config.exporters["otlp_grpc/logs"].endpoint
-          value: nktp-gateway-logs-collector:4317
+          value: dns:///nktp-gateway-logs-collector-headless:4317
       - equal:
           path: spec.config.service.pipelines.logs
           value:

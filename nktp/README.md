@@ -282,6 +282,16 @@ native OTel configuration. To change a pipeline, change its configuration.
 See [Use blueprints](https://github.com/dsx-ai-factory/nvke-telemetry-pipeline/blob/main/docs/guides/use_blueprints.md)
 for more details.
 
+Collectors send to the gateways through
+`dns:///nktp-gateway-<signal>-collector-headless:4317`, where `<signal>` is
+`logs`, `metrics`, or `traces`. These exporters use `balancer_name: round_robin`
+to distribute exports across gateway replicas with mutual TLS.
+`tls.server_name_override` verifies the regular Service name
+`nktp-gateway-<signal>-collector`, keeping existing certificates valid during
+upgrades. Gateway certificates also include the headless Service names.
+When changing an exporter destination, set its TLS name override to the
+certificate name or `""` to verify the endpoint name.
+
 Each gateway defaults to an approximately 0.48 GiB persistent sending queue
 measured in serialized bytes. Watchdog has three persistent queues of
 approximately 82MiB each, 246MiB total. Each gateway and watchdog replica

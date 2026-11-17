@@ -67,7 +67,10 @@ tests:
           path: spec.config.processors["redaction/basic_v1"]
       - equal:
           path: spec.config.exporters.otlp_grpc.endpoint
-          value: nktp-gateway-logs-collector:4317
+          value: dns:///nktp-gateway-logs-collector-headless:4317
+      - equal:
+          path: spec.config.exporters.otlp_grpc.tls.server_name_override
+          value: nktp-gateway-logs-collector
       - equal:
           path: spec.config.service.telemetry
           value:
@@ -228,7 +231,7 @@ tests:
           value: http://127.0.0.1:4319
       - equal:
           path: spec.config.exporters.otlp_grpc.endpoint
-          value: nktp-gateway-logs-collector:4317
+          value: dns:///nktp-gateway-logs-collector-headless:4317
 
   - it: replaces own log exporters independently
     set:
@@ -251,7 +254,7 @@ tests:
           value: http://127.0.0.1:4319
       - equal:
           path: spec.config.exporters.otlp_grpc.endpoint
-          value: nktp-gateway-logs-collector:4317
+          value: dns:///nktp-gateway-logs-collector-headless:4317
 
   - it: replaces own trace exporters independently
     set:
@@ -274,7 +277,7 @@ tests:
           value: http://127.0.0.1:4319
       - equal:
           path: spec.config.exporters.otlp_grpc.endpoint
-          value: nktp-gateway-logs-collector:4317
+          value: dns:///nktp-gateway-logs-collector-headless:4317
 
   - it: overrides watched namespaces and the native Lease configuration
     set:

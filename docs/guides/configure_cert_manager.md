@@ -181,20 +181,26 @@ system or associated rollout automation to restart:
 Never commit generated keys, Secrets, or rendered manifests.
 
 Replace `<namespace>` with the release namespace and create a separate certificate
-and Secret for each component or signal listed. The SANs match the chart's default
-connection endpoints. The `nktp-local-` names distinguish user-provided resources
-from cert-manager-managed resources. Internal Collector Secrets retain their
-default names to match the existing mounts.
+and Secret for each component or signal listed. The Server DNS SAN column lists
+both regular and headless gateway Service names. The `nktp-local-` names distinguish
+user-provided resources from cert-manager-managed resources. Internal Collector
+Secrets retain their default names to match the existing mounts.
 
 | TLS connection | CA identifier | Certificate | Component or signal | Server DNS SAN | Extended key usage | Secret name |
 | --- | --- | --- | --- | --- | --- | --- |
 | Internal mTLS | `internal` | Watchdog server | `watchdog` | `nktp-watchdog-collector` | `serverAuth` | `nktp-watchdog-server-tls` |
-| Internal mTLS | `internal` | Gateway server | `<signal>`: `logs`, `metrics`, `traces` | `nktp-gateway-<signal>-collector` | `serverAuth` | `nktp-gateway-<signal>-server-tls` |
+| Internal mTLS | `internal` | Gateway server | `<signal>`: `logs`, `metrics`, `traces` | `nktp-gateway-<signal>-collector`, `nktp-gateway-<signal>-collector-headless` | `serverAuth` | `nktp-gateway-<signal>-server-tls` |
 | Internal mTLS | `internal` | Collector client | `<component>`: `daemonset`, `large-target-metrics`, `cluster-events` | — | `clientAuth` | `nktp-<component>-client-tls` |
 | Internal mTLS | `internal` | Gateway sidecar client | `<signal>`: `logs`, `metrics`, `traces` | — | `clientAuth` | `nktp-gateway-<signal>-client-tls` |
 | Target Allocators | `ta-<component>` | Target Allocator server | `<component>`: `watchdog`, `daemonset`, `large-target-metrics` | `nktp-<component>-targetallocator.<namespace>.svc` | `serverAuth` | `nktp-local-<component>-targetallocator-server` |
 | Target Allocators | `ta-<component>` | Target Allocator client | `<component>`: `watchdog`, `daemonset`, `large-target-metrics` | — | `clientAuth` | `nktp-local-<component>-targetallocator-client` |
 | Admission webhook | `webhook` | Admission webhook server | Operator | `nktp-operator-webhook.<namespace>.svc` | `serverAuth` | `nktp-local-webhook-tls` |
+
+Default exporters verify the regular gateway Service name through
+`tls.server_name_override`, so existing certificates with that SAN remain valid
+during upgrades. A certificate with only the regular SAN is insufficient for
+clients that verify the headless name directly. Before switching those clients,
+wait until every gateway serves a certificate containing the headless SAN.
 
 ### Prepare certificates
 
@@ -312,8 +318,8 @@ create_tls_secret "$CA_NAME" "$SECRET_NAME"
 ```
 
 Repeat for all remaining table entries using their CA identifier, Secret name,
-usage, and SAN. For client certificates, omit the fourth argument to
-`issue_certificate`.
+usage, and comma-separated SANs. For client certificates, omit the fourth
+argument to `issue_certificate`.
 
 ### Internal mTLS
 

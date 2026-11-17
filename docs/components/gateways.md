@@ -5,11 +5,11 @@ at its Service in the Helm release namespace, forwards what it receives to LGTM
 by default, and sends its own metrics, logs and traces through its
 [sidecar](../architecture/self_telemetry.md) to watchdog.
 
-| Gateway | Values key | gRPC |
+| Gateway | Values key | Default gRPC endpoint |
 | --- | --- | --- |
-| Logs | `gateway_logs` | `nktp-gateway-logs-collector:4317` |
-| Metrics | `gateway_metrics` | `nktp-gateway-metrics-collector:4317` |
-| Traces | `gateway_traces` | `nktp-gateway-traces-collector:4317` |
+| Logs | `gateway_logs` | `dns:///nktp-gateway-logs-collector-headless:4317` |
+| Metrics | `gateway_metrics` | `dns:///nktp-gateway-metrics-collector-headless:4317` |
+| Traces | `gateway_traces` | `dns:///nktp-gateway-traces-collector-headless:4317` |
 
 Gateways accept OTLP/gRPC on port 4317 by default. An HTTP receiver requires
 explicit configuration, including TLS, under
@@ -18,25 +18,34 @@ explicit configuration, including TLS, under
 ## Collector connections
 
 Node Collectors send logs, metrics and traces to their gateways over OTLP/gRPC
-with mutual TLS.
-The large-target pool sends metrics over gRPC, and the cluster-events reader
-sends logs over gRPC. All three gateways send GOAWAY at a connection age of one
-minute, with +/-10% jitter, so clients reconnect through the Service and can
-reach newly added replicas. In-flight exports get another 30 seconds to finish
-before forced closure. See
+with mutual TLS. The large-target and nodeless pools send metrics, and the
+cluster-events reader sends logs. These exporters use the headless endpoints
+above with `balancer_name: round_robin`. The `dns:///` prefix selects gRPC DNS
+resolution, exposing gateway Pod IPs so exports are distributed across ready
+connections to replicas. TLS uses `server_name_override` to verify
+`nktp-gateway-<signal>-collector`, so existing certificates remain valid during
+upgrades. Gateway certificates also include the headless Service names.
+
+All three gateways also send GOAWAY at a connection age of one minute, with
++/-10% jitter, to rotate connections. In-flight exports get another 30 seconds
+to finish before forced closure. See
 [gRPC connection management](https://github.com/grpc/proposal/blob/master/A9-server-side-conn-mgt.md).
 
 Tune `max_connection_age` under
 `<gateway>.otelcol.config.receivers.otlp.protocols.grpc.keepalive.server_parameters`
 based on gateway headroom and acceptable delay after scale-up. Lower it for
 faster relief. Raise it to reduce TCP setup and TLS handshakes.
-Reconnects can select the same gateway, so redistribution can take multiple
-rotations. Increase `max_connection_age_grace` if in-flight exports need longer
-to finish. Explicitly configured HTTP receivers do not use these gRPC age settings.
+DNS refresh and connection turnover determine when clients discover new replicas.
+Increase `max_connection_age_grace` if in-flight exports need longer to finish.
+Explicitly configured HTTP receivers do not use these gRPC age settings.
 
 Exporter overrides use `daemonset.otelcol.config.exporters.otlp_grpc/logs`,
-`otlp_grpc/metrics` and `otlp_grpc/traces`, and `large_target_metrics.otelcol.config.exporters.otlp_grpc`
-and `cluster_events.otelcol.config.exporters.otlp_grpc`.
+`otlp_grpc/metrics` and `otlp_grpc/traces`, and
+`large_target_metrics.otelcol.config.exporters.otlp_grpc`,
+`nodeless_metrics.otelcol.config.exporters.otlp_grpc` and
+`cluster_events.otelcol.config.exporters.otlp_grpc`.
+When changing a destination, set `tls.server_name_override` to its certificate
+name or `""` to verify the endpoint name.
 
 Use `<gateway>.otelcol.config` for Collector configuration and
 `<gateway>.kubernetes` for Kubernetes workload configuration. Autoscaling

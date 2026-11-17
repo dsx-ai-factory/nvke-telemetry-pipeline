@@ -51,7 +51,7 @@ flowchart LR
 
 Each Collector's exporters name the next hop explicitly. For example, the node
 collector's `otlp_grpc/metrics` exporter sends to
-`nktp-gateway-metrics-collector:4317` over OTLP/gRPC. To change where a signal goes,
+`dns:///nktp-gateway-metrics-collector-headless:4317` over OTLP/gRPC. To change where a signal goes,
 change the exporter in that Collector's configuration.
 
 ## Metrics scraping

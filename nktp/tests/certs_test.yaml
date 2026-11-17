@@ -61,6 +61,10 @@ tests:
               - nktp-gateway-logs-collector.nktp
               - nktp-gateway-logs-collector.nktp.svc
               - nktp-gateway-logs-collector.nktp.svc.cluster.local
+              - nktp-gateway-logs-collector-headless
+              - nktp-gateway-logs-collector-headless.nktp
+              - nktp-gateway-logs-collector-headless.nktp.svc
+              - nktp-gateway-logs-collector-headless.nktp.svc.cluster.local
             usages: [server auth]
             privateKey:
               rotationPolicy: Always
@@ -88,6 +92,29 @@ tests:
         documentSelector:
           path: metadata.name
           value: nktp-daemonset-client
+
+  - it: covers headless gateway Service names in the release namespace
+    release:
+      namespace: telemetry
+    asserts:
+      - contains:
+          path: spec.dnsNames
+          content: nktp-gateway-logs-collector-headless.telemetry.svc.cluster.local
+        documentSelector:
+          path: metadata.name
+          value: nktp-gateway-logs-server
+      - contains:
+          path: spec.dnsNames
+          content: nktp-gateway-metrics-collector-headless.telemetry.svc.cluster.local
+        documentSelector:
+          path: metadata.name
+          value: nktp-gateway-metrics-server
+      - contains:
+          path: spec.dnsNames
+          content: nktp-gateway-traces-collector-headless.telemetry.svc.cluster.local
+        documentSelector:
+          path: metadata.name
+          value: nktp-gateway-traces-server
 
   - it: issues the watchdog server certificate for Service DNS names in the release namespace
     release:

@@ -40,9 +40,9 @@ spec:
 {{- end }}
 {{- $servers := list
       (dict "name" "nktp-watchdog-server" "secretName" "nktp-watchdog-server-tls" "serviceName" "nktp-watchdog-collector")
-      (dict "name" "nktp-gateway-logs-server" "secretName" "nktp-gateway-logs-server-tls" "serviceName" "nktp-gateway-logs-collector")
-      (dict "name" "nktp-gateway-metrics-server" "secretName" "nktp-gateway-metrics-server-tls" "serviceName" "nktp-gateway-metrics-collector")
-      (dict "name" "nktp-gateway-traces-server" "secretName" "nktp-gateway-traces-server-tls" "serviceName" "nktp-gateway-traces-collector") -}}
+      (dict "name" "nktp-gateway-logs-server" "secretName" "nktp-gateway-logs-server-tls" "serviceName" "nktp-gateway-logs-collector" "headless" true)
+      (dict "name" "nktp-gateway-metrics-server" "secretName" "nktp-gateway-metrics-server-tls" "serviceName" "nktp-gateway-metrics-collector" "headless" true)
+      (dict "name" "nktp-gateway-traces-server" "secretName" "nktp-gateway-traces-server-tls" "serviceName" "nktp-gateway-traces-collector" "headless" true) -}}
 {{- range $server := $servers }}
 ---
 apiVersion: cert-manager.io/v1
@@ -59,6 +59,13 @@ spec:
     - {{ $server.serviceName }}.{{ $.Release.Namespace }}
     - {{ $server.serviceName }}.{{ $.Release.Namespace }}.svc
     - {{ $server.serviceName }}.{{ $.Release.Namespace }}.svc.cluster.local
+    {{- if $server.headless }}
+    # Headless Service names allow DNS round-robin clients to verify gateway TLS.
+    - {{ $server.serviceName }}-headless
+    - {{ $server.serviceName }}-headless.{{ $.Release.Namespace }}
+    - {{ $server.serviceName }}-headless.{{ $.Release.Namespace }}.svc
+    - {{ $server.serviceName }}-headless.{{ $.Release.Namespace }}.svc.cluster.local
+    {{- end }}
   usages:
     - server auth
   privateKey:

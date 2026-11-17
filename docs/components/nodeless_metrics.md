@@ -46,7 +46,7 @@ The allocator has its own security contexts and resource budget under
 Probes that discover them.
 
 Collected metrics carry the `nktp_metrics_pool: nodeless` label and go to
-`nktp-gateway-metrics-collector:4317` over OTLP/gRPC.
+`dns:///nktp-gateway-metrics-collector-headless:4317` over OTLP/gRPC.
 Each Collector sends its own telemetry through its
 [sidecar](../architecture/self_telemetry.md) to watchdog.
 Use `nodeless_metrics.otelcol.config` for Collector internal configuration and

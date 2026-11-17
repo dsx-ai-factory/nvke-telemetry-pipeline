@@ -47,7 +47,7 @@ tests:
             scrape_configs: []
       - equal:
           path: spec.config.exporters.otlp_grpc.endpoint
-          value: nktp-gateway-metrics-collector:4317
+          value: dns:///nktp-gateway-metrics-collector-headless:4317
       - equal:
           path: spec.config.exporters.otlp_grpc.tls
           value:
@@ -55,6 +55,7 @@ tests:
             cert_file: /etc/nktp/internal-tls/client/tls.crt
             key_file: /etc/nktp/internal-tls/client/tls.key
             reload_interval: 1h
+            server_name_override: nktp-gateway-metrics-collector
       - equal:
           path: spec.config.service.pipelines
           value:

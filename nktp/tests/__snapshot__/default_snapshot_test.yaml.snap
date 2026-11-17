@@ -71,6 +71,10 @@ matches the snapshot with default values:
         - nktp-gateway-logs-collector.NAMESPACE
         - nktp-gateway-logs-collector.NAMESPACE.svc
         - nktp-gateway-logs-collector.NAMESPACE.svc.cluster.local
+        - nktp-gateway-logs-collector-headless
+        - nktp-gateway-logs-collector-headless.NAMESPACE
+        - nktp-gateway-logs-collector-headless.NAMESPACE.svc
+        - nktp-gateway-logs-collector-headless.NAMESPACE.svc.cluster.local
       duration: 2160h
       issuerRef:
         group: cert-manager.io
@@ -94,6 +98,10 @@ matches the snapshot with default values:
         - nktp-gateway-metrics-collector.NAMESPACE
         - nktp-gateway-metrics-collector.NAMESPACE.svc
         - nktp-gateway-metrics-collector.NAMESPACE.svc.cluster.local
+        - nktp-gateway-metrics-collector-headless
+        - nktp-gateway-metrics-collector-headless.NAMESPACE
+        - nktp-gateway-metrics-collector-headless.NAMESPACE.svc
+        - nktp-gateway-metrics-collector-headless.NAMESPACE.svc.cluster.local
       duration: 2160h
       issuerRef:
         group: cert-manager.io
@@ -117,6 +125,10 @@ matches the snapshot with default values:
         - nktp-gateway-traces-collector.NAMESPACE
         - nktp-gateway-traces-collector.NAMESPACE.svc
         - nktp-gateway-traces-collector.NAMESPACE.svc.cluster.local
+        - nktp-gateway-traces-collector-headless
+        - nktp-gateway-traces-collector-headless.NAMESPACE
+        - nktp-gateway-traces-collector-headless.NAMESPACE.svc
+        - nktp-gateway-traces-collector-headless.NAMESPACE.svc.cluster.local
       duration: 2160h
       issuerRef:
         group: cert-manager.io
@@ -336,7 +348,8 @@ matches the snapshot with default values:
       config:
         exporters:
           otlp_grpc:
-            endpoint: nktp-gateway-logs-collector:4317
+            balancer_name: round_robin
+            endpoint: dns:///nktp-gateway-logs-collector-headless:4317
             retry_on_failure:
               max_elapsed_time: 30m
             sending_queue:
@@ -354,6 +367,7 @@ matches the snapshot with default values:
               cert_file: /etc/nktp/internal-tls/client/tls.crt
               key_file: /etc/nktp/internal-tls/client/tls.key
               reload_interval: 1h
+              server_name_override: nktp-gateway-logs-collector
         extensions:
           health_check:
             endpoint: 0.0.0.0:13133
@@ -619,7 +633,8 @@ matches the snapshot with default values:
       config:
         exporters:
           otlp_grpc/logs:
-            endpoint: nktp-gateway-logs-collector:4317
+            balancer_name: round_robin
+            endpoint: dns:///nktp-gateway-logs-collector-headless:4317
             retry_on_failure:
               max_elapsed_time: 30m
             sending_queue:
@@ -637,8 +652,10 @@ matches the snapshot with default values:
               cert_file: /etc/nktp/internal-tls/client/tls.crt
               key_file: /etc/nktp/internal-tls/client/tls.key
               reload_interval: 1h
+              server_name_override: nktp-gateway-logs-collector
           otlp_grpc/metrics:
-            endpoint: nktp-gateway-metrics-collector:4317
+            balancer_name: round_robin
+            endpoint: dns:///nktp-gateway-metrics-collector-headless:4317
             retry_on_failure:
               max_elapsed_time: 30m
             sending_queue:
@@ -656,8 +673,10 @@ matches the snapshot with default values:
               cert_file: /etc/nktp/internal-tls/client/tls.crt
               key_file: /etc/nktp/internal-tls/client/tls.key
               reload_interval: 1h
+              server_name_override: nktp-gateway-metrics-collector
           otlp_grpc/traces:
-            endpoint: nktp-gateway-traces-collector:4317
+            balancer_name: round_robin
+            endpoint: dns:///nktp-gateway-traces-collector-headless:4317
             retry_on_failure:
               max_elapsed_time: 30m
             sending_queue:
@@ -675,6 +694,7 @@ matches the snapshot with default values:
               cert_file: /etc/nktp/internal-tls/client/tls.crt
               key_file: /etc/nktp/internal-tls/client/tls.key
               reload_interval: 1h
+              server_name_override: nktp-gateway-traces-collector
           otlp_grpc/watchdog:
             endpoint: nktp-watchdog-collector:4317
             retry_on_failure:
@@ -3299,7 +3319,8 @@ matches the snapshot with default values:
       config:
         exporters:
           otlp_grpc:
-            endpoint: nktp-gateway-metrics-collector:4317
+            balancer_name: round_robin
+            endpoint: dns:///nktp-gateway-metrics-collector-headless:4317
             retry_on_failure:
               max_elapsed_time: 30m
             sending_queue:
@@ -3317,6 +3338,7 @@ matches the snapshot with default values:
               cert_file: /etc/nktp/internal-tls/client/tls.crt
               key_file: /etc/nktp/internal-tls/client/tls.key
               reload_interval: 1h
+              server_name_override: nktp-gateway-metrics-collector
         extensions:
           health_check:
             endpoint: 0.0.0.0:13133
@@ -3636,7 +3658,8 @@ matches the snapshot with default values:
       config:
         exporters:
           otlp_grpc:
-            endpoint: nktp-gateway-metrics-collector:4317
+            balancer_name: round_robin
+            endpoint: dns:///nktp-gateway-metrics-collector-headless:4317
             retry_on_failure:
               max_elapsed_time: 30m
             sending_queue:
@@ -3654,6 +3677,7 @@ matches the snapshot with default values:
               cert_file: /etc/nktp/internal-tls/client/tls.crt
               key_file: /etc/nktp/internal-tls/client/tls.key
               reload_interval: 1h
+              server_name_override: nktp-gateway-metrics-collector
         extensions:
           health_check:
             endpoint: 0.0.0.0:13133
