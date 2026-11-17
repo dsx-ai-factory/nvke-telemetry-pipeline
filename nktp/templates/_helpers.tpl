@@ -78,6 +78,7 @@ blueprints value).
   {{- end -}}
 {{- end -}}
 
+{{/* Unset priorityClassName inherits priorityClass.name; an empty string opts out. */}}
 {{- define "nktp.builder.withPriorityClass" -}}
   {{- if not (hasKey .target "priorityClassName") -}}
     {{- $_ := set .target "priorityClassName" .root.Values.priorityClass.name -}}
@@ -96,6 +97,11 @@ blueprints value).
   {{- end -}}
 {{- end -}}
 
+{{/*
+The Operator skips injection into Pods containing otc-container, so attach the
+sidecar explicitly. An initContainer with restartPolicy: Always is a native
+sidecar. See docs/architecture/self_telemetry.md.
+*/}}
 {{- define "nktp.builder.withSidecar" -}}
   {{- $spec := .target -}}
   {{- $otelcol := .sidecar.otelcol | default dict -}}
