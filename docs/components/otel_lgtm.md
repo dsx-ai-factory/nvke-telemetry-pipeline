@@ -45,6 +45,7 @@ Configure the bundled backend under `otel-lgtm`:
 
 | Value | Default | Purpose |
 | --- | --- | --- |
+| `image.tag` | `0.41.0` | Bundled LGTM image version. |
 | `resources` | `{}` | Container resource requests and limits. |
 | `nodeSelector` | `{}` | Pod node selection. |
 | `tolerations` | `[]` | Pod taint tolerations. |

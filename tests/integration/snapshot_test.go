@@ -6,16 +6,31 @@
 package integration
 
 import (
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.yaml.in/yaml/v3"
 )
 
 // TestSnapshotNormalization checks that version normalization preserves other
 // output and rejects malformed tags instead of hiding them in the snapshot.
 func TestSnapshotNormalization(t *testing.T) {
+	// Use the chart's backend tag so this fixture cannot retain an old image version.
+	data, err := os.ReadFile("../../nktp/values.yaml")
+	require.NoError(t, err)
+	var values struct {
+		LGTM struct {
+			Image struct {
+				Tag string `yaml:"tag"`
+			} `yaml:"image"`
+		} `yaml:"otel-lgtm"`
+	}
+	require.NoError(t, yaml.Unmarshal(data, &values))
+	require.NotEmpty(t, values.LGTM.Image.Tag)
+
 	for _, tc := range []struct {
 		name    string
 		input   string
@@ -44,7 +59,7 @@ func TestSnapshotNormalization(t *testing.T) {
 		},
 		{
 			name:  "backend tag",
-			input: "  image: grafana/otel-lgtm:0.38.0\n",
+			input: "  image: grafana/otel-lgtm:" + values.LGTM.Image.Tag + "\n",
 			want:  "  image: grafana/otel-lgtm:VERSION\n",
 		},
 		{
