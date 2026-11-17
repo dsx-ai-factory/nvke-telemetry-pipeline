@@ -1,21 +1,22 @@
 # Mixed workload on 100 real workers. See README.md.
 # Install values.yaml first. Only runId is a plan argument.
 name: mixed-workload
-timeout: 115m
+timeout: 120m
 stages:
   - name: load
     generators:
     # Pace Pod creation and its infrastructure telemetry with the synthetic load.
-    {{- range $cohort := 3 }}
+    {{- range $cohort := 4 }}
     {{- $delay := "0s" }}
     {{- if eq $cohort 1 }}{{ $delay = "5m" }}{{ end }}
     {{- if eq $cohort 2 }}{{ $delay = "10m" }}{{ end }}
+    {{- if eq $cohort 3 }}{{ $delay = "15m" }}{{ end }}
     - name: small-scraped-{{ $cohort }}
       start_delay: {{ $delay }}
       type: statefulset
       spec:
         count: 10
-        replicas: {{ if eq $cohort 2 }}250{{ else }}125{{ end }}
+        replicas: {{ if eq $cohort 0 }}5{{ else if eq $cohort 1 }}120{{ else if eq $cohort 2 }}125{{ else }}250{{ end }}
         duration: 90m
         podTemplate:
           metadata:
@@ -101,7 +102,7 @@ stages:
       type: statefulset
       spec:
         count: 10
-        replicas: {{ if eq $cohort 2 }}200{{ else }}100{{ end }}
+        replicas: {{ if eq $cohort 0 }}4{{ else if eq $cohort 1 }}96{{ else if eq $cohort 2 }}100{{ else }}200{{ end }}
         duration: 90m
         podTemplate:
           metadata:
@@ -253,7 +254,7 @@ stages:
       type: statefulset
       spec:
         count: 4
-        replicas: {{ if eq $cohort 2 }}50{{ else }}25{{ end }}
+        replicas: {{ if eq $cohort 0 }}1{{ else if eq $cohort 1 }}24{{ else if eq $cohort 2 }}25{{ else }}50{{ end }}
         duration: 90m
         podTemplate:
           metadata:
@@ -318,7 +319,7 @@ stages:
       type: statefulset
       spec:
         count: 4
-        replicas: {{ if eq $cohort 2 }}50{{ else }}25{{ end }}
+        replicas: {{ if eq $cohort 0 }}1{{ else if eq $cohort 1 }}24{{ else if eq $cohort 2 }}25{{ else }}50{{ end }}
         duration: 90m
         podTemplate:
           metadata:
@@ -374,7 +375,7 @@ stages:
       type: statefulset
       spec:
         count: 2
-        replicas: {{ if eq $cohort 2 }}50{{ else }}25{{ end }}
+        replicas: {{ if eq $cohort 0 }}1{{ else if eq $cohort 1 }}24{{ else if eq $cohort 2 }}25{{ else }}50{{ end }}
         duration: 90m
         podTemplate:
           metadata:
@@ -447,7 +448,7 @@ stages:
       start_delay: {{ $delay }}
       type: pod
       spec:
-        count: {{ if eq $cohort 2 }}50{{ else }}25{{ end }}
+        count: {{ if eq $cohort 0 }}1{{ else if eq $cohort 1 }}24{{ else if eq $cohort 2 }}25{{ else }}50{{ end }}
         podTemplate:
           metadata:
             namespace: nktp
@@ -456,7 +457,7 @@ stages:
               scale.nktp.io/run-id: '{{ $.Args.runId }}'
           spec:
             restartPolicy: Never
-            activeDeadlineSeconds: 6600
+            activeDeadlineSeconds: 6900
             terminationGracePeriodSeconds: 150
             automountServiceAccountToken: false
             nodeSelector: {nodeGroup: customer-cpu}
@@ -518,7 +519,7 @@ stages:
       start_delay: {{ $delay }}
       type: statefulset
       spec:
-        replicas: {{ if eq $cohort 2 }}12{{ else }}6{{ end }}
+        replicas: {{ if eq $cohort 0 }}1{{ else if eq $cohort 1 }}5{{ else if eq $cohort 2 }}6{{ else }}12{{ end }}
         duration: 90m
         podTemplate:
           metadata:
@@ -572,7 +573,7 @@ stages:
       start_delay: {{ $delay }}
       type: statefulset
       spec:
-        replicas: {{ if eq $cohort 2 }}12{{ else }}6{{ end }}
+        replicas: {{ if eq $cohort 0 }}1{{ else if eq $cohort 1 }}5{{ else if eq $cohort 2 }}6{{ else }}12{{ end }}
         duration: 90m
         podTemplate:
           metadata:
@@ -626,7 +627,7 @@ stages:
       start_delay: {{ $delay }}
       type: statefulset
       spec:
-        replicas: 2
+        replicas: {{ if eq $cohort 0 }}1{{ else if eq $cohort 1 }}1{{ else if eq $cohort 2 }}2{{ else }}2{{ end }}
         duration: 90m
         podTemplate:
           metadata:
@@ -681,11 +682,13 @@ stages:
       type: prometheus
       spec:
         endpoint: http://127.0.0.1:9090
-        duration: 110m
+        duration: 115m
         interval: 60s
         query_timeout: 60s
         measurements:
           # All delivery groups must qualify together while load is active.
+          # Ten-minute transport windows reduce telemetry timing skew at 1% tolerance.
+          # Nine one-minute samples allow one missing observation.
           - name: metrics_to_gateway
             check:
               action: complete
@@ -702,23 +705,23 @@ stages:
                 # Metrics exports must match gateway acceptance.
                 and on() (
                   (
-                    sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-daemonset",exporter="otlp_grpc/metrics"}[5m]))
-                    + sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-large-target-metrics",exporter="otlp_grpc"}[5m]))
-                    + sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-nodeless-metrics",exporter="otlp_grpc"}[5m]))
+                    sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-daemonset",exporter="otlp_grpc/metrics"}[10m]))
+                    + sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-large-target-metrics",exporter="otlp_grpc"}[10m]))
+                    + sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-nodeless-metrics",exporter="otlp_grpc"}[10m]))
                   ) > 0
                 )
                 and on() (
                   abs(
                     (
-                      sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-daemonset",exporter="otlp_grpc/metrics"}[5m]))
-                      + sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-large-target-metrics",exporter="otlp_grpc"}[5m]))
-                      + sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-nodeless-metrics",exporter="otlp_grpc"}[5m]))
+                      sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-daemonset",exporter="otlp_grpc/metrics"}[10m]))
+                      + sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-large-target-metrics",exporter="otlp_grpc"}[10m]))
+                      + sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-nodeless-metrics",exporter="otlp_grpc"}[10m]))
                     )
-                    - sum(rate(otelcol_receiver_accepted_metric_points_total{job="nktp-gateway-metrics",receiver="otlp"}[5m]))
+                    - sum(rate(otelcol_receiver_accepted_metric_points_total{job="nktp-gateway-metrics",receiver="otlp"}[10m]))
                   ) <= 0.01 * (
-                    sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-daemonset",exporter="otlp_grpc/metrics"}[5m]))
-                    + sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-large-target-metrics",exporter="otlp_grpc"}[5m]))
-                    + sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-nodeless-metrics",exporter="otlp_grpc"}[5m]))
+                    sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-daemonset",exporter="otlp_grpc/metrics"}[10m]))
+                    + sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-large-target-metrics",exporter="otlp_grpc"}[10m]))
+                    + sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-nodeless-metrics",exporter="otlp_grpc"}[10m]))
                   )
                 )
                 # Each worker must export metrics even if totals balance.
@@ -737,39 +740,39 @@ stages:
                 )
                 # Metrics acceptance counters need a fresh, populated window without resets.
                 and on() (
-                  min(count_over_time(otelcol_receiver_accepted_metric_points_total{job="nktp-gateway-metrics",receiver="otlp"}[5m])) >= 4
+                  min(count_over_time(otelcol_receiver_accepted_metric_points_total{job="nktp-gateway-metrics",receiver="otlp"}[10m])) >= 9
                 )
                 and on() (
                   max(time() - timestamp(otelcol_receiver_accepted_metric_points_total{job="nktp-gateway-metrics",receiver="otlp"})) < 90
                 )
                 and on() (
-                  max(resets(otelcol_receiver_accepted_metric_points_total{job="nktp-gateway-metrics",receiver="otlp"}[5m])) == 0
+                  max(resets(otelcol_receiver_accepted_metric_points_total{job="nktp-gateway-metrics",receiver="otlp"}[10m])) == 0
                 )
                 unless on() (
-                  present_over_time(otelcol_receiver_accepted_metric_points_total{job="nktp-gateway-metrics",receiver="otlp"}[5m])
+                  present_over_time(otelcol_receiver_accepted_metric_points_total{job="nktp-gateway-metrics",receiver="otlp"}[10m])
                   unless otelcol_receiver_accepted_metric_points_total{job="nktp-gateway-metrics",receiver="otlp"}
                 )
                 unless on() (
                   otelcol_receiver_accepted_metric_points_total{job="nktp-gateway-metrics",receiver="otlp"}
-                  unless present_over_time(otelcol_receiver_accepted_metric_points_total{job="nktp-gateway-metrics",receiver="otlp"}[1m] offset 4m)
+                  unless present_over_time(otelcol_receiver_accepted_metric_points_total{job="nktp-gateway-metrics",receiver="otlp"}[1m] offset 9m)
                 )
                 # Metrics export counters need a fresh, populated window without resets.
                 and on() (
-                  min(count_over_time(otelcol_exporter_sent_metric_points_total{job=~"nktp-(daemonset|large-target-metrics|nodeless-metrics)",exporter=~"otlp_grpc(/metrics)?"}[5m])) >= 4
+                  min(count_over_time(otelcol_exporter_sent_metric_points_total{job=~"nktp-(daemonset|large-target-metrics|nodeless-metrics)",exporter=~"otlp_grpc(/metrics)?"}[10m])) >= 9
                 )
                 and on() (
                   max(time() - timestamp(otelcol_exporter_sent_metric_points_total{job=~"nktp-(daemonset|large-target-metrics|nodeless-metrics)",exporter=~"otlp_grpc(/metrics)?"})) < 90
                 )
                 and on() (
-                  max(resets(otelcol_exporter_sent_metric_points_total{job=~"nktp-(daemonset|large-target-metrics|nodeless-metrics)",exporter=~"otlp_grpc(/metrics)?"}[5m])) == 0
+                  max(resets(otelcol_exporter_sent_metric_points_total{job=~"nktp-(daemonset|large-target-metrics|nodeless-metrics)",exporter=~"otlp_grpc(/metrics)?"}[10m])) == 0
                 )
                 unless on() (
-                  present_over_time(otelcol_exporter_sent_metric_points_total{job=~"nktp-(daemonset|large-target-metrics|nodeless-metrics)",exporter=~"otlp_grpc(/metrics)?"}[5m])
+                  present_over_time(otelcol_exporter_sent_metric_points_total{job=~"nktp-(daemonset|large-target-metrics|nodeless-metrics)",exporter=~"otlp_grpc(/metrics)?"}[10m])
                   unless otelcol_exporter_sent_metric_points_total{job=~"nktp-(daemonset|large-target-metrics|nodeless-metrics)",exporter=~"otlp_grpc(/metrics)?"}
                 )
                 unless on() (
                   otelcol_exporter_sent_metric_points_total{job=~"nktp-(daemonset|large-target-metrics|nodeless-metrics)",exporter=~"otlp_grpc(/metrics)?"}
-                  unless present_over_time(otelcol_exporter_sent_metric_points_total{job=~"nktp-(daemonset|large-target-metrics|nodeless-metrics)",exporter=~"otlp_grpc(/metrics)?"}[1m] offset 4m)
+                  unless present_over_time(otelcol_exporter_sent_metric_points_total{job=~"nktp-(daemonset|large-target-metrics|nodeless-metrics)",exporter=~"otlp_grpc(/metrics)?"}[1m] offset 9m)
                 )
           - name: metrics_to_blackhole
             check:
@@ -778,50 +781,50 @@ stages:
               expr: |-
                 vector(1)
                 # Gateway exports must match blackhole acceptance.
-                and on() (sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter="otlp_grpc"}[5m])) > 0)
+                and on() (sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter="otlp_grpc"}[10m])) > 0)
                 and on() (
                   abs(
-                    sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter="otlp_grpc"}[5m]))
-                    - sum(rate(otelcol_receiver_accepted_metric_points_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m]))
+                    sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter="otlp_grpc"}[10m]))
+                    - sum(rate(otelcol_receiver_accepted_metric_points_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[10m]))
                   ) <= 0.01 * (
-                    sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter="otlp_grpc"}[5m]))
+                    sum(rate(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter="otlp_grpc"}[10m]))
                   )
                 )
                 # Metrics acceptance counters need a fresh, populated window without resets.
                 and on() (
-                  min(count_over_time(otelcol_receiver_accepted_metric_points_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m])) >= 4
+                  min(count_over_time(otelcol_receiver_accepted_metric_points_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[10m])) >= 9
                 )
                 and on() (
                   max(time() - timestamp(otelcol_receiver_accepted_metric_points_total{job="nktp-mixed-workload-blackhole",receiver="otlp"})) < 90
                 )
                 and on() (
-                  max(resets(otelcol_receiver_accepted_metric_points_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m])) == 0
+                  max(resets(otelcol_receiver_accepted_metric_points_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[10m])) == 0
                 )
                 unless on() (
-                  present_over_time(otelcol_receiver_accepted_metric_points_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m])
+                  present_over_time(otelcol_receiver_accepted_metric_points_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[10m])
                   unless otelcol_receiver_accepted_metric_points_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}
                 )
                 unless on() (
                   otelcol_receiver_accepted_metric_points_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}
-                  unless present_over_time(otelcol_receiver_accepted_metric_points_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[1m] offset 4m)
+                  unless present_over_time(otelcol_receiver_accepted_metric_points_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[1m] offset 9m)
                 )
                 # Metrics export counters need a fresh, populated window without resets.
                 and on() (
-                  min(count_over_time(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter=~"otlp_grpc(/metrics)?"}[5m])) >= 4
+                  min(count_over_time(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter=~"otlp_grpc(/metrics)?"}[10m])) >= 9
                 )
                 and on() (
                   max(time() - timestamp(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter=~"otlp_grpc(/metrics)?"})) < 90
                 )
                 and on() (
-                  max(resets(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter=~"otlp_grpc(/metrics)?"}[5m])) == 0
+                  max(resets(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter=~"otlp_grpc(/metrics)?"}[10m])) == 0
                 )
                 unless on() (
-                  present_over_time(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter=~"otlp_grpc(/metrics)?"}[5m])
+                  present_over_time(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter=~"otlp_grpc(/metrics)?"}[10m])
                   unless otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter=~"otlp_grpc(/metrics)?"}
                 )
                 unless on() (
                   otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter=~"otlp_grpc(/metrics)?"}
-                  unless present_over_time(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter=~"otlp_grpc(/metrics)?"}[1m] offset 4m)
+                  unless present_over_time(otelcol_exporter_sent_metric_points_total{job="nktp-gateway-metrics",exporter=~"otlp_grpc(/metrics)?"}[1m] offset 9m)
                 )
           - name: logs_to_gateway
             check:
@@ -834,20 +837,20 @@ stages:
                 # Log exports must match gateway acceptance.
                 and on() (
                   (
-                    sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-daemonset",exporter="otlp_grpc/logs"}[5m]))
-                    + sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-cluster-events",exporter="otlp_grpc"}[5m]))
+                    sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-daemonset",exporter="otlp_grpc/logs"}[10m]))
+                    + sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-cluster-events",exporter="otlp_grpc"}[10m]))
                   ) > 0
                 )
                 and on() (
                   abs(
                     (
-                      sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-daemonset",exporter="otlp_grpc/logs"}[5m]))
-                      + sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-cluster-events",exporter="otlp_grpc"}[5m]))
+                      sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-daemonset",exporter="otlp_grpc/logs"}[10m]))
+                      + sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-cluster-events",exporter="otlp_grpc"}[10m]))
                     )
-                    - sum(rate(otelcol_receiver_accepted_log_records_total{job="nktp-gateway-logs",receiver="otlp"}[5m]))
+                    - sum(rate(otelcol_receiver_accepted_log_records_total{job="nktp-gateway-logs",receiver="otlp"}[10m]))
                   ) <= 0.01 * (
-                    sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-daemonset",exporter="otlp_grpc/logs"}[5m]))
-                    + sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-cluster-events",exporter="otlp_grpc"}[5m]))
+                    sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-daemonset",exporter="otlp_grpc/logs"}[10m]))
+                    + sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-cluster-events",exporter="otlp_grpc"}[10m]))
                   )
                 )
                 # Each worker must export logs even if totals balance.
@@ -866,37 +869,37 @@ stages:
                 )
                 # Logs acceptance counters need a fresh, populated window without resets.
                 and on() (
-                  min(count_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-gateway-logs",receiver="otlp"}[5m])) >= 4
+                  min(count_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-gateway-logs",receiver="otlp"}[10m])) >= 9
                 )
                 and on() (
                   max(time() - timestamp(otelcol_receiver_accepted_log_records_total{job="nktp-gateway-logs",receiver="otlp"})) < 90
                 )
-                and on() (max(resets(otelcol_receiver_accepted_log_records_total{job="nktp-gateway-logs",receiver="otlp"}[5m])) == 0)
+                and on() (max(resets(otelcol_receiver_accepted_log_records_total{job="nktp-gateway-logs",receiver="otlp"}[10m])) == 0)
                 unless on() (
-                  present_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-gateway-logs",receiver="otlp"}[5m])
+                  present_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-gateway-logs",receiver="otlp"}[10m])
                   unless otelcol_receiver_accepted_log_records_total{job="nktp-gateway-logs",receiver="otlp"}
                 )
                 unless on() (
                   otelcol_receiver_accepted_log_records_total{job="nktp-gateway-logs",receiver="otlp"}
-                  unless present_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-gateway-logs",receiver="otlp"}[1m] offset 4m)
+                  unless present_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-gateway-logs",receiver="otlp"}[1m] offset 9m)
                 )
                 # Logs export counters need a fresh, populated window without resets.
                 and on() (
-                  min(count_over_time(otelcol_exporter_sent_log_records_total{job=~"nktp-(daemonset|cluster-events)",exporter=~"otlp_grpc(/logs)?"}[5m])) >= 4
+                  min(count_over_time(otelcol_exporter_sent_log_records_total{job=~"nktp-(daemonset|cluster-events)",exporter=~"otlp_grpc(/logs)?"}[10m])) >= 9
                 )
                 and on() (
                   max(time() - timestamp(otelcol_exporter_sent_log_records_total{job=~"nktp-(daemonset|cluster-events)",exporter=~"otlp_grpc(/logs)?"})) < 90
                 )
                 and on() (
-                  max(resets(otelcol_exporter_sent_log_records_total{job=~"nktp-(daemonset|cluster-events)",exporter=~"otlp_grpc(/logs)?"}[5m])) == 0
+                  max(resets(otelcol_exporter_sent_log_records_total{job=~"nktp-(daemonset|cluster-events)",exporter=~"otlp_grpc(/logs)?"}[10m])) == 0
                 )
                 unless on() (
-                  present_over_time(otelcol_exporter_sent_log_records_total{job=~"nktp-(daemonset|cluster-events)",exporter=~"otlp_grpc(/logs)?"}[5m])
+                  present_over_time(otelcol_exporter_sent_log_records_total{job=~"nktp-(daemonset|cluster-events)",exporter=~"otlp_grpc(/logs)?"}[10m])
                   unless otelcol_exporter_sent_log_records_total{job=~"nktp-(daemonset|cluster-events)",exporter=~"otlp_grpc(/logs)?"}
                 )
                 unless on() (
                   otelcol_exporter_sent_log_records_total{job=~"nktp-(daemonset|cluster-events)",exporter=~"otlp_grpc(/logs)?"}
-                  unless present_over_time(otelcol_exporter_sent_log_records_total{job=~"nktp-(daemonset|cluster-events)",exporter=~"otlp_grpc(/logs)?"}[1m] offset 4m)
+                  unless present_over_time(otelcol_exporter_sent_log_records_total{job=~"nktp-(daemonset|cluster-events)",exporter=~"otlp_grpc(/logs)?"}[1m] offset 9m)
                 )
           - name: logs_to_blackhole
             check:
@@ -905,50 +908,50 @@ stages:
               expr: |-
                 vector(1)
                 # Gateway exports must match blackhole acceptance.
-                and on() (sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter="otlp_grpc"}[5m])) > 0)
+                and on() (sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter="otlp_grpc"}[10m])) > 0)
                 and on() (
                   abs(
-                    sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter="otlp_grpc"}[5m]))
-                    - sum(rate(otelcol_receiver_accepted_log_records_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m]))
+                    sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter="otlp_grpc"}[10m]))
+                    - sum(rate(otelcol_receiver_accepted_log_records_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[10m]))
                   ) <= 0.01 * (
-                    sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter="otlp_grpc"}[5m]))
+                    sum(rate(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter="otlp_grpc"}[10m]))
                   )
                 )
                 # Logs acceptance counters need a fresh, populated window without resets.
                 and on() (
-                  min(count_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m])) >= 4
+                  min(count_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[10m])) >= 9
                 )
                 and on() (
                   max(time() - timestamp(otelcol_receiver_accepted_log_records_total{job="nktp-mixed-workload-blackhole",receiver="otlp"})) < 90
                 )
                 and on() (
-                  max(resets(otelcol_receiver_accepted_log_records_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m])) == 0
+                  max(resets(otelcol_receiver_accepted_log_records_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[10m])) == 0
                 )
                 unless on() (
-                  present_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m])
+                  present_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[10m])
                   unless otelcol_receiver_accepted_log_records_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}
                 )
                 unless on() (
                   otelcol_receiver_accepted_log_records_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}
-                  unless present_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[1m] offset 4m)
+                  unless present_over_time(otelcol_receiver_accepted_log_records_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[1m] offset 9m)
                 )
                 # Logs export counters need a fresh, populated window without resets.
                 and on() (
-                  min(count_over_time(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter=~"otlp_grpc(/logs)?"}[5m])) >= 4
+                  min(count_over_time(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter=~"otlp_grpc(/logs)?"}[10m])) >= 9
                 )
                 and on() (
                   max(time() - timestamp(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter=~"otlp_grpc(/logs)?"})) < 90
                 )
                 and on() (
-                  max(resets(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter=~"otlp_grpc(/logs)?"}[5m])) == 0
+                  max(resets(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter=~"otlp_grpc(/logs)?"}[10m])) == 0
                 )
                 unless on() (
-                  present_over_time(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter=~"otlp_grpc(/logs)?"}[5m])
+                  present_over_time(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter=~"otlp_grpc(/logs)?"}[10m])
                   unless otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter=~"otlp_grpc(/logs)?"}
                 )
                 unless on() (
                   otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter=~"otlp_grpc(/logs)?"}
-                  unless present_over_time(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter=~"otlp_grpc(/logs)?"}[1m] offset 4m)
+                  unless present_over_time(otelcol_exporter_sent_log_records_total{job="nktp-gateway-logs",exporter=~"otlp_grpc(/logs)?"}[1m] offset 9m)
                 )
           - name: traces_to_gateway
             check:
@@ -958,14 +961,14 @@ stages:
                 vector(1)
                 # Trace exports must match gateway acceptance.
                 and on() (
-                  sum(rate(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter="otlp_grpc/traces"}[5m])) > 0
+                  sum(rate(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter="otlp_grpc/traces"}[10m])) > 0
                 )
                 and on() (
                   abs(
-                    sum(rate(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter="otlp_grpc/traces"}[5m]))
-                    - sum(rate(otelcol_receiver_accepted_spans_total{job="nktp-gateway-traces",receiver="otlp"}[5m]))
+                    sum(rate(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter="otlp_grpc/traces"}[10m]))
+                    - sum(rate(otelcol_receiver_accepted_spans_total{job="nktp-gateway-traces",receiver="otlp"}[10m]))
                   ) <= 0.01 * (
-                    sum(rate(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter="otlp_grpc/traces"}[5m]))
+                    sum(rate(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter="otlp_grpc/traces"}[10m]))
                   )
                 )
                 # Each worker must export traces even if totals balance.
@@ -984,35 +987,35 @@ stages:
                 )
                 # Traces acceptance counters need a fresh, populated window without resets.
                 and on() (
-                  min(count_over_time(otelcol_receiver_accepted_spans_total{job="nktp-gateway-traces",receiver="otlp"}[5m])) >= 4
+                  min(count_over_time(otelcol_receiver_accepted_spans_total{job="nktp-gateway-traces",receiver="otlp"}[10m])) >= 9
                 )
                 and on() (
                   max(time() - timestamp(otelcol_receiver_accepted_spans_total{job="nktp-gateway-traces",receiver="otlp"})) < 90
                 )
-                and on() (max(resets(otelcol_receiver_accepted_spans_total{job="nktp-gateway-traces",receiver="otlp"}[5m])) == 0)
+                and on() (max(resets(otelcol_receiver_accepted_spans_total{job="nktp-gateway-traces",receiver="otlp"}[10m])) == 0)
                 unless on() (
-                  present_over_time(otelcol_receiver_accepted_spans_total{job="nktp-gateway-traces",receiver="otlp"}[5m])
+                  present_over_time(otelcol_receiver_accepted_spans_total{job="nktp-gateway-traces",receiver="otlp"}[10m])
                   unless otelcol_receiver_accepted_spans_total{job="nktp-gateway-traces",receiver="otlp"}
                 )
                 unless on() (
                   otelcol_receiver_accepted_spans_total{job="nktp-gateway-traces",receiver="otlp"}
-                  unless present_over_time(otelcol_receiver_accepted_spans_total{job="nktp-gateway-traces",receiver="otlp"}[1m] offset 4m)
+                  unless present_over_time(otelcol_receiver_accepted_spans_total{job="nktp-gateway-traces",receiver="otlp"}[1m] offset 9m)
                 )
                 # Traces export counters need a fresh, populated window without resets.
                 and on() (
-                  min(count_over_time(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter=~"otlp_grpc(/traces)?"}[5m])) >= 4
+                  min(count_over_time(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter=~"otlp_grpc(/traces)?"}[10m])) >= 9
                 )
                 and on() (
                   max(time() - timestamp(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter=~"otlp_grpc(/traces)?"})) < 90
                 )
-                and on() (max(resets(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter=~"otlp_grpc(/traces)?"}[5m])) == 0)
+                and on() (max(resets(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter=~"otlp_grpc(/traces)?"}[10m])) == 0)
                 unless on() (
-                  present_over_time(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter=~"otlp_grpc(/traces)?"}[5m])
+                  present_over_time(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter=~"otlp_grpc(/traces)?"}[10m])
                   unless otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter=~"otlp_grpc(/traces)?"}
                 )
                 unless on() (
                   otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter=~"otlp_grpc(/traces)?"}
-                  unless present_over_time(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter=~"otlp_grpc(/traces)?"}[1m] offset 4m)
+                  unless present_over_time(otelcol_exporter_sent_spans_total{job="nktp-daemonset",exporter=~"otlp_grpc(/traces)?"}[1m] offset 9m)
                 )
           - name: traces_to_blackhole
             check:
@@ -1021,50 +1024,50 @@ stages:
               expr: |-
                 vector(1)
                 # Gateway exports must match blackhole acceptance.
-                and on() (sum(rate(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter="otlp_grpc"}[5m])) > 0)
+                and on() (sum(rate(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter="otlp_grpc"}[10m])) > 0)
                 and on() (
                   abs(
-                    sum(rate(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter="otlp_grpc"}[5m]))
-                    - sum(rate(otelcol_receiver_accepted_spans_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m]))
+                    sum(rate(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter="otlp_grpc"}[10m]))
+                    - sum(rate(otelcol_receiver_accepted_spans_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[10m]))
                   ) <= 0.01 * (
-                    sum(rate(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter="otlp_grpc"}[5m]))
+                    sum(rate(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter="otlp_grpc"}[10m]))
                   )
                 )
                 # Traces acceptance counters need a fresh, populated window without resets.
                 and on() (
-                  min(count_over_time(otelcol_receiver_accepted_spans_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m])) >= 4
+                  min(count_over_time(otelcol_receiver_accepted_spans_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[10m])) >= 9
                 )
                 and on() (
                   max(time() - timestamp(otelcol_receiver_accepted_spans_total{job="nktp-mixed-workload-blackhole",receiver="otlp"})) < 90
                 )
                 and on() (
-                  max(resets(otelcol_receiver_accepted_spans_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m])) == 0
+                  max(resets(otelcol_receiver_accepted_spans_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[10m])) == 0
                 )
                 unless on() (
-                  present_over_time(otelcol_receiver_accepted_spans_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[5m])
+                  present_over_time(otelcol_receiver_accepted_spans_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[10m])
                   unless otelcol_receiver_accepted_spans_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}
                 )
                 unless on() (
                   otelcol_receiver_accepted_spans_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}
-                  unless present_over_time(otelcol_receiver_accepted_spans_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[1m] offset 4m)
+                  unless present_over_time(otelcol_receiver_accepted_spans_total{job="nktp-mixed-workload-blackhole",receiver="otlp"}[1m] offset 9m)
                 )
                 # Traces export counters need a fresh, populated window without resets.
                 and on() (
-                  min(count_over_time(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter=~"otlp_grpc(/traces)?"}[5m])) >= 4
+                  min(count_over_time(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter=~"otlp_grpc(/traces)?"}[10m])) >= 9
                 )
                 and on() (
                   max(time() - timestamp(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter=~"otlp_grpc(/traces)?"})) < 90
                 )
                 and on() (
-                  max(resets(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter=~"otlp_grpc(/traces)?"}[5m])) == 0
+                  max(resets(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter=~"otlp_grpc(/traces)?"}[10m])) == 0
                 )
                 unless on() (
-                  present_over_time(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter=~"otlp_grpc(/traces)?"}[5m])
+                  present_over_time(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter=~"otlp_grpc(/traces)?"}[10m])
                   unless otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter=~"otlp_grpc(/traces)?"}
                 )
                 unless on() (
                   otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter=~"otlp_grpc(/traces)?"}
-                  unless present_over_time(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter=~"otlp_grpc(/traces)?"}[1m] offset 4m)
+                  unless present_over_time(otelcol_exporter_sent_spans_total{job="nktp-gateway-traces",exporter=~"otlp_grpc(/traces)?"}[1m] offset 9m)
                 )
           - name: event_producers
             check:
@@ -1087,9 +1090,9 @@ stages:
                   )
                 )
                 unless on() (
-                  sum(last_over_time(k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status!="200"}[115m])) > 0
+                  sum(last_over_time(k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status!="200"}[120m])) > 0
                 )
-                unless on() (sum(last_over_time(k6_dropped_iterations_total{test_run_id="{{ .Args.runId }}"}[115m])) > 0)
+                unless on() (sum(last_over_time(k6_dropped_iterations_total{test_run_id="{{ .Args.runId }}"}[120m])) > 0)
                 # Successful PATCH counters need a fresh, populated window without resets.
                 and on() (
                   min(count_over_time(k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status="200"}[5m])) >= 4
@@ -1166,45 +1169,46 @@ stages:
               or (scrape_duration_seconds{scale_workload="mixed-workload-nodeless"} and (time() - timestamp(scrape_duration_seconds{scale_workload="mixed-workload-nodeless"}) < 120))
 
           # Producer health and resources
+          # Restrict object state to NKTP KSM, including pending Pods.
           - name: producer_placement
             units: pods
             query: >-
               count by (node,label_scale_nktp_io_group,label_scale_nktp_io_bucket) (
-                max by (namespace,pod,node) (kube_pod_info{namespace="nktp",node!=""})
+                max by (namespace,pod,node) (kube_pod_info{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",node!=""})
                 * on (namespace,pod) group_left(label_scale_nktp_io_group,label_scale_nktp_io_bucket)
-                  max by (namespace,pod,label_scale_nktp_io_group,label_scale_nktp_io_bucket) (kube_pod_labels{namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"})
+                  max by (namespace,pod,label_scale_nktp_io_group,label_scale_nktp_io_bucket) (kube_pod_labels{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"})
               )
           - name: producer_ready
             units: bool
             query: >-
-              kube_pod_container_status_ready{namespace="nktp"}
-              and on (namespace,pod) kube_pod_labels{namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}
+              kube_pod_container_status_ready{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp"}
+              and on (namespace,pod) kube_pod_labels{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}
           - name: producer_restarts
             units: restarts
             query: >-
-              kube_pod_container_status_restarts_total{namespace="nktp"}
-              and on (namespace,pod) kube_pod_labels{namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}
+              kube_pod_container_status_restarts_total{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp"}
+              and on (namespace,pod) kube_pod_labels{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}
           - name: producer_last_termination
             units: info
             query: >-
-              kube_pod_container_status_last_terminated_reason{namespace="nktp"}
-              and on (namespace,pod) kube_pod_labels{namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}
+              kube_pod_container_status_last_terminated_reason{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp"}
+              and on (namespace,pod) kube_pod_labels{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}
           - name: producer_cpu
             units: cores
             query: >-
               rate(container_cpu_usage_seconds_total{namespace="nktp",job="kubelet-cadvisor",pod=~"scale-.+",container!="",container!="POD"}[2m])
-              and on (namespace,pod) kube_pod_labels{namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}
+              and on (namespace,pod) kube_pod_labels{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}
           - name: producer_memory
             units: bytes
             query: >-
               container_memory_working_set_bytes{namespace="nktp",job="kubelet-cadvisor",pod=~"scale-.+",container!="",container!="POD"}
-              and on (namespace,pod) kube_pod_labels{namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}
+              and on (namespace,pod) kube_pod_labels{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}
           - name: producer_throttling
             units: ratio
             query: >-
               (rate(container_cpu_cfs_throttled_periods_total{namespace="nktp",job="kubelet-cadvisor",pod=~"scale-.+",container!="",container!="POD"}[2m])
                / rate(container_cpu_cfs_periods_total{namespace="nktp",job="kubelet-cadvisor",pod=~"scale-.+",container!="",container!="POD"}[2m]))
-              and on (namespace,pod) kube_pod_labels{namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}
+              and on (namespace,pod) kube_pod_labels{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}
 
           # Offered load
           - name: stdout_records
@@ -1265,14 +1269,14 @@ stages:
                   and (time() - timestamp(k6_iterations_total{test_run_id="{{ .Args.runId }}"}) < 90)
                 )
               )
-          # Keep sparse counts for the 115m plan ceiling even after a producer stops.
+          # Keep sparse counts for the 120m plan ceiling even after a producer stops.
           # Only fresh producers without a recorded count get a zero fallback.
           - name: event_patches_failed
             units: requests
             query: >-
               sum by (scale_node) (
                 sum by (scale_node,producer_id) (
-                  last_over_time(k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status!="200"}[115m])
+                  last_over_time(k6_http_reqs_total{test_run_id="{{ .Args.runId }}",name="event-patch",method="PATCH",status!="200"}[120m])
                 )
                 or
                 0 * max by (scale_node,producer_id) (
@@ -1285,7 +1289,7 @@ stages:
             query: >-
               sum by (scale_node) (
                 sum by (scale_node,producer_id) (
-                  last_over_time(k6_dropped_iterations_total{test_run_id="{{ .Args.runId }}"}[115m])
+                  last_over_time(k6_dropped_iterations_total{test_run_id="{{ .Args.runId }}"}[120m])
                 )
                 or
                 0 * max by (scale_node,producer_id) (
@@ -1320,19 +1324,19 @@ stages:
           - name: component_cpu_requests
             units: cores
             query: >-
-              {__name__=~"kube_pod_(init_)?container_resource_requests",namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|otc-sidecar|ta-container|avalanche",resource="cpu"}
+              {__name__=~"kube_pod_(init_)?container_resource_requests",job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|otc-sidecar|ta-container|avalanche",resource="cpu"}
           - name: component_cpu_limits
             units: cores
             query: >-
-              {__name__=~"kube_pod_(init_)?container_resource_limits",namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|otc-sidecar|ta-container|avalanche",resource="cpu"}
+              {__name__=~"kube_pod_(init_)?container_resource_limits",job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|otc-sidecar|ta-container|avalanche",resource="cpu"}
           - name: component_memory_requests
             units: bytes
             query: >-
-              {__name__=~"kube_pod_(init_)?container_resource_requests",namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|otc-sidecar|ta-container|avalanche",resource="memory"}
+              {__name__=~"kube_pod_(init_)?container_resource_requests",job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|otc-sidecar|ta-container|avalanche",resource="memory"}
           - name: component_memory_limits
             units: bytes
             query: >-
-              {__name__=~"kube_pod_(init_)?container_resource_limits",namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|otc-sidecar|ta-container|avalanche",resource="memory"}
+              {__name__=~"kube_pod_(init_)?container_resource_limits",job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|otc-sidecar|ta-container|avalanche",resource="memory"}
 
           # Component health and queues
           - name: self_metric_age
@@ -1372,55 +1376,55 @@ stages:
           - name: pod_inventory
             units: info
             query: >-
-              kube_pod_info{namespace="nktp"} and on (namespace,pod) (
-                kube_pod_info{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+"} or kube_pod_labels{namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}
+              kube_pod_info{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp"} and on (namespace,pod) (
+                kube_pod_info{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+"} or kube_pod_labels{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}
               )
           - name: component_ready
             units: bool
             query: >-
-              kube_pod_container_status_ready{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|ta-container|avalanche"}
+              kube_pod_container_status_ready{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|ta-container|avalanche"}
           - name: component_restarts
             units: restarts
             query: >-
-              kube_pod_container_status_restarts_total{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|ta-container|avalanche"}
+              kube_pod_container_status_restarts_total{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|ta-container|avalanche"}
           - name: component_last_termination
             units: info
             query: >-
-              kube_pod_container_status_last_terminated_reason{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|ta-container|avalanche"}
+              kube_pod_container_status_last_terminated_reason{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+|nktp-(nodeless-metrics-targetallocator|mixed-workload-nodeless)-.+",container=~"otc-container|ta-container|avalanche"}
           - name: sidecar_ready
             units: bool
             query: >-
-              kube_pod_init_container_status_ready{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+",container="otc-sidecar"}
+              kube_pod_init_container_status_ready{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+",container="otc-sidecar"}
           - name: sidecar_restarts
             units: restarts
             query: >-
-              kube_pod_init_container_status_restarts_total{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+",container="otc-sidecar"}
+              kube_pod_init_container_status_restarts_total{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+",container="otc-sidecar"}
           - name: sidecar_last_termination
             units: info
             query: >-
-              kube_pod_init_container_status_last_terminated_reason{namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+",container="otc-sidecar"}
+              kube_pod_init_container_status_last_terminated_reason{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector-.+",container="otc-sidecar"}
 
           # Autoscaling
           - name: hpa_current_replicas
             units: replicas
             query: >-
-              kube_horizontalpodautoscaler_status_current_replicas{namespace="nktp",horizontalpodautoscaler=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector"}
+              kube_horizontalpodautoscaler_status_current_replicas{job="nktp/nktp-ksm-workloads",namespace="nktp",horizontalpodautoscaler=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector"}
           - name: hpa_desired_replicas
             units: replicas
             query: >-
-              kube_horizontalpodautoscaler_status_desired_replicas{namespace="nktp",horizontalpodautoscaler=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector"}
+              kube_horizontalpodautoscaler_status_desired_replicas{job="nktp/nktp-ksm-workloads",namespace="nktp",horizontalpodautoscaler=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector"}
           - name: hpa_min_replicas
             units: replicas
             query: >-
-              kube_horizontalpodautoscaler_spec_min_replicas{namespace="nktp",horizontalpodautoscaler=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector"}
+              kube_horizontalpodautoscaler_spec_min_replicas{job="nktp/nktp-ksm-workloads",namespace="nktp",horizontalpodautoscaler=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector"}
           - name: hpa_max_replicas
             units: replicas
             query: >-
-              kube_horizontalpodautoscaler_spec_max_replicas{namespace="nktp",horizontalpodautoscaler=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector"}
+              kube_horizontalpodautoscaler_spec_max_replicas{job="nktp/nktp-ksm-workloads",namespace="nktp",horizontalpodautoscaler=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector"}
           - name: hpa_conditions
             units: bool
             query: >-
-              kube_horizontalpodautoscaler_status_condition{namespace="nktp",horizontalpodautoscaler=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector"}
+              kube_horizontalpodautoscaler_status_condition{job="nktp/nktp-ksm-workloads",namespace="nktp",horizontalpodautoscaler=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector"}
 
           # Collector throughput and failures
           - name: receiver_accepted_metrics

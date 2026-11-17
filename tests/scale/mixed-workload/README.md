@@ -15,14 +15,26 @@ retain the chart sampling policy.
 
 ## Load
 
-The plan runs nine workload groups in three creation cohorts within one stage,
+The plan runs nine workload groups in four creation cohorts within one stage,
 alongside a shared Prometheus measurement. A Go template loop keeps each group's
 Pod template in one place. Generator `start_delay` values schedule creation at
-zero, five and ten minutes from stage start, reaching approximately 25%, 50% and
-100% of the full workload. Earlier cohorts keep running as later ones start.
-This spreads Pod creation and its infrastructure telemetry across the ramp.
-Small groups retain their rounded split, with two of the six large targets in
-each cohort. Scheduling and image pulls can extend startup beyond each delay.
+zero, five, ten and fifteen minutes from stage start, reaching about 1%, 25%,
+50% and 100% of the final Pod count. Earlier cohorts keep running as later ones
+start. This spreads Pod creation and its infrastructure telemetry across the
+ramp, giving collectors time to scale with the synthetic load.
+
+Each 24-target large group and the six-target group start one target, their
+smallest nonzero cohort. The initial cohort has 104 Pods (about 1% of the total).
+The large targets make its share of telemetry volume higher. The full workload
+remains 10,154 Pods, including 100 Event producers. Scheduling and image pulls
+can extend startup beyond each creation delay.
+
+| Creation delay | New Pods | Cumulative Pods |
+| --- | ---: | ---: |
+| 0 minutes | 104 | 104 |
+| 5 minutes | 2,435 | 2,539 |
+| 10 minutes | 2,539 | 5,078 |
+| 15 minutes | 5,076 | 10,154 |
 
 Each of 100 workers runs 100 local generator Pods:
 
@@ -90,14 +102,18 @@ export KUBECONFIG=/path/to/kubeconfig
 task scale:install \
   HELM_VALUES_FILE=tests/scale/mixed-workload/values.yaml
 RUN_ID="mixed-$(date -u +%Y%m%d%H%M%S)"
-task scale:test TEST_TIMEOUT=125m -- \
+task scale:test TEST_TIMEOUT=130m -- \
   -plan "$PWD/tests/scale/mixed-workload/plan.yaml" -arg run-id="$RUN_ID"
 ```
 
 ## Results
 
 - Window: the delivery checks run concurrently and must pass together for 30 consecutive minutes while load is active.
-- Runtime: qualification stops the generators and waits for cleanup. A generator ending before qualification or an unqualified 110-minute observation window fails the run. Generator limits remain 90 minutes, with each StatefulSet timed from its own readiness and a 115-minute plan ceiling.
+- Transport rates: metrics, logs and traces use ten-minute windows with 1% tolerance,
+  at least nine counter samples and 90-second freshness. The longer history reduces
+  timing skew and takes longer to settle after scaling or counter resets. Scrape-pool,
+  Event-reader and per-worker liveness checks retain five-minute windows.
+- Runtime: qualification stops the generators and waits for cleanup. A generator ending before qualification or an unqualified 115-minute observation window fails the run. Generator limits remain 90 minutes, with each StatefulSet timed from its own readiness and a 120-minute plan ceiling.
 - Load: targets, series, offered stdout records and body bytes, native receipt and export rates, serialized OTLP bytes and aggregate Event acceptance. Compare rates over the same time window.
 - Performance: CPU/memory use, component requests and limits, observed peaks, throttling, queues, HPA replicas and bounds, and RPC call rates and p95 latency.
 - Retries: workload Collector export retries by component, Pod, exporter and signal. Counts arrive after export completion and can be incomplete if self-telemetry is lost or truncated.
@@ -109,6 +125,11 @@ task scale:test TEST_TIMEOUT=125m -- \
   Check both collector replicas and the allocator in the component observations.
   Only the replica assigned the target needs to show scrape activity.
 - Retain LGTM and the dashboard for review before [environment cleanup](../README.md#cleanup).
+
+Pod inventory and health queries select NKTP's `nktp/nktp-ksm-pods` and
+`nktp/nktp-ksm-unscheduled-pods` jobs. This excludes duplicate observations from
+other kube-state-metrics installations while retaining pending Pod diagnostics.
+HPA queries select `nktp/nktp-ksm-workloads`.
 
 Node counts include background traffic. Log body bytes measure generated load.
 Span payload bytes are configured load, while serialized OTLP bytes include
