@@ -65,13 +65,13 @@ otelcol_image:
   tag: 0.164.0
 
 # Target Allocator image used by the watchdog, daemonset, large_target_metrics, and
-# nodeless_metrics allocators. global.imageRegistry replaces registry. Keep the tag equal to the
-# Operator version from opentelemetry-kube-stack. A workload's
-# kubernetes.targetAllocator.image, as a full image string, overrides it.
+# nodeless_metrics allocators. global.imageRegistry replaces registry. An empty tag uses the
+# Operator version bundled by opentelemetry-kube-stack, which releases the Target Allocator. A
+# workload's kubernetes.targetAllocator.image, as a full image string, overrides it.
 targetallocator_image:
   registry: ghcr.io
   repository: open-telemetry/opentelemetry-operator/target-allocator
-  tag: 0.161.0
+  tag: ""
 
 # Blueprint definitions available to every NKTP Collector configuration. A
 # definition in a configuration's own blueprints section takes precedence over

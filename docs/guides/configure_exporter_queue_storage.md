@@ -5,13 +5,13 @@ queues:
 
 - **With persistent storage (default):** keep queued telemetry on a PersistentVolume
   across Collector restarts, using the
-  [`file_storage` extension](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/v0.162.0/extension/storage/filestorage).
+  [`file_storage` extension](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/v0.164.0/extension/storage/filestorage).
   The default Collector image includes the extension.
 - **Without persistent storage:** keep queued telemetry in
   memory. A Collector restart loses its queued telemetry.
 
 Both use the Collector's
-[sending queue](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/exporter/exporterhelper/README.md#sending-queue),
+[sending queue](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.164.0/exporter/exporterhelper/README.md#sending-queue),
 configured through the chart's values.
 
 Node log read positions use separate
@@ -58,7 +58,7 @@ gateway_metrics:
 ```
 
 In your Prometheus-compatible backend, query the
-[`otelcol_exporter_enqueue_size_bytes`](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/exporter/exporterhelper/documentation.md#otelcol_exporter_enqueue_size_bytes)
+[`otelcol_exporter_enqueue_size_bytes`](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.164.0/exporter/exporterhelper/documentation.md#otelcol_exporter_enqueue_size_bytes)
 histogram's sum to get serialized bytes/s per replica:
 
 ```promql
@@ -184,7 +184,7 @@ Queued data can survive a Collector process restart; an abrupt node or power
 failure can lose unsynchronized writes. Set `fsync: true` under
 `<component>.otelcol.config.extensions.file_storage/queue` to synchronize each
 write, with the performance cost described in the
-[extension documentation](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.162.0/extension/storage/filestorage/README.md).
+[extension documentation](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.164.0/extension/storage/filestorage/README.md).
 
 Volume mounts and `service.extensions` are lists, which Helm replaces. Preserve
 both the queue and internal TLS mounts, and both `health_check` and
@@ -222,7 +222,7 @@ until export catches up and the backlog subsides.
 
 Once utilization is low and recovers between traffic bursts, apply the queue
 configuration change. The Collector
-[stops receivers before flushing queued exports](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/service/internal/graph/graph.go#L433-L441),
+[stops receivers before flushing queued exports](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.164.0/service/internal/graph/graph.go#L433-L441),
 so a small backlog can drain during replacement. NKTP allows 60
 seconds through `<component>.kubernetes.terminationGracePeriodSeconds`.
 Export failures or expiry of that grace period can lose buffered data;

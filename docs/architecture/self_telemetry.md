@@ -66,7 +66,7 @@ If this limits troubleshooting, increase `processors.tail_sampling.decision_wait
 in the affected workload's `sidecar.otelcol.config`, reviewing `num_traces` and
 the memory budget together. A longer window without enough trace capacity can
 increase loss through eviction before evaluation. See the
-[upstream tuning guidance](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.162.0/processor/tailsamplingprocessor/README.md#monitoring-and-tuning).
+[upstream tuning guidance](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.164.0/processor/tailsamplingprocessor/README.md#monitoring-and-tuning).
 
 ## Sizing
 

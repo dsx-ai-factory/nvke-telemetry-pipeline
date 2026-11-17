@@ -26,6 +26,22 @@ The tag must be a string: YAML reads an unquoted 1.0 as a number.
 {{- end -}}
 
 {{/*
+Resolve targetallocator_image. An empty tag follows the Operator bundled by
+opentelemetry-kube-stack, which releases the Target Allocator alongside it.
+When the bundled Operator is disabled, its chart is not loaded; the
+kube-stack appVersion names the same Operator release.
+*/}}
+{{- define "nktp.targetAllocatorImage" -}}
+{{- $image := deepCopy .Values.targetallocator_image -}}
+{{- if not $image.tag -}}
+{{- $stack := index .Subcharts "opentelemetry-kube-stack" -}}
+{{- $operator := index $stack.Subcharts "opentelemetry-operator" -}}
+{{- $_ := set $image "tag" (ternary $operator.Chart.AppVersion $stack.Chart.AppVersion (not (empty $operator))) -}}
+{{- end -}}
+{{- include "nktp.image" (dict "imageRegistry" .Values.global.imageRegistry "image" $image) -}}
+{{- end -}}
+
+{{/*
 Return a Collector configuration as native Collector YAML, expanded by NVCB.
 
 NVCB receives the configuration together with the definitions in the top-level
@@ -68,7 +84,7 @@ blueprints value).
   {{- end -}}
   {{- $allocator := $spec.targetAllocator -}}
   {{- if not (hasKey $allocator "image") -}}
-    {{- $_ := set $allocator "image" (include "nktp.image" (dict "imageRegistry" .root.Values.global.imageRegistry "image" .root.Values.targetallocator_image)) -}}
+    {{- $_ := set $allocator "image" (include "nktp.targetAllocatorImage" .root) -}}
   {{- end -}}
   {{- if not (hasKey $allocator "mtls") -}}
     {{- $_ := set $allocator "mtls" (dict) -}}

@@ -1,6 +1,6 @@
 # Run all workloads on the contrib collector distribution.
 # Start it with: task dev:up -- contrib
+# The tag is inherited from otelcol_image.tag in nktp/values.yaml.
 otelcol_image:
   registry: ""
   repository: otel/opentelemetry-collector-contrib
-  tag: 0.159.0

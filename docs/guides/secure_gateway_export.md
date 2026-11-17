@@ -7,8 +7,8 @@ This backend is intended only for local development. Configure TLS before
 sending logs, metrics and traces to a production backend.
 
 Choose the protocol and endpoint supported by your backend for each signal.
-The Collector's [`otlp_grpc` exporter](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/exporter/otlpexporter/README.md)
-uses gRPC; [`otlp_http`](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/exporter/otlphttpexporter/README.md)
+The Collector's [`otlp_grpc` exporter](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.164.0/exporter/otlpexporter/README.md)
+uses gRPC; [`otlp_http`](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.164.0/exporter/otlphttpexporter/README.md)
 uses HTTP. Changing the port alone does not change the protocol.
 For example, direct ingestion into [Prometheus](https://prometheus.io/docs/guides/opentelemetry/)
 or [Loki](https://grafana.com/docs/loki/latest/send-data/otel/) requires OTLP/HTTP.

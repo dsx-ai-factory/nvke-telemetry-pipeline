@@ -40,13 +40,13 @@ Release tags and development builds are described in
 <details>
 <summary>Example Collector and certificate readiness with cert-manager installed</summary>
 
-Example output for chart version `0.1.0`; names and replica counts depend on the
-chart version and values. `READY=2/2` means both expected Collector replicas
+Example output; names, versions, and replica counts depend on the chart version
+and values. `READY=2/2` means both expected Collector replicas
 are ready; certificates should show `READY=True`.
 
 ```text
-NAME                  MODE          VERSION   READY   AGE   IMAGE                                      MANAGEMENT
-nktp-cluster-events   statefulset   0.159.0   2/2     23h   otel/opentelemetry-collector-k8s:0.162.0   managed
+NAME                  MODE          VERSION   READY   AGE   IMAGE                                                                                         MANAGEMENT
+nktp-cluster-events   statefulset   0.164.0   2/2     23h   ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-k8s:0.164.0   managed
 ...
 ```
 

@@ -16,7 +16,8 @@ team or an upstream maintenance commitment.
 | --- | --- | --- | --- |
 | `registry.k8s.io/kubectl` | NKTP's OTel uninstall hook; `opentelemetry-kube-stack.cleanupJob.image.tag` in `nktp/values.yaml`. | Allow the 1.35 series. Kubernetes supports kubectl within one minor of the API server; 1.35 fits both ends of the current 1.34/1.36 e2e matrix. | When changing the tested Kubernetes range, review the hook image and Dependabot range together, and verify uninstall on each tested version. |
 | `prometheus-node-exporter` | NKTP's node-exporter integration; the direct chart dependency in `nktp/Chart.yaml` and `nktp/Chart.lock`. | Allow chart 4.x updates while the 5.x security-default changes are reviewed, including dropped capabilities, disabled privilege escalation, and RuntimeDefault seccomp for containers and sidecars. This is a chart-version restriction, not an exporter-image version. | When adopting chart 5.x, review upstream migration guidance and configured security overrides, verify scraping, and update the range alongside the chart pin. |
-| `ghcr.io/open-telemetry/opentelemetry-operator/target-allocator` | The Operator bundled by `opentelemetry-kube-stack`; `targetallocator_image.tag` in `nktp/values.yaml`. | Ignore all independent image updates so Target Allocator is updated deliberately with its owning Operator. Ignoring it does not automatically align the versions. | On every kube-stack upgrade, inspect the bundled Operator version and align the Target Allocator pin in the same change. Review any workload-specific `kubernetes.targetAllocator.image` overrides and verify target discovery and mTLS. |
+| `ghcr.io/open-telemetry/opentelemetry-operator/target-allocator` | The Operator bundled by `opentelemetry-kube-stack`; the empty `targetallocator_image.tag` in `nktp/values.yaml` selects that Operator's version. | Ignore all independent image updates so Dependabot does not write a separate tag. | On every kube-stack upgrade, review any workload-specific `kubernetes.targetAllocator.image` overrides and verify target discovery and mTLS. |
+| `github.com/open-telemetry/opentelemetry-operator/apis` | The Operator bundled by `opentelemetry-kube-stack`; `tests/go.mod`. | Ignore all independent module updates; the e2e tests must use the CRD types of the Operator the chart installs. | On every kube-stack upgrade, update the module to the bundled Operator version. The integration tests fail until they match. |
 
 The kubectl range reflects the current e2e matrix; it does not establish support
 for every Kubernetes version mentioned elsewhere in the documentation. See the
@@ -32,8 +33,8 @@ the versions bundled inside other upstream charts.
 
 ## OpenTelemetry Operator and CRDs
 
-NKTP depends on the published [opentelemetry-kube-stack 0.25.1](https://github.com/open-telemetry/opentelemetry-helm-charts/tree/opentelemetry-kube-stack-0.25.1/charts/opentelemetry-kube-stack)
-chart. It supplies OpenTelemetry Operator chart 0.126.0, operator image 0.161.0,
+NKTP depends on the published [opentelemetry-kube-stack 0.27.0](https://github.com/open-telemetry/opentelemetry-helm-charts/tree/opentelemetry-kube-stack-0.27.0/charts/opentelemetry-kube-stack)
+chart. It supplies OpenTelemetry Operator chart 0.128.0, operator image 0.162.0,
 and native CRDs. NKTP disables its default Collector and general Collector RBAC.
 Settings pass through under `opentelemetry-kube-stack` using upstream values.
 
@@ -64,6 +65,25 @@ Override the Operator image with
 The Operator's admission webhook certificate comes from cert-manager by default.
 See [Configure cert-manager](../guides/configure_cert_manager.md#installing-nktp-without-cert-manager) for the
 alternative.
+
+## OpenTelemetry version alignment
+
+OpenTelemetry components that NKTP installs follow three release lines. Each
+line has one source in the chart.
+
+| Release line | Source | Follows it |
+| --- | --- | --- |
+| Collector | `otelcol_image` in `nktp/values.yaml` | Every chart workload, and dev profiles, which set only `repository` |
+| Operator | The kube-stack version in `nktp/Chart.lock` | The Target Allocator, through an empty `targetallocator_image.tag`, and the Operator API module in `tests/go.mod` |
+| `grafana/otel-lgtm` | `otel-lgtm.image` in `nktp/values.yaml` | The Collector it embeds, which its release notes name |
+
+The lines are released separately upstream, so their versions differ. The
+Operator and the Target Allocator are released together and always match.
+The scale suite under `tests/scale` pins its own test images and is updated
+separately.
+
+Links to upstream source and documentation also name a version; update them
+with the pin they describe, or link to a version whose content still applies.
 
 ## Node exporter
 

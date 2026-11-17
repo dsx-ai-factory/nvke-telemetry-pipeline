@@ -20,7 +20,7 @@ Provide the following before installing NKTP.
 - **Kubernetes 1.31+.** The bundled metrics-server 0.8.1 supports 1.31+. Every
   Collector Pod runs its self-telemetry sidecar as a native sidecar, an init
   container with `restartPolicy: Always`, which Kubernetes enables by default
-  from 1.29. The bundled OpenTelemetry Operator 0.161.0 itself supports 1.25+.
+  from 1.29. The bundled OpenTelemetry Operator 0.162.0 itself supports 1.25+.
 - **Helm 4.** Choose a release compatible with your Kubernetes version.
 - **cert-manager.** Required with default values; install it separately.
   NKTP does not bundle or install it. It issues certificates for internal
@@ -426,14 +426,16 @@ When `global.clusterName` is empty, the value is `unknown`.
 
 | Chart | Version | Installs | Enabled by default | Values key |
 | --- | --- | --- | --- | --- |
-| opentelemetry-kube-stack | 0.25.1 | OpenTelemetry Operator chart 0.126.0, Operator 0.161.0, and CRDs | Yes | `opentelemetry-kube-stack` |
+| opentelemetry-kube-stack | 0.27.0 | OpenTelemetry Operator chart 0.128.0, Operator 0.162.0, and CRDs | Yes | `opentelemetry-kube-stack` |
 | prometheus-node-exporter | 4.56.1 | node-exporter | Yes | `node-exporter` |
 | metrics-server | 3.13.1 | metrics-server 0.8.1 | No | `metrics-server` |
 | prometheus-blackbox-exporter | 11.20.2 | blackbox_exporter 0.29.1 | No | `blackbox-exporter` |
 
 The Collector, Target Allocator, kube-state-metrics, and LGTM images are set in
 `values.yaml` under `otelcol_image`, `targetallocator_image`,
-`kube-state-metrics.image`, and `otel-lgtm.image`.
+`kube-state-metrics.image`, and `otel-lgtm.image`. The Target Allocator tag is
+empty by default, which selects the bundled Operator's version; the two are
+released together.
 
 ## Developing the chart
 

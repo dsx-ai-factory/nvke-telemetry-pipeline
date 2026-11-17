@@ -27,7 +27,7 @@ The installation sections below configure certificates for three separate uses:
 - **Target Allocators:** mTLS protects each Collector's requests to its allocator,
   including credentials returned for authenticated ServiceMonitor/PodMonitor
   scrapes. Plaintext is possible, but credentials are withheld by default. See the
-  Operator's [endpoint credential documentation](https://github.com/open-telemetry/opentelemetry-operator/blob/v0.161.0/docs/target-allocator/README.md#service--pod-monitor-endpoint-credentials).
+  Operator's [endpoint credential documentation](https://github.com/open-telemetry/opentelemetry-operator/blob/v0.162.0/docs/target-allocator/README.md#service--pod-monitor-endpoint-credentials).
 - **Admission webhook:** the Kubernetes API server calls the Operator's webhook
   over HTTPS, which requires a trusted server certificate. See Kubernetes'
   [webhook connection requirements](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#contacting-the-webhook)
@@ -72,7 +72,7 @@ certManager:
 
 cert-manager creates a separate CA for each Collector–Target Allocator pair and
 issues and renews its server and client certificates, as described in
-[With cert-manager (default)](https://github.com/open-telemetry/opentelemetry-operator/blob/v0.161.0/docs/target-allocator/README.md#with-cert-manager-default).
+[With cert-manager (default)](https://github.com/open-telemetry/opentelemetry-operator/blob/v0.162.0/docs/target-allocator/README.md#with-cert-manager-default).
 
 `certManager.targetAllocators.enabled` sets `mtls.useCertManager` for the
 `watchdog`, `daemonset`, and `large_target_metrics` Target Allocators. Its default
@@ -170,7 +170,7 @@ The certificate commands are based on
 > do not provide automatic renewal or certificate reloads.
 
 For user-provided Target Allocator certificates, the Operator
-[mounts TLS files using `subPath`](https://github.com/open-telemetry/opentelemetry-operator/blob/v0.161.0/docs/target-allocator/README.md#without-cert-manager-user-provided-certificates),
+[mounts TLS files using `subPath`](https://github.com/open-telemetry/opentelemetry-operator/blob/v0.162.0/docs/target-allocator/README.md#without-cert-manager-user-provided-certificates),
 so running Pods do not receive rotated files. Configure your Secret delivery
 system or associated rollout automation to restart:
 
@@ -381,7 +381,7 @@ daemonset:
 ```
 
 See the Operator's
-[user-provided certificate instructions](https://github.com/open-telemetry/opentelemetry-operator/blob/v0.161.0/docs/target-allocator/README.md#without-cert-manager-user-provided-certificates)
+[user-provided certificate instructions](https://github.com/open-telemetry/opentelemetry-operator/blob/v0.162.0/docs/target-allocator/README.md#without-cert-manager-user-provided-certificates)
 for the reference format.
 
 #### Alternative: Switching Target Allocators to plaintext
@@ -389,7 +389,7 @@ for the reference format.
 **Warning: authenticated scrapes that rely on credentials delivered by the Target
 Allocator will fail.** With `allowInsecureAuthSecrets: false`, the allocator
 withholds credential values on HTTP. The upstream
-[`allowInsecureAuthSecrets` option](https://github.com/open-telemetry/opentelemetry-operator/blob/v0.161.0/docs/target-allocator/README.md#alternative-allow-insecure-auth-secrets)
+[`allowInsecureAuthSecrets` option](https://github.com/open-telemetry/opentelemetry-operator/blob/v0.162.0/docs/target-allocator/README.md#alternative-allow-insecure-auth-secrets)
 is intended only for transport already secured by a service mesh or equivalent;
 keep it disabled here.
 

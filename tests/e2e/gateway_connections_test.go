@@ -406,16 +406,14 @@ type collectorReceivers struct {
 	Prometheus json.RawMessage `json:"prometheus,omitempty"`
 }
 
-// Adapted from the Collector v0.162.0 OTLP receiver schema:
-// https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/receiver/otlpreceiver/config.go
+// otlpReceiver mirrors the Collector's OTLP receiver configuration
+// (receiver/otlpreceiver).
 type otlpReceiver struct {
 	Protocols map[string]otlpListener `json:"protocols"`
 }
 
-// Adapted from the Collector v0.162.0 gRPC and OTLP/HTTP receiver schemas:
-// https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/config/configgrpc/generated_config.go
-// https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/config/confighttp/server.go
-// https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/receiver/otlpreceiver/config.go
+// otlpListener mirrors the Collector's gRPC and OTLP/HTTP server settings
+// (config/configgrpc and config/confighttp) as the OTLP receiver uses them.
 // Strict decoding makes new fields require review here. Nested options that the
 // fixture never changes remain intact as raw JSON for the Collector to validate.
 type otlpListener struct {
@@ -454,11 +452,10 @@ type otlpListener struct {
 	LogsURLPath           json.RawMessage `json:"logs_url_path,omitempty"`
 }
 
-// Adapted from the Collector v0.162.0 OTLP exporter and gRPC client schemas:
-// https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/exporter/otlpexporter/config.go
-// https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/config/configgrpc/generated_config.go
-// Debug exporter fields support fixture observation:
-// https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/exporter/debugexporter/config.go
+// collectorExporter mirrors the Collector's OTLP exporter and gRPC client
+// settings (exporter/otlpexporter and config/configgrpc). It also holds the
+// debug exporter fields (exporter/debugexporter) that support fixture
+// observation.
 type collectorExporter struct {
 	Endpoint           string          `json:"endpoint,omitempty"`
 	TLS                *collectorTLS   `json:"tls,omitempty"`
@@ -481,8 +478,8 @@ type collectorExporter struct {
 	SamplingThereafter int             `json:"sampling_thereafter,omitempty"`
 }
 
-// Adapted from the Collector v0.162.0 client and server TLS schemas:
-// https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/config/configtls/generated_config.go
+// collectorTLS mirrors the Collector's client and server TLS settings
+// (config/configtls).
 type collectorTLS struct {
 	CAFile                      string          `json:"ca_file,omitempty"`
 	CAPEM                       string          `json:"ca_pem,omitempty"`
