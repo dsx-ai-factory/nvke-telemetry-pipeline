@@ -62,14 +62,13 @@ jobs:
               ;;
             refs/heads/main)
               # No release tags are needed for the first development build.
-              # Strip build metadata and extend any existing prerelease suffix.
+              # Strip build metadata and reuse a trailing dev prerelease identifier.
               version="${chart_version%%+*}"
-              if [[ "${version}" == *-* ]]; then
-                version+=.
-              else
-                version+=-
-              fi
-              version+="dev.g${GITHUB_SHA:0:8}"
+              case "${version}" in
+                *-dev|*-*.dev) version+=".g${GITHUB_SHA:0:8}" ;;
+                *-*) version+=".dev.g${GITHUB_SHA:0:8}" ;;
+                *) version+="-dev.g${GITHUB_SHA:0:8}" ;;
+              esac
               ;;
             *) echo "::error::Publish only from main or a matching chart release tag"; exit 1 ;;
           esac
