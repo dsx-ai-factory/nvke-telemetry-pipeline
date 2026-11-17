@@ -15,10 +15,14 @@ retain the chart sampling policy.
 
 ## Load
 
-The plan runs nine generators in parallel within one stage, alongside a shared
-Prometheus measurement. Init containers stagger each group to approximately
-25%, 50% and 100% load at zero, five and ten minutes. Delays start when each Pod
-is scheduled, so waves can overlap. Small groups round the split.
+The plan runs nine workload groups in three creation cohorts within one stage,
+alongside a shared Prometheus measurement. A Go template loop keeps each group's
+Pod template in one place. Generator `start_delay` values schedule creation at
+zero, five and ten minutes from stage start, reaching approximately 25%, 50% and
+100% of the full workload. Earlier cohorts keep running as later ones start.
+This spreads Pod creation and its infrastructure telemetry across the ramp.
+Small groups retain their rounded split, with two of the six large targets in
+each cohort. Scheduling and image pulls can extend startup beyond each delay.
 
 Each of 100 workers runs 100 local generator Pods:
 
@@ -93,7 +97,7 @@ task scale:test TEST_TIMEOUT=125m -- \
 ## Results
 
 - Window: the delivery checks run concurrently and must pass together for 30 consecutive minutes while load is active.
-- Runtime: qualification stops the generators and waits for cleanup. A generator ending before qualification or an unqualified 110-minute observation window fails the run. Generator limits remain 90 minutes, with a 115-minute plan ceiling.
+- Runtime: qualification stops the generators and waits for cleanup. A generator ending before qualification or an unqualified 110-minute observation window fails the run. Generator limits remain 90 minutes, with each StatefulSet timed from its own readiness and a 115-minute plan ceiling.
 - Load: targets, series, offered stdout records and body bytes, native receipt and export rates, serialized OTLP bytes and aggregate Event acceptance. Compare rates over the same time window.
 - Performance: CPU/memory use, component requests and limits, observed peaks, throttling, queues, HPA replicas and bounds, and RPC call rates and p95 latency.
 - Retries: workload Collector export retries by component, Pod, exporter and signal. Counts arrive after export completion and can be incomplete if self-telemetry is lost or truncated.

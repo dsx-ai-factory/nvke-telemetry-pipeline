@@ -119,7 +119,8 @@ stages:                           # Sequential. Each stage cleans up before the 
 | `timeout` | Positive execution deadline, including workload startup and recovery |
 | `stages` | Nonempty list executed in declaration order |
 | `stages[].name` | Nonempty, unique stage name |
-| `stages[].generators` | Parallel generators, each with a unique `name`, `type` and `spec` |
+| `stages[].generators` | Concurrent generators, each with a unique `name`, `type` and `spec` |
+| `stages[].generators[].start_delay` | Nonnegative duration from stage start before creating resources. Default `0s`. Cancellation or stage completion skips generators still waiting |
 | `stages[].measurement` | Optional observer with a `type` and `spec` |
 
 Omit `measurement` for load-only stages or `generators` for observation-only

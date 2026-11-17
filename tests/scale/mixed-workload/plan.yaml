@@ -5,11 +5,17 @@ timeout: 115m
 stages:
   - name: load
     generators:
-    - name: small-scraped
+    # Pace Pod creation and its infrastructure telemetry with the synthetic load.
+    {{- range $cohort := 3 }}
+    {{- $delay := "0s" }}
+    {{- if eq $cohort 1 }}{{ $delay = "5m" }}{{ end }}
+    {{- if eq $cohort 2 }}{{ $delay = "10m" }}{{ end }}
+    - name: small-scraped-{{ $cohort }}
+      start_delay: {{ $delay }}
       type: statefulset
       spec:
         count: 10
-        replicas: 500
+        replicas: {{ if eq $cohort 2 }}250{{ else }}125{{ end }}
         duration: 90m
         podTemplate:
           metadata:
@@ -17,7 +23,7 @@ stages:
             labels:
               scale.nktp.io/workload: mixed-workload
               scale.nktp.io/group: small-scraped
-              scale.nktp.io/run-id: '{{ .Args.runId }}'
+              scale.nktp.io/run-id: '{{ $.Args.runId }}'
               scale.nktp.io/bucket: small
               scale.nktp.io/metric-source: scraped
               scale.nktp.io/stdout: 'true'
@@ -39,31 +45,7 @@ stages:
                   matchLabels:
                     scale.nktp.io/workload: mixed-workload
                     scale.nktp.io/group: small-scraped
-                    scale.nktp.io/run-id: '{{ .Args.runId }}'
-            # Keep Parallel rollout. Reach 25%, 50% and 100% load at 0, 5 and 10 minutes.
-            initContainers:
-              - name: ramp-up
-                image: ghcr.io/vectordotdev/vector:0.58.0-debian@sha256:1c1ea358c617ea0b23003d5af87f7a678b30f8f7096437e680380c47fc13d2d9
-                command: [/bin/sh, -ec]
-                args:
-                  - |
-                    ordinal=${POD_NAME##*-}
-                    case "$((ordinal % 4))" in
-                      0) delay=0 ;;
-                      1) delay=300 ;;
-                      *) delay=600 ;;
-                    esac
-                    exec sleep "$delay"
-                env:
-                  - name: POD_NAME
-                    valueFrom: {fieldRef: {fieldPath: metadata.name}}
-                resources:
-                  requests: {cpu: 1m, memory: 4Mi}
-                  limits: {cpu: 100m, memory: 16Mi}
-                securityContext:
-                  allowPrivilegeEscalation: false
-                  readOnlyRootFilesystem: true
-                  capabilities: {drop: [ALL]}
+                    scale.nktp.io/run-id: '{{ $.Args.runId }}'
             containers:
               - name: avalanche
                 image: quay.io/prometheuscommunity/avalanche:v0.7.0@sha256:ea02e9599fcbb59a6fc7396656434faf200db7f1c259802e3dbb38cec81bd12a
@@ -114,11 +96,12 @@ stages:
               - name: vector-config
                 configMap: {name: nktp-mixed-workload-stdout-small}
 
-    - name: small-instrumented
+    - name: small-instrumented-{{ $cohort }}
+      start_delay: {{ $delay }}
       type: statefulset
       spec:
         count: 10
-        replicas: 400
+        replicas: {{ if eq $cohort 2 }}200{{ else }}100{{ end }}
         duration: 90m
         podTemplate:
           metadata:
@@ -126,7 +109,7 @@ stages:
             labels:
               scale.nktp.io/workload: mixed-workload
               scale.nktp.io/group: small-instrumented
-              scale.nktp.io/run-id: '{{ .Args.runId }}'
+              scale.nktp.io/run-id: '{{ $.Args.runId }}'
               scale.nktp.io/bucket: small
               scale.nktp.io/metric-source: otlp
               scale.nktp.io/stdout: 'true'
@@ -148,30 +131,7 @@ stages:
                   matchLabels:
                     scale.nktp.io/workload: mixed-workload
                     scale.nktp.io/group: small-instrumented
-                    scale.nktp.io/run-id: '{{ .Args.runId }}'
-            initContainers:
-              - name: ramp-up
-                image: ghcr.io/vectordotdev/vector:0.58.0-debian@sha256:1c1ea358c617ea0b23003d5af87f7a678b30f8f7096437e680380c47fc13d2d9
-                command: [/bin/sh, -ec]
-                args:
-                  - |
-                    ordinal=${POD_NAME##*-}
-                    case "$((ordinal % 4))" in
-                      0) delay=0 ;;
-                      1) delay=300 ;;
-                      *) delay=600 ;;
-                    esac
-                    exec sleep "$delay"
-                env:
-                  - name: POD_NAME
-                    valueFrom: {fieldRef: {fieldPath: metadata.name}}
-                resources:
-                  requests: {cpu: 1m, memory: 4Mi}
-                  limits: {cpu: 100m, memory: 16Mi}
-                securityContext:
-                  allowPrivilegeEscalation: false
-                  readOnlyRootFilesystem: true
-                  capabilities: {drop: [ALL]}
+                    scale.nktp.io/run-id: '{{ $.Args.runId }}'
             containers:
               - name: avalanche
                 image: quay.io/prometheuscommunity/avalanche:v0.7.0@sha256:ea02e9599fcbb59a6fc7396656434faf200db7f1c259802e3dbb38cec81bd12a
@@ -288,11 +248,12 @@ stages:
               - name: metrics-config
                 configMap: {name: nktp-mixed-workload-otlp-metrics}
 
-    - name: node-local-targets
+    - name: node-local-targets-{{ $cohort }}
+      start_delay: {{ $delay }}
       type: statefulset
       spec:
         count: 4
-        replicas: 100
+        replicas: {{ if eq $cohort 2 }}50{{ else }}25{{ end }}
         duration: 90m
         podTemplate:
           metadata:
@@ -300,7 +261,7 @@ stages:
             labels:
               scale.nktp.io/workload: mixed-workload
               scale.nktp.io/group: node-local-targets
-              scale.nktp.io/run-id: '{{ .Args.runId }}'
+              scale.nktp.io/run-id: '{{ $.Args.runId }}'
               scale.nktp.io/metric-source: scraped
           spec:
             restartPolicy: Always
@@ -320,30 +281,7 @@ stages:
                   matchLabels:
                     scale.nktp.io/workload: mixed-workload
                     scale.nktp.io/group: node-local-targets
-                    scale.nktp.io/run-id: '{{ .Args.runId }}'
-            initContainers:
-              - name: ramp-up
-                image: ghcr.io/vectordotdev/vector:0.58.0-debian@sha256:1c1ea358c617ea0b23003d5af87f7a678b30f8f7096437e680380c47fc13d2d9
-                command: [/bin/sh, -ec]
-                args:
-                  - |
-                    ordinal=${POD_NAME##*-}
-                    case "$((ordinal % 4))" in
-                      0) delay=0 ;;
-                      1) delay=300 ;;
-                      *) delay=600 ;;
-                    esac
-                    exec sleep "$delay"
-                env:
-                  - name: POD_NAME
-                    valueFrom: {fieldRef: {fieldPath: metadata.name}}
-                resources:
-                  requests: {cpu: 1m, memory: 4Mi}
-                  limits: {cpu: 100m, memory: 16Mi}
-                securityContext:
-                  allowPrivilegeEscalation: false
-                  readOnlyRootFilesystem: true
-                  capabilities: {drop: [ALL]}
+                    scale.nktp.io/run-id: '{{ $.Args.runId }}'
             containers:
               - name: avalanche
                 image: quay.io/prometheuscommunity/avalanche:v0.7.0@sha256:ea02e9599fcbb59a6fc7396656434faf200db7f1c259802e3dbb38cec81bd12a
@@ -375,11 +313,12 @@ stages:
                   - name: POD_UID
                     valueFrom: {fieldRef: {fieldPath: "metadata.uid"}}
 
-    - name: large-logs
+    - name: large-logs-{{ $cohort }}
+      start_delay: {{ $delay }}
       type: statefulset
       spec:
         count: 4
-        replicas: 100
+        replicas: {{ if eq $cohort 2 }}50{{ else }}25{{ end }}
         duration: 90m
         podTemplate:
           metadata:
@@ -387,7 +326,7 @@ stages:
             labels:
               scale.nktp.io/workload: mixed-workload
               scale.nktp.io/group: large-logs
-              scale.nktp.io/run-id: '{{ .Args.runId }}'
+              scale.nktp.io/run-id: '{{ $.Args.runId }}'
               scale.nktp.io/bucket: large
               scale.nktp.io/stdout: 'true'
           spec:
@@ -408,30 +347,7 @@ stages:
                   matchLabels:
                     scale.nktp.io/workload: mixed-workload
                     scale.nktp.io/group: large-logs
-                    scale.nktp.io/run-id: '{{ .Args.runId }}'
-            initContainers:
-              - name: ramp-up
-                image: ghcr.io/vectordotdev/vector:0.58.0-debian@sha256:1c1ea358c617ea0b23003d5af87f7a678b30f8f7096437e680380c47fc13d2d9
-                command: [/bin/sh, -ec]
-                args:
-                  - |
-                    ordinal=${POD_NAME##*-}
-                    case "$((ordinal % 4))" in
-                      0) delay=0 ;;
-                      1) delay=300 ;;
-                      *) delay=600 ;;
-                    esac
-                    exec sleep "$delay"
-                env:
-                  - name: POD_NAME
-                    valueFrom: {fieldRef: {fieldPath: metadata.name}}
-                resources:
-                  requests: {cpu: 1m, memory: 4Mi}
-                  limits: {cpu: 100m, memory: 16Mi}
-                securityContext:
-                  allowPrivilegeEscalation: false
-                  readOnlyRootFilesystem: true
-                  capabilities: {drop: [ALL]}
+                    scale.nktp.io/run-id: '{{ $.Args.runId }}'
             containers:
               - name: vector-stdout-large
                 image: ghcr.io/vectordotdev/vector:0.58.0-debian@sha256:1c1ea358c617ea0b23003d5af87f7a678b30f8f7096437e680380c47fc13d2d9
@@ -453,11 +369,12 @@ stages:
               - name: vector-config
                 configMap: {name: nktp-mixed-workload-stdout-large}
 
-    - name: large-traces
+    - name: large-traces-{{ $cohort }}
+      start_delay: {{ $delay }}
       type: statefulset
       spec:
         count: 2
-        replicas: 100
+        replicas: {{ if eq $cohort 2 }}50{{ else }}25{{ end }}
         duration: 90m
         podTemplate:
           metadata:
@@ -465,7 +382,7 @@ stages:
             labels:
               scale.nktp.io/workload: mixed-workload
               scale.nktp.io/group: large-traces
-              scale.nktp.io/run-id: '{{ .Args.runId }}'
+              scale.nktp.io/run-id: '{{ $.Args.runId }}'
               scale.nktp.io/bucket: large
           spec:
             restartPolicy: Always
@@ -485,30 +402,7 @@ stages:
                   matchLabels:
                     scale.nktp.io/workload: mixed-workload
                     scale.nktp.io/group: large-traces
-                    scale.nktp.io/run-id: '{{ .Args.runId }}'
-            initContainers:
-              - name: ramp-up
-                image: ghcr.io/vectordotdev/vector:0.58.0-debian@sha256:1c1ea358c617ea0b23003d5af87f7a678b30f8f7096437e680380c47fc13d2d9
-                command: [/bin/sh, -ec]
-                args:
-                  - |
-                    ordinal=${POD_NAME##*-}
-                    case "$((ordinal % 4))" in
-                      0) delay=0 ;;
-                      1) delay=300 ;;
-                      *) delay=600 ;;
-                    esac
-                    exec sleep "$delay"
-                env:
-                  - name: POD_NAME
-                    valueFrom: {fieldRef: {fieldPath: metadata.name}}
-                resources:
-                  requests: {cpu: 1m, memory: 4Mi}
-                  limits: {cpu: 100m, memory: 16Mi}
-                securityContext:
-                  allowPrivilegeEscalation: false
-                  readOnlyRootFilesystem: true
-                  capabilities: {drop: [ALL]}
+                    scale.nktp.io/run-id: '{{ $.Args.runId }}'
             containers:
               - name: traces
                 image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:v0.159.0@sha256:bad7fde3119476a9177cc4b9f04307c9876fca5b5584e009aebd7123d7557658
@@ -549,16 +443,17 @@ stages:
                   readOnlyRootFilesystem: true
                   capabilities: {drop: [ALL]}
 
-    - name: events
+    - name: events-{{ $cohort }}
+      start_delay: {{ $delay }}
       type: pod
       spec:
-        count: 100
+        count: {{ if eq $cohort 2 }}50{{ else }}25{{ end }}
         podTemplate:
           metadata:
             namespace: nktp
             labels:
               scale.nktp.io/workload: mixed-workload-events
-              scale.nktp.io/run-id: '{{ .Args.runId }}'
+              scale.nktp.io/run-id: '{{ $.Args.runId }}'
           spec:
             restartPolicy: Never
             activeDeadlineSeconds: 6600
@@ -574,29 +469,6 @@ stages:
                     labelSelector:
                       matchLabels:
                         scale.nktp.io/workload: mixed-workload-events
-            initContainers:
-              - name: ramp-up
-                image: ghcr.io/vectordotdev/vector:0.58.0-debian@sha256:1c1ea358c617ea0b23003d5af87f7a678b30f8f7096437e680380c47fc13d2d9
-                command: [/bin/sh, -ec]
-                args:
-                  - |
-                    ordinal=${POD_NAME##*-}
-                    case "$((ordinal % 4))" in
-                      0) delay=0 ;;
-                      1) delay=300 ;;
-                      *) delay=600 ;;
-                    esac
-                    exec sleep "$delay"
-                env:
-                  - name: POD_NAME
-                    valueFrom: {fieldRef: {fieldPath: metadata.name}}
-                resources:
-                  requests: {cpu: 1m, memory: 4Mi}
-                  limits: {cpu: 100m, memory: 16Mi}
-                securityContext:
-                  allowPrivilegeEscalation: false
-                  readOnlyRootFilesystem: true
-                  capabilities: {drop: [ALL]}
             containers:
               - name: k6-events
                 image: grafana/k6:2.3.0@sha256:9c2dee7f8ed74d317e4027c06a10f169b625638189de8d4555d0b3486a5aeb34
@@ -616,7 +488,7 @@ stages:
                   - name: NODE_NAME
                     valueFrom: {fieldRef: {fieldPath: spec.nodeName}}
                   - name: EVENT_RUN_ID
-                    value: '{{ .Args.runId }}'
+                    value: '{{ $.Args.runId }}'
                 resources:
                   requests: {cpu: 250m, memory: 512Mi}
                   limits: {cpu: '1', memory: 1Gi}
@@ -642,17 +514,18 @@ stages:
                         name: kube-root-ca.crt
                         items: [{key: ca.crt, path: ca.crt}]
 
-    - name: large-150k
+    - name: large-150k-{{ $cohort }}
+      start_delay: {{ $delay }}
       type: statefulset
       spec:
-        replicas: 24
+        replicas: {{ if eq $cohort 2 }}12{{ else }}6{{ end }}
         duration: 90m
         podTemplate:
           metadata:
             namespace: nktp
             labels:
               scale.nktp.io/workload: mixed-workload-large
-              scale.nktp.io/run-id: '{{ .Args.runId }}'
+              scale.nktp.io/run-id: '{{ $.Args.runId }}'
               scale.nktp.io/metric-bucket: 150k
           spec:
             restartPolicy: Always
@@ -668,29 +541,6 @@ stages:
                     labelSelector:
                       matchLabels:
                         scale.nktp.io/workload: mixed-workload-large
-            initContainers:
-              - name: ramp-up
-                image: ghcr.io/vectordotdev/vector:0.58.0-debian@sha256:1c1ea358c617ea0b23003d5af87f7a678b30f8f7096437e680380c47fc13d2d9
-                command: [/bin/sh, -ec]
-                args:
-                  - |
-                    ordinal=${POD_NAME##*-}
-                    case "$((ordinal % 4))" in
-                      0) delay=0 ;;
-                      1) delay=300 ;;
-                      *) delay=600 ;;
-                    esac
-                    exec sleep "$delay"
-                env:
-                  - name: POD_NAME
-                    valueFrom: {fieldRef: {fieldPath: metadata.name}}
-                resources:
-                  requests: {cpu: 1m, memory: 4Mi}
-                  limits: {cpu: 100m, memory: 16Mi}
-                securityContext:
-                  allowPrivilegeEscalation: false
-                  readOnlyRootFilesystem: true
-                  capabilities: {drop: [ALL]}
             containers:
               - name: avalanche-large
                 image: quay.io/prometheuscommunity/avalanche:v0.7.0@sha256:ea02e9599fcbb59a6fc7396656434faf200db7f1c259802e3dbb38cec81bd12a
@@ -718,17 +568,18 @@ stages:
                   readOnlyRootFilesystem: true
                   capabilities: {drop: [ALL]}
 
-    - name: large-300k
+    - name: large-300k-{{ $cohort }}
+      start_delay: {{ $delay }}
       type: statefulset
       spec:
-        replicas: 24
+        replicas: {{ if eq $cohort 2 }}12{{ else }}6{{ end }}
         duration: 90m
         podTemplate:
           metadata:
             namespace: nktp
             labels:
               scale.nktp.io/workload: mixed-workload-large
-              scale.nktp.io/run-id: '{{ .Args.runId }}'
+              scale.nktp.io/run-id: '{{ $.Args.runId }}'
               scale.nktp.io/metric-bucket: 300k
           spec:
             restartPolicy: Always
@@ -744,29 +595,6 @@ stages:
                     labelSelector:
                       matchLabels:
                         scale.nktp.io/workload: mixed-workload-large
-            initContainers:
-              - name: ramp-up
-                image: ghcr.io/vectordotdev/vector:0.58.0-debian@sha256:1c1ea358c617ea0b23003d5af87f7a678b30f8f7096437e680380c47fc13d2d9
-                command: [/bin/sh, -ec]
-                args:
-                  - |
-                    ordinal=${POD_NAME##*-}
-                    case "$((ordinal % 4))" in
-                      0) delay=0 ;;
-                      1) delay=300 ;;
-                      *) delay=600 ;;
-                    esac
-                    exec sleep "$delay"
-                env:
-                  - name: POD_NAME
-                    valueFrom: {fieldRef: {fieldPath: metadata.name}}
-                resources:
-                  requests: {cpu: 1m, memory: 4Mi}
-                  limits: {cpu: 100m, memory: 16Mi}
-                securityContext:
-                  allowPrivilegeEscalation: false
-                  readOnlyRootFilesystem: true
-                  capabilities: {drop: [ALL]}
             containers:
               - name: avalanche-large
                 image: quay.io/prometheuscommunity/avalanche:v0.7.0@sha256:ea02e9599fcbb59a6fc7396656434faf200db7f1c259802e3dbb38cec81bd12a
@@ -794,17 +622,18 @@ stages:
                   readOnlyRootFilesystem: true
                   capabilities: {drop: [ALL]}
 
-    - name: large-600k
+    - name: large-600k-{{ $cohort }}
+      start_delay: {{ $delay }}
       type: statefulset
       spec:
-        replicas: 6
+        replicas: 2
         duration: 90m
         podTemplate:
           metadata:
             namespace: nktp
             labels:
               scale.nktp.io/workload: mixed-workload-large
-              scale.nktp.io/run-id: '{{ .Args.runId }}'
+              scale.nktp.io/run-id: '{{ $.Args.runId }}'
               scale.nktp.io/metric-bucket: 600k
           spec:
             restartPolicy: Always
@@ -820,29 +649,6 @@ stages:
                     labelSelector:
                       matchLabels:
                         scale.nktp.io/workload: mixed-workload-large
-            initContainers:
-              - name: ramp-up
-                image: ghcr.io/vectordotdev/vector:0.58.0-debian@sha256:1c1ea358c617ea0b23003d5af87f7a678b30f8f7096437e680380c47fc13d2d9
-                command: [/bin/sh, -ec]
-                args:
-                  - |
-                    ordinal=${POD_NAME##*-}
-                    case "$((ordinal % 4))" in
-                      0) delay=0 ;;
-                      1) delay=300 ;;
-                      *) delay=600 ;;
-                    esac
-                    exec sleep "$delay"
-                env:
-                  - name: POD_NAME
-                    valueFrom: {fieldRef: {fieldPath: metadata.name}}
-                resources:
-                  requests: {cpu: 1m, memory: 4Mi}
-                  limits: {cpu: 100m, memory: 16Mi}
-                securityContext:
-                  allowPrivilegeEscalation: false
-                  readOnlyRootFilesystem: true
-                  capabilities: {drop: [ALL]}
             containers:
               - name: avalanche-large
                 image: quay.io/prometheuscommunity/avalanche:v0.7.0@sha256:ea02e9599fcbb59a6fc7396656434faf200db7f1c259802e3dbb38cec81bd12a
@@ -869,6 +675,7 @@ stages:
                   allowPrivilegeEscalation: false
                   readOnlyRootFilesystem: true
                   capabilities: {drop: [ALL]}
+    {{- end }}
 
     measurement:
       type: prometheus

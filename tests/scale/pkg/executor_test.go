@@ -100,6 +100,79 @@ func TestStageScheduling(t *testing.T) {
 	}
 }
 
+// TestGeneratorStartDelay checks delayed creation and overlap with earlier load.
+func TestGeneratorStartDelay(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		start := time.Now()
+		started, stopped := [2]time.Duration{}, [2]time.Duration{}
+		stage := preparedStage{name: "load", measurement: completionFunc(func(context.Context) (measurements.Report, error) {
+			time.Sleep(6 * time.Minute)
+			return nil, nil
+		})}
+		for i, delay := range []time.Duration{0, 5 * time.Minute} {
+			stage.generators = append(stage.generators, preparedGenerator{
+				startDelay: delay,
+				generator: generatorFunc(func(ctx context.Context) error {
+					started[i] = time.Since(start)
+					<-ctx.Done()
+					stopped[i] = time.Since(start)
+					return ctx.Err()
+				}),
+			})
+		}
+		_, err := executeStages(t.Context(), slog.Default(), []preparedStage{stage})
+		require.NoError(t, err)
+		assert.Equal(t, [2]time.Duration{0, 5 * time.Minute}, started)
+		assert.Equal(t, [2]time.Duration{6 * time.Minute, 6 * time.Minute}, stopped)
+	})
+}
+
+// TestGeneratorDelayCancellation checks waiting generators never acquire resources.
+func TestGeneratorDelayCancellation(t *testing.T) {
+	failure := errors.New("measurement failed")
+	for _, tc := range []struct {
+		name     string
+		deadline bool
+		want     error
+	}{
+		{name: "target reached"},
+		{name: "measurement failed", want: failure},
+		{name: "deadline", deadline: true, want: context.DeadlineExceeded},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				ctx := t.Context()
+				if tc.deadline {
+					var cancel context.CancelFunc
+					ctx, cancel = context.WithTimeout(ctx, time.Minute)
+					defer cancel()
+				}
+				started := false
+				stage := preparedStage{
+					name: "load",
+					generators: []preparedGenerator{{startDelay: 5 * time.Minute, generator: generatorFunc(func(context.Context) error {
+						started = true
+						return nil
+					})}},
+					measurement: completionFunc(func(ctx context.Context) (measurements.Report, error) {
+						if tc.deadline {
+							<-ctx.Done()
+							return nil, ctx.Err()
+						}
+						time.Sleep(time.Minute)
+						return nil, tc.want
+					}),
+				}
+				start := time.Now()
+				_, err := executeStages(ctx, slog.Default(), []preparedStage{stage})
+				assert.ErrorIs(t, err, tc.want)
+				assert.False(t, started)
+				assert.Equal(t, time.Minute, time.Since(start))
+			})
+		})
+	}
+}
+
 // TestStageFailureStopsPlan checks peer cancellation, cleanup and partial findings.
 func TestStageFailureStopsPlan(t *testing.T) {
 	for _, source := range []string{"generator", "measurement"} {

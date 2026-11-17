@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/scale/pkg/internal/lifecycle"
 	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/scale/pkg/measurements"
@@ -112,6 +113,8 @@ type preparedStage struct {
 type preparedGenerator struct {
 	// name identifies the generator within its stage.
 	name string
+	// startDelay postpones resource creation from stage start.
+	startDelay time.Duration
 	// generator owns the workload and its cleanup.
 	generator generator
 }
@@ -126,7 +129,7 @@ func prepareStages(stages []Stage, kubeconfig string) ([]preparedStage, error) {
 			if err != nil {
 				return nil, fmt.Errorf("stage %q generator %q: %w", stage.Name, spec.Name, err)
 			}
-			p.generators = append(p.generators, preparedGenerator{name: spec.Name, generator: g})
+			p.generators = append(p.generators, preparedGenerator{name: spec.Name, startDelay: spec.StartDelay, generator: g})
 		}
 		if stage.Measurement != nil {
 			m, err := newMeasurement(*stage.Measurement)
@@ -187,6 +190,14 @@ func executeStage(ctx context.Context, logger *slog.Logger, stage preparedStage)
 	for i, g := range stage.generators {
 		report.Generators[i].Name = g.name
 		wg.Go(func() {
+			if g.startDelay > 0 {
+				timer := time.NewTimer(g.startDelay)
+				defer timer.Stop()
+				select {
+				case <-stageCtx.Done():
+				case <-timer.C:
+				}
+			}
 			err := stageCtx.Err()
 			if err == nil {
 				err = g.generator.Run(stageCtx)

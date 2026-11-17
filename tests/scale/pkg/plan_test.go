@@ -33,7 +33,8 @@ stages:
 
 // TestParse checks named components and stage declaration order.
 func TestParse(t *testing.T) {
-	plan, err := Parse([]byte(planYAML), nil)
+	data := strings.Replace(planYAML, "name: load", "name: load, start_delay: 10s", 1)
+	plan, err := Parse([]byte(data), nil)
 	require.NoError(t, err)
 	assert.Equal(t, time.Minute, plan.Timeout)
 	require.Len(t, plan.Stages, 2)
@@ -41,6 +42,11 @@ func TestParse(t *testing.T) {
 	assert.Equal(t, "load", plan.Stages[0].Generators[0].Name)
 	assert.Equal(t, "pod", plan.Stages[0].Generators[0].Type)
 	assert.Equal(t, "second", plan.Stages[1].Name)
+	assert.Equal(t, 10*time.Second, plan.Stages[0].Generators[0].StartDelay)
+	assert.Zero(t, plan.Stages[1].Generators[0].StartDelay)
+	stages, err := prepareStages(plan.Stages, "/example/kubeconfig")
+	require.NoError(t, err)
+	assert.Equal(t, 10*time.Second, stages[0].generators[0].startDelay)
 }
 
 // TestParseRejectsInvalidDocuments checks syntax, envelope fields and topology.
@@ -66,6 +72,7 @@ func TestParseRejectsInvalidDocuments(t *testing.T) {
 		{name: "duplicate stage name", data: strings.Replace(planYAML, "name: second", "name: first", 1), want: "duplicate stage"},
 		{name: "missing generator name", data: strings.Replace(planYAML, "name: load", "name: ''", 1), want: "generators[0].name"},
 		{name: "duplicate generator name", data: strings.Replace(planYAML, "generators:", "generators:\n      - {name: load, type: pod}", 1), want: "duplicate generator name"},
+		{name: "negative start delay", data: strings.Replace(planYAML, "name: load", "name: load, start_delay: -1s", 1), want: "start_delay must not be negative"},
 		{name: "missing generator type", data: strings.Replace(planYAML, "type: pod", "type: ''", 1), want: "requires type"},
 		{name: "missing measurement type", data: strings.Replace(planYAML, "measurement: {type: prometheus, spec: {endpoint: http://127.0.0.1:1, duration: 100ms, interval: 5ms, measurements: [{name: available, query: up}]}}", "measurement: {}", 1), want: "measurement.type"},
 		{name: "empty stage", data: "name: empty\ntimeout: 1m\nstages: [{name: empty}]\n", want: "requires generators or a measurement"},

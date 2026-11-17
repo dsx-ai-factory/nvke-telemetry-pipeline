@@ -33,9 +33,11 @@ type Stage struct {
 	Measurement *ComponentSpec  `yaml:"measurement,omitempty"`
 }
 
-// GeneratorSpec names a generator within its stage.
+// GeneratorSpec names a generator within its stage and optionally delays its start.
 type GeneratorSpec struct {
-	Name          string `yaml:"name"`
+	Name string `yaml:"name"`
+	// StartDelay postpones Run from stage start and must not be negative.
+	StartDelay    time.Duration `yaml:"start_delay,omitempty"`
 	ComponentSpec `yaml:",inline"`
 }
 
@@ -111,6 +113,9 @@ func (p Plan) validate() error {
 				return fmt.Errorf("stage %q has duplicate generator name %q", stage.Name, generator.Name)
 			}
 			generatorNames[generator.Name] = true
+			if generator.StartDelay < 0 {
+				return fmt.Errorf("stage %q generator %q start_delay must not be negative", stage.Name, generator.Name)
+			}
 			if generator.Type == "" {
 				return fmt.Errorf("stage %q generator %q requires type", stage.Name, generator.Name)
 			}
