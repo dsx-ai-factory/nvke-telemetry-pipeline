@@ -90,12 +90,19 @@ tasks:
           CLI_ARGS: "{{.CLI_ARGS}}"
 
   test:
-    desc: "Run the NKTP chart unit tests (pass flags: task test -- -u)"
+    desc: "Run the NKTP chart unit tests and client-side apply check (pass flags: task test -- -u)"
     cmds:
       - task: chart:deps
       - helm unittest {{.CLI_ARGS}} nktp
       # CLI_ARGS go to the main run only, so a -o report is not overwritten by this run.
       - helm unittest --skip-schema-validation -f 'tests/skip-schema-validation/*_test.yaml' nktp
+      - task: test:client-side-apply
+
+  test:client-side-apply:
+    desc: Check all rendered objects against the client-side apply annotation limit
+    dir: tests
+    cmds:
+      - go test -tags integration -count=1 -run '^TestClientSideApply' ./integration
 
   blueprints:
     desc: Package blueprints/ as the default blueprints in nktp/values.yaml

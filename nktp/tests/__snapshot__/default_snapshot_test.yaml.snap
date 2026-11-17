@@ -4526,6 +4526,13 @@ matches the snapshot with default values:
             }
           ]
         }
+    kind: ConfigMap
+    metadata:
+      name: lgtm-dashboard-nktp-cluster-events
+      namespace: NAMESPACE
+  78: |
+    apiVersion: v1
+    data:
       nktp-daemonset.json: |
         {
           "uid": "nktp-daemonset",
@@ -5270,6 +5277,13 @@ matches the snapshot with default values:
             }
           ]
         }
+    kind: ConfigMap
+    metadata:
+      name: lgtm-dashboard-nktp-daemonset
+      namespace: NAMESPACE
+  79: |
+    apiVersion: v1
+    data:
       nktp-gateway-logs.json: |
         {
           "uid": "nktp-gateway-logs",
@@ -5771,6 +5785,13 @@ matches the snapshot with default values:
             }
           ]
         }
+    kind: ConfigMap
+    metadata:
+      name: lgtm-dashboard-nktp-gateway-logs
+      namespace: NAMESPACE
+  80: |
+    apiVersion: v1
+    data:
       nktp-gateway-metrics.json: |
         {
           "uid": "nktp-gateway-metrics",
@@ -6272,6 +6293,13 @@ matches the snapshot with default values:
             }
           ]
         }
+    kind: ConfigMap
+    metadata:
+      name: lgtm-dashboard-nktp-gateway-metrics
+      namespace: NAMESPACE
+  81: |
+    apiVersion: v1
+    data:
       nktp-gateway-traces.json: |
         {
           "uid": "nktp-gateway-traces",
@@ -6773,6 +6801,13 @@ matches the snapshot with default values:
             }
           ]
         }
+    kind: ConfigMap
+    metadata:
+      name: lgtm-dashboard-nktp-gateway-traces
+      namespace: NAMESPACE
+  82: |
+    apiVersion: v1
+    data:
       nktp-health.json: |
         {
           "uid": "nktp-health",
@@ -11228,6 +11263,13 @@ matches the snapshot with default values:
             }
           ]
         }
+    kind: ConfigMap
+    metadata:
+      name: lgtm-dashboard-nktp-health
+      namespace: NAMESPACE
+  83: |
+    apiVersion: v1
+    data:
       nktp-large-target-metrics.json: |
         {
           "uid": "nktp-large-target-metrics",
@@ -12839,6 +12881,13 @@ matches the snapshot with default values:
             }
           ]
         }
+    kind: ConfigMap
+    metadata:
+      name: lgtm-dashboard-nktp-large-target-metrics
+      namespace: NAMESPACE
+  84: |
+    apiVersion: v1
+    data:
       nktp-nodeless-metrics.json: |
         {
           "uid": "nktp-nodeless-metrics",
@@ -13665,6 +13714,13 @@ matches the snapshot with default values:
             }
           ]
         }
+    kind: ConfigMap
+    metadata:
+      name: lgtm-dashboard-nktp-nodeless-metrics
+      namespace: NAMESPACE
+  85: |
+    apiVersion: v1
+    data:
       nktp-operator.json: |
         {
           "uid": "nktp-operator",
@@ -13779,6 +13835,13 @@ matches the snapshot with default values:
             }
           ]
         }
+    kind: ConfigMap
+    metadata:
+      name: lgtm-dashboard-nktp-operator
+      namespace: NAMESPACE
+  86: |
+    apiVersion: v1
+    data:
       nktp-watchdog.json: |
         {
           "uid": "nktp-watchdog",
@@ -14428,6 +14491,13 @@ matches the snapshot with default values:
             }
           ]
         }
+    kind: ConfigMap
+    metadata:
+      name: lgtm-dashboard-nktp-watchdog
+      namespace: NAMESPACE
+  87: |
+    apiVersion: v1
+    data:
       otel-lgtm-health.json: |
         {
           "uid": "otel-lgtm-health",
@@ -14488,9 +14558,9 @@ matches the snapshot with default values:
         }
     kind: ConfigMap
     metadata:
-      name: lgtm-dashboards
+      name: lgtm-dashboard-otel-lgtm-health
       namespace: NAMESPACE
-  78: |
+  88: |
     apiVersion: v1
     kind: Service
     metadata:
@@ -14516,7 +14586,7 @@ matches the snapshot with default values:
           targetPort: 4318
       selector:
         app: lgtm
-  79: |
+  89: |
     apiVersion: apps/v1
     kind: Deployment
     metadata:
@@ -14578,9 +14648,31 @@ matches the snapshot with default values:
             - configMap:
                 name: lgtm-dashboard-provider
               name: dashboard-provider
-            - configMap:
-                name: lgtm-dashboards
-              name: dashboards
+            - name: dashboards
+              projected:
+                sources:
+                  - configMap:
+                      name: lgtm-dashboard-nktp-cluster-events
+                  - configMap:
+                      name: lgtm-dashboard-nktp-daemonset
+                  - configMap:
+                      name: lgtm-dashboard-nktp-gateway-logs
+                  - configMap:
+                      name: lgtm-dashboard-nktp-gateway-metrics
+                  - configMap:
+                      name: lgtm-dashboard-nktp-gateway-traces
+                  - configMap:
+                      name: lgtm-dashboard-nktp-health
+                  - configMap:
+                      name: lgtm-dashboard-nktp-large-target-metrics
+                  - configMap:
+                      name: lgtm-dashboard-nktp-nodeless-metrics
+                  - configMap:
+                      name: lgtm-dashboard-nktp-operator
+                  - configMap:
+                      name: lgtm-dashboard-nktp-watchdog
+                  - configMap:
+                      name: lgtm-dashboard-otel-lgtm-health
             - emptyDir: {}
               name: tempo-data
             - emptyDir: {}
@@ -14593,7 +14685,7 @@ matches the snapshot with default values:
               name: p8s-storage
             - emptyDir: {}
               name: pyroscope-storage
-  80: |
+  90: |
     apiVersion: scheduling.k8s.io/v1
     description: Prioritizes NKTP telemetry below Kubernetes system-critical Pods.
     globalDefault: false
@@ -14602,7 +14694,7 @@ matches the snapshot with default values:
       name: nktp-telemetry-critical
     preemptionPolicy: PreemptLowerPriority
     value: 1000000000
-  81: |
+  91: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRoleBinding
     metadata:
@@ -14615,7 +14707,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-watchdog-collector
         namespace: NAMESPACE
-  82: |
+  92: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: Role
     metadata:
@@ -14639,7 +14731,7 @@ matches the snapshot with default values:
           - get
           - list
           - watch
-  83: |
+  93: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: RoleBinding
     metadata:
@@ -14653,7 +14745,7 @@ matches the snapshot with default values:
       - kind: ServiceAccount
         name: nktp-watchdog-targetallocator
         namespace: NAMESPACE
-  84: |
+  94: |
     apiVersion: opentelemetry.io/v1beta1
     kind: OpenTelemetryCollector
     metadata:

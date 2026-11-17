@@ -36,6 +36,10 @@ self-telemetry sidecar. Panels that show replicas show the 20 largest. A
 includes the kube-state-metrics scrape panels: samples, sample-count growth,
 duration, watch errors and shard coverage.
 
+Each bundled dashboard is stored in its own ConfigMap so the dashboard set
+can be installed with client-side apply, including Argo CD's default sync.
+The ConfigMaps are projected into Grafana's dashboard directory.
+
 See the [dashboards README](../../nktp/dashboards/README.md) for every
 dashboard and how to import them into your own Grafana.
 

@@ -37,14 +37,17 @@ data:
   wipe-defaults.yaml: |
     apiVersion: 1
     providers: []
+{{- /* Keep each dashboard below the client-side apply annotation limit. */}}
+{{- range $path, $_ := .Files.Glob "dashboards/default/*.json" }}
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: lgtm-dashboards
-  namespace: {{ .Release.Namespace }}
+  name: lgtm-dashboard-{{ base $path | trimSuffix ".json" }}
+  namespace: {{ $.Release.Namespace }}
 data:
-{{ (.Files.Glob "dashboards/default/*.json").AsConfig | indent 2 }}
+{{ ($.Files.Glob $path).AsConfig | indent 2 }}
+{{- end }}
 ---
 apiVersion: v1
 kind: Service
@@ -174,8 +177,12 @@ spec:
           configMap:
             name: lgtm-dashboard-provider
         - name: dashboards
-          configMap:
-            name: lgtm-dashboards
+          projected:
+            sources:
+              {{- range $path, $_ := .Files.Glob "dashboards/default/*.json" }}
+              - configMap:
+                  name: lgtm-dashboard-{{ base $path | trimSuffix ".json" }}
+              {{- end }}
         - name: tempo-data
           emptyDir: {}
         - name: loki-data

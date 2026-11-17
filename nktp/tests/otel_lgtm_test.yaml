@@ -17,7 +17,7 @@ tests:
       - containsDocument:
           apiVersion: v1
           kind: ConfigMap
-          name: lgtm-dashboards
+          name: lgtm-dashboard-nktp-health
           any: true
       - containsDocument:
           apiVersion: v1
@@ -25,10 +25,49 @@ tests:
           name: lgtm-dashboard-provider
           any: true
 
-  - it: provisions the combined health dashboard with workload state and diagnostic signals
+  - it: projects dashboard files into the existing Grafana directory
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: dashboards
+            projected:
+              sources:
+                - configMap:
+                    name: lgtm-dashboard-nktp-cluster-events
+                - configMap:
+                    name: lgtm-dashboard-nktp-daemonset
+                - configMap:
+                    name: lgtm-dashboard-nktp-gateway-logs
+                - configMap:
+                    name: lgtm-dashboard-nktp-gateway-metrics
+                - configMap:
+                    name: lgtm-dashboard-nktp-gateway-traces
+                - configMap:
+                    name: lgtm-dashboard-nktp-health
+                - configMap:
+                    name: lgtm-dashboard-nktp-large-target-metrics
+                - configMap:
+                    name: lgtm-dashboard-nktp-nodeless-metrics
+                - configMap:
+                    name: lgtm-dashboard-nktp-operator
+                - configMap:
+                    name: lgtm-dashboard-nktp-watchdog
+                - configMap:
+                    name: lgtm-dashboard-otel-lgtm-health
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: dashboards
+            mountPath: /otel-lgtm/dashboards-nktp
+
+  - it: provisions the combined health dashboard with workload state and diagnostic signals (nktp-health)
     documentSelector:
       path: metadata.name
-      value: lgtm-dashboards
+      value: lgtm-dashboard-nktp-health
     asserts:
       - matchRegex:
           path: data["nktp-health.json"]
@@ -43,19 +82,25 @@ tests:
           path: data["nktp-health.json"]
           pattern: 'controller_runtime_reconcile_errors_total'
       - matchRegex:
-          path: data["nktp-large-target-metrics.json"]
-          pattern: 'kube_state_metrics_watch_total'
-      - matchRegex:
           path: data["nktp-health.json"]
           pattern: '"type": "logs"'
       - matchRegex:
           path: data["nktp-health.json"]
           pattern: '"queryType": "traceql"'
 
+  - it: provisions the combined health dashboard with workload state and diagnostic signals (nktp-large-target-metrics)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-large-target-metrics
+    asserts:
+      - matchRegex:
+          path: data["nktp-large-target-metrics.json"]
+          pattern: 'kube_state_metrics_watch_total'
+
   - it: searches diagnostic log text without interpreting user input as LogQL or regex
     documentSelector:
       path: metadata.name
-      value: lgtm-dashboards
+      value: lgtm-dashboard-nktp-health
     asserts:
       - matchRegex:
           path: data["nktp-health.json"]
@@ -70,7 +115,7 @@ tests:
   - it: preserves unknown health and bounds per-target health detail
     documentSelector:
       path: metadata.name
-      value: lgtm-dashboards
+      value: lgtm-dashboard-nktp-health
     asserts:
       - matchRegex:
           path: data["nktp-health.json"]
@@ -91,10 +136,10 @@ tests:
           path: data["nktp-health.json"]
           pattern: 'or vector\(0\)|targets_unassigned|timestamp\('
 
-  - it: shows measured export delays and KSM object scrape growth
+  - it: shows measured export delays and KSM object scrape growth (nktp-health)
     documentSelector:
       path: metadata.name
-      value: lgtm-dashboards
+      value: lgtm-dashboard-nktp-health
     asserts:
       - matchRegex:
           path: data["nktp-health.json"]
@@ -108,12 +153,18 @@ tests:
       - matchRegex:
           path: data["nktp-health.json"]
           pattern: 'exporter/enqueue'
-      - matchRegex:
-          path: data["nktp-large-target-metrics.json"]
-          pattern: 'delta\(\(scrape_samples_scraped.*endpoint=\\"http-metrics\\".*up.*== 1'
       - notMatchRegex:
           path: data["nktp-health.json"]
           pattern: 'rate\(scrape_samples|scrape_body_size_bytes|scrape_timeout_seconds|scrape_sample_limit|"step": "\$__interval"'
+
+  - it: shows measured export delays and KSM object scrape growth (nktp-large-target-metrics)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-large-target-metrics
+    asserts:
+      - matchRegex:
+          path: data["nktp-large-target-metrics.json"]
+          pattern: 'delta\(\(scrape_samples_scraped.*endpoint=\\"http-metrics\\".*up.*== 1'
       - notMatchRegex:
           path: data["nktp-large-target-metrics.json"]
           pattern: 'rate\(scrape_samples|scrape_body_size_bytes|scrape_timeout_seconds|scrape_sample_limit|"step": "\$__interval"'
@@ -121,7 +172,7 @@ tests:
   - it: shows collected container budgets without unavailable usage columns
     documentSelector:
       path: metadata.name
-      value: lgtm-dashboards
+      value: lgtm-dashboard-nktp-health
     asserts:
       - matchRegex:
           path: data["nktp-health.json"]
@@ -145,10 +196,10 @@ tests:
           path: data["nktp-health.json"]
           pattern: 'container_cpu_usage_seconds_total|container_memory_working_set_bytes|0 / 0|"match": "nan"|"Usage"|"Request use"|"Limit use"'
 
-  - it: shows allocation means and measured KSM and node-exporter diagnostics
+  - it: shows allocation means and measured KSM and node-exporter diagnostics (nktp-health)
     documentSelector:
       path: metadata.name
-      value: lgtm-dashboards
+      value: lgtm-dashboard-nktp-health
     asserts:
       - matchRegex:
           path: data["nktp-health.json"]
@@ -159,15 +210,6 @@ tests:
       - notMatchRegex:
           path: data["nktp-health.json"]
           pattern: 'kube_state_metrics_list_total'
-      - notMatchRegex:
-          path: data["nktp-large-target-metrics.json"]
-          pattern: 'kube_state_metrics_list_total'
-      - matchRegex:
-          path: data["nktp-large-target-metrics.json"]
-          pattern: 'count by \(job, shard_ordinal\).*kube_state_metrics_shard_ordinal.*job!=\\"\$namespace/nktp-ksm-pods\\"'
-      - matchRegex:
-          path: data["nktp-large-target-metrics.json"]
-          pattern: 'kube_state_metrics_total_shards'
       - matchRegex:
           path: data["nktp-health.json"]
           pattern: 'node_scrape_collector_success'
@@ -178,10 +220,25 @@ tests:
           path: data["nktp-health.json"]
           pattern: 'rate\(node_scrape_collector_(success|duration)'
 
-  - it: provisions the operator dashboard
+  - it: shows allocation means and measured KSM and node-exporter diagnostics (nktp-large-target-metrics)
     documentSelector:
       path: metadata.name
-      value: lgtm-dashboards
+      value: lgtm-dashboard-nktp-large-target-metrics
+    asserts:
+      - notMatchRegex:
+          path: data["nktp-large-target-metrics.json"]
+          pattern: 'kube_state_metrics_list_total'
+      - matchRegex:
+          path: data["nktp-large-target-metrics.json"]
+          pattern: 'count by \(job, shard_ordinal\).*kube_state_metrics_shard_ordinal.*job!=\\"\$namespace/nktp-ksm-pods\\"'
+      - matchRegex:
+          path: data["nktp-large-target-metrics.json"]
+          pattern: 'kube_state_metrics_total_shards'
+
+  - it: provisions the operator dashboard (nktp-operator)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-operator
     asserts:
       - matchRegex:
           path: data["nktp-operator.json"]
@@ -198,6 +255,12 @@ tests:
       - notMatchRegex:
           path: data["nktp-operator.json"]
           pattern: 'up\{|opentelemetry_allocator'
+
+  - it: provisions the operator dashboard (nktp-watchdog)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-watchdog
+    asserts:
       - matchRegex:
           path: data["nktp-watchdog.json"]
           pattern: 'sum\(up\{job=\\"nktp-operator\\"\}\)'
@@ -211,7 +274,7 @@ tests:
   - it: includes every operator pod and retains per-pod event and latency series
     documentSelector:
       path: metadata.name
-      value: lgtm-dashboards
+      value: lgtm-dashboard-nktp-operator
     asserts:
       - notMatchRegex:
           path: data["nktp-operator.json"]
@@ -232,7 +295,7 @@ tests:
   - it: provisions the logs gateway dashboard
     documentSelector:
       path: metadata.name
-      value: lgtm-dashboards
+      value: lgtm-dashboard-nktp-gateway-logs
     asserts:
       - matchRegex:
           path: data["nktp-gateway-logs.json"]
@@ -250,7 +313,7 @@ tests:
   - it: provisions the metrics gateway dashboard
     documentSelector:
       path: metadata.name
-      value: lgtm-dashboards
+      value: lgtm-dashboard-nktp-gateway-metrics
     asserts:
       - matchRegex:
           path: data["nktp-gateway-metrics.json"]
@@ -268,7 +331,7 @@ tests:
   - it: provisions the traces gateway dashboard
     documentSelector:
       path: metadata.name
-      value: lgtm-dashboards
+      value: lgtm-dashboard-nktp-gateway-traces
     asserts:
       - matchRegex:
           path: data["nktp-gateway-traces.json"]
@@ -286,7 +349,7 @@ tests:
   - it: provisions cluster event activity and leadership logs without requiring scraped metrics
     documentSelector:
       path: metadata.name
-      value: lgtm-dashboards
+      value: lgtm-dashboard-nktp-cluster-events
     asserts:
       - matchRegex:
           path: data["nktp-cluster-events.json"]
@@ -319,7 +382,7 @@ tests:
   - it: provisions large-target metrics and Target Allocator health
     documentSelector:
       path: metadata.name
-      value: lgtm-dashboards
+      value: lgtm-dashboard-nktp-large-target-metrics
     asserts:
       - matchRegex:
           path: data["nktp-large-target-metrics.json"]
@@ -337,7 +400,7 @@ tests:
   - it: provisions nodeless metrics with per-target and Probe health
     documentSelector:
       path: metadata.name
-      value: lgtm-dashboards
+      value: lgtm-dashboard-nktp-nodeless-metrics
     asserts:
       - matchRegex:
           path: data["nktp-nodeless-metrics.json"]
@@ -364,7 +427,7 @@ tests:
   - it: includes the nodeless pool in NKTP Health
     documentSelector:
       path: metadata.name
-      value: lgtm-dashboards
+      value: lgtm-dashboard-nktp-health
     asserts:
       - matchRegex:
           path: data["nktp-health.json"]
@@ -382,7 +445,7 @@ tests:
   - it: shows current large-target scrape samples and matched durations
     documentSelector:
       path: metadata.name
-      value: lgtm-dashboards
+      value: lgtm-dashboard-nktp-large-target-metrics
     asserts:
       - matchRegex:
           path: data["nktp-large-target-metrics.json"]
@@ -418,7 +481,7 @@ tests:
       - containsDocument:
           apiVersion: v1
           kind: ConfigMap
-          name: lgtm-dashboards
+          name: lgtm-dashboard-nktp-health
         not: true
       - containsDocument:
           apiVersion: v1
@@ -936,7 +999,7 @@ tests:
   - it: provisions the DaemonSet and Target Allocator dashboard
     documentSelector:
       path: metadata.name
-      value: lgtm-dashboards
+      value: lgtm-dashboard-nktp-daemonset
     asserts:
       - matchRegex:
           path: data["nktp-daemonset.json"]
@@ -975,40 +1038,82 @@ tests:
       - hasDocuments:
           count: 0
 
-  - it: separates sidecar queries from Collector queries on every dashboard
+  - it: separates sidecar queries from Collector queries on every dashboard (nktp-health)
     documentSelector:
       path: metadata.name
-      value: lgtm-dashboards
+      value: lgtm-dashboard-nktp-health
     asserts:
       - notMatchRegex:
           path: data["nktp-health.json"]
           pattern: '\(-sidecar\)\?'
+
+  - it: separates sidecar queries from Collector queries on every dashboard (nktp-watchdog)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-watchdog
+    asserts:
       - notMatchRegex:
           path: data["nktp-watchdog.json"]
           pattern: '\(-sidecar\)\?'
+
+  - it: separates sidecar queries from Collector queries on every dashboard (nktp-gateway-logs)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-gateway-logs
+    asserts:
       - notMatchRegex:
           path: data["nktp-gateway-logs.json"]
           pattern: '\(-sidecar\)\?'
+
+  - it: separates sidecar queries from Collector queries on every dashboard (nktp-gateway-metrics)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-gateway-metrics
+    asserts:
       - notMatchRegex:
           path: data["nktp-gateway-metrics.json"]
           pattern: '\(-sidecar\)\?'
+
+  - it: separates sidecar queries from Collector queries on every dashboard (nktp-gateway-traces)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-gateway-traces
+    asserts:
       - notMatchRegex:
           path: data["nktp-gateway-traces.json"]
           pattern: '\(-sidecar\)\?'
+
+  - it: separates sidecar queries from Collector queries on every dashboard (nktp-daemonset)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-daemonset
+    asserts:
       - notMatchRegex:
           path: data["nktp-daemonset.json"]
           pattern: '\(-sidecar\)\?'
+
+  - it: separates sidecar queries from Collector queries on every dashboard (nktp-large-target-metrics)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-large-target-metrics
+    asserts:
       - notMatchRegex:
           path: data["nktp-large-target-metrics.json"]
           pattern: '\(-sidecar\)\?'
+
+  - it: separates sidecar queries from Collector queries on every dashboard (nktp-cluster-events)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-cluster-events
+    asserts:
       - notMatchRegex:
           path: data["nktp-cluster-events.json"]
           pattern: '\(-sidecar\)\?'
 
-  - it: shows all three signals for each sidecar
+  - it: shows all three signals for each sidecar (nktp-health)
     documentSelector:
       path: metadata.name
-      value: lgtm-dashboards
+      value: lgtm-dashboard-nktp-health
     asserts:
       - matchRegex:
           path: data["nktp-health.json"]
@@ -1028,6 +1133,12 @@ tests:
       - matchRegex:
           path: data["nktp-health.json"]
           pattern: 'otelcol_receiver_refused_spans_total\{job=~\\"nktp-\(daemonset\|cluster-events\|gateway-\(logs\|metrics\|traces\)\|large-target-metrics\|nodeless-metrics\|watchdog\)-sidecar\\"'
+
+  - it: shows all three signals for each sidecar (nktp-watchdog)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-watchdog
+    asserts:
       - matchRegex:
           path: data["nktp-watchdog.json"]
           pattern: 'otelcol_exporter_send_failed_metric_points_total\{job=\\"nktp-watchdog-sidecar\\"\}'
@@ -1049,6 +1160,12 @@ tests:
       - matchRegex:
           path: data["nktp-watchdog.json"]
           pattern: 'max by \(data_type\) \(otelcol_exporter_queue_size\{job=\\"nktp-watchdog-sidecar\\"\} / otelcol_exporter_queue_capacity'
+
+  - it: shows all three signals for each sidecar (nktp-gateway-logs)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-gateway-logs
+    asserts:
       - matchRegex:
           path: data["nktp-gateway-logs.json"]
           pattern: 'otelcol_exporter_send_failed_metric_points_total\{job=\\"nktp-gateway-logs-sidecar\\"\}'
@@ -1070,6 +1187,12 @@ tests:
       - matchRegex:
           path: data["nktp-gateway-logs.json"]
           pattern: 'max by \(data_type\) \(otelcol_exporter_queue_size\{job=\\"nktp-gateway-logs-sidecar\\"\} / otelcol_exporter_queue_capacity'
+
+  - it: shows all three signals for each sidecar (nktp-gateway-metrics)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-gateway-metrics
+    asserts:
       - matchRegex:
           path: data["nktp-gateway-metrics.json"]
           pattern: 'otelcol_exporter_send_failed_metric_points_total\{job=\\"nktp-gateway-metrics-sidecar\\"\}'
@@ -1091,6 +1214,12 @@ tests:
       - matchRegex:
           path: data["nktp-gateway-metrics.json"]
           pattern: 'max by \(data_type\) \(otelcol_exporter_queue_size\{job=\\"nktp-gateway-metrics-sidecar\\"\} / otelcol_exporter_queue_capacity'
+
+  - it: shows all three signals for each sidecar (nktp-gateway-traces)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-gateway-traces
+    asserts:
       - matchRegex:
           path: data["nktp-gateway-traces.json"]
           pattern: 'otelcol_exporter_send_failed_metric_points_total\{job=\\"nktp-gateway-traces-sidecar\\"\}'
@@ -1112,6 +1241,12 @@ tests:
       - matchRegex:
           path: data["nktp-gateway-traces.json"]
           pattern: 'max by \(data_type\) \(otelcol_exporter_queue_size\{job=\\"nktp-gateway-traces-sidecar\\"\} / otelcol_exporter_queue_capacity'
+
+  - it: shows all three signals for each sidecar (nktp-daemonset)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-daemonset
+    asserts:
       - matchRegex:
           path: data["nktp-daemonset.json"]
           pattern: 'otelcol_exporter_send_failed_metric_points_total\{job=\\"nktp-daemonset-sidecar\\"\}'
@@ -1133,6 +1268,12 @@ tests:
       - matchRegex:
           path: data["nktp-daemonset.json"]
           pattern: 'max by \(data_type\) \(otelcol_exporter_queue_size\{job=\\"nktp-daemonset-sidecar\\"\} / otelcol_exporter_queue_capacity'
+
+  - it: shows all three signals for each sidecar (nktp-large-target-metrics)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-large-target-metrics
+    asserts:
       - matchRegex:
           path: data["nktp-large-target-metrics.json"]
           pattern: 'otelcol_exporter_send_failed_metric_points_total\{job=\\"nktp-large-target-metrics-sidecar\\"\}'
@@ -1154,6 +1295,12 @@ tests:
       - matchRegex:
           path: data["nktp-large-target-metrics.json"]
           pattern: 'max by \(data_type\) \(otelcol_exporter_queue_size\{job=\\"nktp-large-target-metrics-sidecar\\"\} / otelcol_exporter_queue_capacity'
+
+  - it: shows all three signals for each sidecar (nktp-cluster-events)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-cluster-events
+    asserts:
       - matchRegex:
           path: data["nktp-cluster-events.json"]
           pattern: 'otelcol_exporter_send_failed_metric_points_total\{job=\\"nktp-cluster-events-sidecar\\"\}'
@@ -1176,10 +1323,10 @@ tests:
           path: data["nktp-cluster-events.json"]
           pattern: 'max by \(data_type\) \(otelcol_exporter_queue_size\{job=\\"nktp-cluster-events-sidecar\\"\} / otelcol_exporter_queue_capacity'
 
-  - it: gives every Collector dashboard the same pipeline, resources and switcher
+  - it: gives every Collector dashboard the same pipeline, resources and switcher (nktp-watchdog)
     documentSelector:
       path: metadata.name
-      value: lgtm-dashboards
+      value: lgtm-dashboard-nktp-watchdog
     asserts:
       - matchRegex:
           path: data["nktp-watchdog.json"]
@@ -1250,6 +1397,12 @@ tests:
       - matchRegex:
           path: data["nktp-watchdog.json"]
           pattern: 'sum by \(instance\) \(otelcol_process_memory_rss_bytes\{job=\\"nktp-watchdog\\"\}'
+
+  - it: gives every Collector dashboard the same pipeline, resources and switcher (nktp-gateway-logs)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-gateway-logs
+    asserts:
       - matchRegex:
           path: data["nktp-gateway-logs.json"]
           pattern: '"tags": \[\s*"nktp",\s*"nktp-collector"'
@@ -1289,6 +1442,12 @@ tests:
       - matchRegex:
           path: data["nktp-gateway-logs.json"]
           pattern: 'sum by \(instance\) \(otelcol_process_memory_rss_bytes\{job=\\"nktp-gateway-logs\\"\}'
+
+  - it: gives every Collector dashboard the same pipeline, resources and switcher (nktp-gateway-metrics)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-gateway-metrics
+    asserts:
       - matchRegex:
           path: data["nktp-gateway-metrics.json"]
           pattern: '"tags": \[\s*"nktp",\s*"nktp-collector"'
@@ -1328,6 +1487,12 @@ tests:
       - matchRegex:
           path: data["nktp-gateway-metrics.json"]
           pattern: 'sum by \(instance\) \(otelcol_process_memory_rss_bytes\{job=\\"nktp-gateway-metrics\\"\}'
+
+  - it: gives every Collector dashboard the same pipeline, resources and switcher (nktp-gateway-traces)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-gateway-traces
+    asserts:
       - matchRegex:
           path: data["nktp-gateway-traces.json"]
           pattern: '"tags": \[\s*"nktp",\s*"nktp-collector"'
@@ -1367,6 +1532,12 @@ tests:
       - matchRegex:
           path: data["nktp-gateway-traces.json"]
           pattern: 'sum by \(instance\) \(otelcol_process_memory_rss_bytes\{job=\\"nktp-gateway-traces\\"\}'
+
+  - it: gives every Collector dashboard the same pipeline, resources and switcher (nktp-daemonset)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-daemonset
+    asserts:
       - matchRegex:
           path: data["nktp-daemonset.json"]
           pattern: '"tags": \[\s*"nktp",\s*"nktp-collector"'
@@ -1436,6 +1607,12 @@ tests:
       - matchRegex:
           path: data["nktp-daemonset.json"]
           pattern: 'sum by \(k8s_node_name\) \(otelcol_process_memory_rss_bytes\{job=\\"nktp-daemonset\\"\}'
+
+  - it: gives every Collector dashboard the same pipeline, resources and switcher (nktp-large-target-metrics)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-large-target-metrics
+    asserts:
       - matchRegex:
           path: data["nktp-large-target-metrics.json"]
           pattern: '"tags": \[\s*"nktp",\s*"nktp-collector"'
@@ -1475,6 +1652,12 @@ tests:
       - matchRegex:
           path: data["nktp-large-target-metrics.json"]
           pattern: 'sum by \(instance\) \(otelcol_process_memory_rss_bytes\{job=\\"nktp-large-target-metrics\\"\}'
+
+  - it: gives every Collector dashboard the same pipeline, resources and switcher (nktp-cluster-events)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-cluster-events
+    asserts:
       - matchRegex:
           path: data["nktp-cluster-events.json"]
           pattern: '"tags": \[\s*"nktp",\s*"nktp-collector"'
@@ -1515,10 +1698,10 @@ tests:
           path: data["nktp-cluster-events.json"]
           pattern: 'sum by \(instance\) \(otelcol_process_memory_rss_bytes\{job=\\"nktp-cluster-events\\"\}'
 
-  - it: shows Collector-specific sections prominently
+  - it: shows Collector-specific sections prominently (nktp-large-target-metrics)
     documentSelector:
       path: metadata.name
-      value: lgtm-dashboards
+      value: lgtm-dashboard-nktp-large-target-metrics
     asserts:
       - matchRegex:
           path: data["nktp-large-target-metrics.json"]
@@ -1526,21 +1709,57 @@ tests:
       - matchRegex:
           path: data["nktp-large-target-metrics.json"]
           pattern: 'kube_state_metrics_total_shards'
+
+  - it: shows Collector-specific sections prominently (nktp-daemonset)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-daemonset
+    asserts:
       - matchRegex:
           path: data["nktp-daemonset.json"]
           pattern: '"title": "Pipeline"[\s\S]*"title": "Target Allocator"[\s\S]*"title": "Queues and resources"'
+
+  - it: shows Collector-specific sections prominently (nktp-watchdog)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-watchdog
+    asserts:
       - matchRegex:
           path: data["nktp-watchdog.json"]
           pattern: '"title": "Pipeline"[\s\S]*"title": "Target Allocator and Operator scrape"[\s\S]*"title": "Queues and resources"'
+
+  - it: shows Collector-specific sections prominently (nktp-cluster-events)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-cluster-events
+    asserts:
       - matchRegex:
           path: data["nktp-cluster-events.json"]
           pattern: '"title": "Pipeline"[\s\S]*"title": "Leader election"[\s\S]*"title": "Queues and resources"'
+
+  - it: shows Collector-specific sections prominently (nktp-gateway-logs)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-gateway-logs
+    asserts:
       - notMatchRegex:
           path: data["nktp-gateway-logs.json"]
           pattern: 'opentelemetry_allocator|kube_state_metrics'
+
+  - it: shows Collector-specific sections prominently (nktp-gateway-metrics)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-gateway-metrics
+    asserts:
       - notMatchRegex:
           path: data["nktp-gateway-metrics.json"]
           pattern: 'opentelemetry_allocator|kube_state_metrics'
+
+  - it: shows Collector-specific sections prominently (nktp-gateway-traces)
+    documentSelector:
+      path: metadata.name
+      value: lgtm-dashboard-nktp-gateway-traces
+    asserts:
       - notMatchRegex:
           path: data["nktp-gateway-traces.json"]
           pattern: 'opentelemetry_allocator|kube_state_metrics'
