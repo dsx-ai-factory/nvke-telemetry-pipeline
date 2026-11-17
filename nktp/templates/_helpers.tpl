@@ -61,46 +61,61 @@ blueprints value).
 {{- include "nvcb.run" $config -}}
 {{- end -}}
 
-{{/*
-Return a workload's Kubernetes values with its sidecar Collector appended to
-initContainers. restartPolicy Always makes it a native sidecar: it starts before
-the main Collector and stops after it.
-
-Operator injection cannot add this sidecar. The Operator skips injection when a
-Pod has a container named otc-container, which is the name it gives every
-Collector's main container. See docs/architecture/self_telemetry.md.
-
-The sidecar configuration is expanded by nktp.collectorConfig and passed as
-JSON to --config=yaml:.
-Environment variables are added to the sidecar's env when the list omits them,
-as daemonset.yaml does for the node Collector. Every sidecar configuration uses
-POD_NAME, so it is always added. Workloads inherit priorityClass.name unless
-kubernetes.priorityClassName is explicitly set; an empty string opts out.
-
-Arguments: name (values key), values (workload values), root (chart root),
-sidecarEnv (optional, more env entries to add to the sidecar when missing),
-mainEnv (optional, env entries to add to the main Collector when missing).
-*/}}
-{{- define "nktp.withSidecar" -}}
-{{- $sidecar := .values.sidecar | default dict -}}
-{{- $otelcol := $sidecar.otelcol | default dict -}}
-{{- if not (kindIs "map" $otelcol.config) -}}
-{{- fail (printf "%s.sidecar.otelcol.config must be a native Collector YAML map" .name) -}}
+{{- define "nktp.builder.withTargetAllocator" -}}
+  {{- $spec := .target -}}
+  {{- if not (hasKey $spec "targetAllocator") -}}
+    {{- $_ := set $spec "targetAllocator" (dict) -}}
+  {{- end -}}
+  {{- $allocator := $spec.targetAllocator -}}
+  {{- if not (hasKey $allocator "image") -}}
+    {{- $_ := set $allocator "image" (include "nktp.image" (dict "imageRegistry" .root.Values.global.imageRegistry "image" .root.Values.targetallocator_image)) -}}
+  {{- end -}}
+  {{- if not (hasKey $allocator "mtls") -}}
+    {{- $_ := set $allocator "mtls" (dict) -}}
+  {{- end -}}
+  {{- if not (hasKey $allocator.mtls "useCertManager") -}}
+    {{- $_ := set $allocator.mtls "useCertManager" .root.Values.certManager.targetAllocators.enabled -}}
+  {{- end -}}
 {{- end -}}
-{{- $image := include "nktp.image" (dict "imageRegistry" .root.Values.global.imageRegistry "image" ($otelcol.image | default .root.Values.otelcol_image)) -}}
-{{- $container := mustMergeOverwrite (deepCopy ($sidecar.kubernetes | default dict)) (dict "name" "otc-sidecar" "image" $image "restartPolicy" "Always" "args" (list (printf "--config=yaml:%s" (include "nktp.collectorConfig" (dict "config" $otelcol.config "blueprints" .root.Values.blueprints) | fromYaml | toJson)))) -}}
-{{- $podName := dict "name" "POD_NAME" "valueFrom" (dict "fieldRef" (dict "fieldPath" "metadata.name")) -}}
-{{- $sidecarEnv := concat (.sidecarEnv | default list) (list $podName) -}}
-{{- $_ := set $container "env" (include "nktp.addEnv" (dict "env" $container.env "add" $sidecarEnv) | fromYaml).env -}}
-{{- $workload := deepCopy .values.kubernetes -}}
-{{- if not (hasKey $workload "priorityClassName") -}}
-{{- $_ := set $workload "priorityClassName" .root.Values.priorityClass.name -}}
+
+{{- define "nktp.builder.withPriorityClass" -}}
+  {{- if not (hasKey .target "priorityClassName") -}}
+    {{- $_ := set .target "priorityClassName" .root.Values.priorityClass.name -}}
+  {{- end -}}
 {{- end -}}
-{{- if .mainEnv -}}
-{{- $_ := set $workload "env" (include "nktp.addEnv" (dict "env" $workload.env "add" .mainEnv) | fromYaml).env -}}
+
+{{- define "nktp.builder.withEnv" -}}
+  {{- $env := .target.env | default list -}}
+  {{- $item := .item -}}
+  {{- $found := false -}}
+  {{- range $env -}}
+    {{- if eq .name $item.name -}}{{- $found = true -}}{{- end -}}
+  {{- end -}}
+  {{- if not $found -}}
+    {{- $_ := set .target "env" (append $env $item) -}}
+  {{- end -}}
 {{- end -}}
-{{- $_ := set $workload "initContainers" (append ($workload.initContainers | default list) $container) -}}
-{{- toYaml $workload -}}
+
+{{- define "nktp.builder.withSidecar" -}}
+  {{- $spec := .target -}}
+  {{- $otelcol := .sidecar.otelcol | default dict -}}
+  {{- if not (kindIs "map" $otelcol.config) -}}
+    {{- fail (printf "%s.sidecar.otelcol.config must be a native Collector YAML map" .name) -}}
+  {{- end -}}
+  {{- $image := include "nktp.image" (dict "imageRegistry" .root.Values.global.imageRegistry "image" ($otelcol.image | default .root.Values.otelcol_image)) -}}
+  {{- $config := include "nktp.collectorConfig" (dict "config" $otelcol.config "blueprints" .root.Values.blueprints) | fromYaml | toJson -}}
+  {{- $container := mustMergeOverwrite
+    (deepCopy (.sidecar.kubernetes | default dict))
+    (dict
+      "name" "otc-sidecar"
+      "image" $image
+      "restartPolicy" "Always"
+      "args" (list (printf "--config=yaml:%s" $config))
+    )
+  -}}
+  {{- $podName := dict "name" "POD_NAME" "valueFrom" (dict "fieldRef" (dict "fieldPath" "metadata.name")) -}}
+  {{- include "nktp.builder.withEnv" (dict "target" $container "item" $podName) -}}
+  {{- $_ := set $spec "initContainers" (append ($spec.initContainers | default list) $container) -}}
 {{- end -}}
 
 {{/*
@@ -132,26 +147,6 @@ class name).
   {{- $classes = prepend $classes (dict "name" .name "default" true "relabelings" (list $rule)) -}}
 {{- end -}}
 {{- toYaml (dict "scrapeClasses" $classes) -}}
-{{- end -}}
-
-{{/*
-Return {env: <list>}: env with each entry of add appended when env has no entry
-with the same name. A user's own entry always wins.
-
-Arguments: env (list, may be empty), add (list of env entries).
-*/}}
-{{- define "nktp.addEnv" -}}
-{{- $env := .env | default list -}}
-{{- range $entry := .add -}}
-  {{- $found := false -}}
-  {{- range $env -}}
-    {{- if eq .name $entry.name -}}{{- $found = true -}}{{- end -}}
-  {{- end -}}
-  {{- if not $found -}}
-    {{- $env = append $env $entry -}}
-  {{- end -}}
-{{- end -}}
-{{- toYaml (dict "env" $env) -}}
 {{- end -}}
 
 {{/*

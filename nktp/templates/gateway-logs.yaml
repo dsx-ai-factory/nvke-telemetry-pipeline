@@ -1,3 +1,14 @@
+{{- $workload := deepCopy .Values.gateway_logs -}}
+{{- $spec := omit $workload.kubernetes "config" -}}
+{{- $sidecar := $workload.sidecar | default dict -}}
+
+{{- include "nktp.builder.withPriorityClass" (dict "target" $spec "root" $) -}}
+{{- range $item := (include "nktp.clusterNameEnv" $ | fromYaml).env -}}
+  {{- include "nktp.builder.withEnv" (dict "target" $spec "item" $item) -}}
+{{- end -}}
+{{- $image := include "nktp.image" (dict "imageRegistry" .Values.global.imageRegistry "image" ($workload.otelcol.image | default .Values.otelcol_image)) -}}
+{{- $_ := set $spec "image" $image -}}
+{{- include "nktp.builder.withSidecar" (dict "target" $spec "sidecar" $sidecar "root" $ "name" "gateway_logs") -}}
 apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
 metadata:
@@ -7,8 +18,6 @@ metadata:
     {{- /* The upstream pre-delete Job selects this label to delete the Collector before the Operator. */}}
     helm.sh/chart: {{ include "opentelemetry-kube-stack.chart" (index .Subcharts "opentelemetry-kube-stack") }}
 spec:
-  {{- $collector := dict "image" (include "nktp.image" (dict "imageRegistry" .Values.global.imageRegistry "image" (.Values.gateway_logs.otelcol.image | default .Values.otelcol_image))) }}
-  {{- /* Kubernetes workload values override defaults. The resolved Collector image overrides any workload image. */}}
-  {{- mustMergeOverwrite (dict "mode" "deployment" "managementState" "managed" "upgradeStrategy" "automatic" "replicas" 1) (omit (include "nktp.withSidecar" (dict "name" "gateway_logs" "values" .Values.gateway_logs "root" $ "mainEnv" (include "nktp.clusterNameEnv" $ | fromYaml).env) | fromYaml) "config") $collector | toYaml | nindent 2 }}
+  {{- toYaml $spec | nindent 2 }}
   config:
     {{- include "nktp.collectorConfig" (dict "config" .Values.gateway_logs.otelcol.config "blueprints" .Values.blueprints) | nindent 4 }}

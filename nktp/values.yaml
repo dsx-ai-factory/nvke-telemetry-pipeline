@@ -122,6 +122,8 @@ blueprints:
 watchdog:
   kubernetes:
     mode: statefulset # Required by the operator's Target Allocator support.
+    managementState: managed
+    upgradeStrategy: automatic
     replicas: 2
     targetAllocator:
       enabled: true # Assign each explicit scrape target to one watchdog replica.
@@ -562,6 +564,8 @@ watchdog:
 gateway_logs:
   kubernetes:
     mode: statefulset # Stable replica identities preserve each replica's persistent queue.
+    managementState: managed
+    upgradeStrategy: automatic
     replicas: 2
     autoscaler:
       minReplicas: 2
@@ -899,6 +903,8 @@ gateway_logs:
 gateway_metrics:
   kubernetes:
     mode: statefulset # Stable replica identities preserve each replica's persistent queue.
+    managementState: managed
+    upgradeStrategy: automatic
     replicas: 2
     autoscaler:
       minReplicas: 2
@@ -1236,6 +1242,8 @@ gateway_metrics:
 gateway_traces:
   kubernetes:
     mode: statefulset # Stable replica identities preserve each replica's persistent queue.
+    managementState: managed
+    upgradeStrategy: automatic
     replicas: 2
     autoscaler:
       minReplicas: 2
@@ -1579,6 +1587,8 @@ daemonset:
     create: true
   kubernetes:
     mode: daemonset
+    managementState: managed
+    upgradeStrategy: automatic
     # Persistent checkpoints require rollingUpdate.maxSurge: 0 (the Kubernetes default).
     # Retain it when overriding daemonSetUpdateStrategy to avoid sharing database files.
     # Match KSM node coverage so targets on tainted nodes have a local Collector.
@@ -2295,6 +2305,8 @@ daemonset:
 large_target_metrics:
   kubernetes:
     mode: statefulset # The Target Allocator uses stable Collector identities.
+    managementState: managed
+    upgradeStrategy: automatic
     replicas: 2
     targetAllocator:
       enabled: true
@@ -2666,6 +2678,8 @@ large_target_metrics:
 nodeless_metrics:
   kubernetes:
     mode: statefulset # The Target Allocator uses stable Collector identities.
+    managementState: managed
+    upgradeStrategy: automatic
     replicas: 2
     targetAllocator:
       enabled: true
@@ -3017,6 +3031,8 @@ nodeless_metrics:
 cluster_events:
   kubernetes:
     mode: statefulset # Stable replica identities support per-replica volumes for optional persistent queues.
+    managementState: managed
+    upgradeStrategy: automatic
     replicas: 2 # One active reader and one standby. More replicas do not increase watch throughput.
     resources:
       requests:
