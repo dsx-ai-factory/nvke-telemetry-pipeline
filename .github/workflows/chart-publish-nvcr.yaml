@@ -194,7 +194,7 @@ jobs:
         with:
           script: |
             const prefix = `${process.env.CHART}/v`;
-            const target = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.exec(process.env.VERSION);
+            const target = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.exec(process.env.VERSION);
             if (!target) throw new Error('Invalid target chart version');
             const targetVersion = target.slice(1, 4).map(BigInt);
             const compare = (left, right) => {
@@ -210,7 +210,7 @@ jobs:
             )) {
               for (const release of releases) {
                 if (release.draft || release.prerelease || !release.tag_name.startsWith(prefix)) continue;
-                const version = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:\+[0-9A-Za-z.-]+)?$/.exec(release.tag_name.slice(prefix.length));
+                const version = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.exec(release.tag_name.slice(prefix.length));
                 if (!version) continue;
                 const numbers = version.slice(1, 4).map(BigInt);
                 // A stable tag with the target's core version is not an earlier
