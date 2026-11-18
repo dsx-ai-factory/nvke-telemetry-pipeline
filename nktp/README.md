@@ -167,12 +167,12 @@ without carrying forward previously stored settings.
 
 These commands use the published NGC chart and can run from any directory.
 Edit the release name, existing namespace, target chart version, and kubeconfig
-path. `0.2.0` is an example; choose the published version you intend to install:
+path. `0.3.0` is an example; choose the published version you intend to install:
 
 ```bash
 NKTP_RELEASE=nktp
 NKTP_NAMESPACE=nktp
-NKTP_VERSION=0.2.0
+NKTP_VERSION=0.3.0
 export KUBECONFIG=/path/to/cluster.kubeconfig
 helm repo add nvidia https://helm.ngc.nvidia.com/nvidia
 helm repo update nvidia
