@@ -188,6 +188,46 @@ jobs:
       CHART: ${{ inputs.chart }}
       VERSION: ${{ needs.publish.outputs.version }}
     steps:
+      - name: Select the previous stable chart release
+        id: previous-release
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const prefix = `${process.env.CHART}/v`;
+            const target = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.exec(process.env.VERSION);
+            if (!target) throw new Error('Invalid target chart version');
+            const targetVersion = target.slice(1, 4).map(BigInt);
+            const compare = (left, right) => {
+              for (let i = 0; i < 3; i++) {
+                if (left[i] < right[i]) return -1;
+                if (left[i] > right[i]) return 1;
+              }
+              return 0;
+            };
+            let previous;
+            for await (const { data: releases } of github.paginate.iterator(
+              github.rest.repos.listReleases, { ...context.repo, per_page: 100 },
+            )) {
+              for (const release of releases) {
+                if (release.draft || release.prerelease || !release.tag_name.startsWith(prefix)) continue;
+                const version = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:\+[0-9A-Za-z.-]+)?$/.exec(release.tag_name.slice(prefix.length));
+                if (!version) continue;
+                const numbers = version.slice(1, 4).map(BigInt);
+                // A stable tag with the target's core version is not an earlier
+                // release, whether the target is stable or a release candidate.
+                if (compare(numbers, targetVersion) >= 0) continue;
+                if (!previous || compare(numbers, previous.numbers) > 0) {
+                  previous = { tag: release.tag_name, numbers };
+                }
+              }
+            }
+            core.setOutput('tag', previous?.tag ?? '');
+            if (previous) {
+              core.info(`Generating notes from ${previous.tag} to ${context.ref}`);
+            } else {
+              core.notice(`No earlier stable ${process.env.CHART} release; skipping generated notes.`);
+            }
+
       - name: Download the package
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -217,7 +257,9 @@ jobs:
           prerelease: ${{ contains(needs.publish.outputs.version, '-') }}
           # Two charts release from this repository, so neither is "latest".
           make_latest: false
-          generate_release_notes: true
+          # Without a base, GitHub could select another chart or an RC.
+          generate_release_notes: ${{ steps.previous-release.outputs.tag != '' }}
+          previous_tag: ${{ steps.previous-release.outputs.tag }}
           body: |
             The ${{ inputs.chart }} Helm chart, version ${{ needs.publish.outputs.version }}, published to the native NGC Helm registry.
 
