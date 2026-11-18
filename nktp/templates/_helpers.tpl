@@ -35,8 +35,11 @@ kube-stack appVersion names the same Operator release.
 {{- $image := deepCopy .Values.targetallocator_image -}}
 {{- if not $image.tag -}}
 {{- $stack := index .Subcharts "opentelemetry-kube-stack" -}}
-{{- $operator := index $stack.Subcharts "opentelemetry-operator" -}}
-{{- $_ := set $image "tag" (ternary $operator.Chart.AppVersion $stack.Chart.AppVersion (not (empty $operator))) -}}
+{{- $tag := $stack.Chart.AppVersion -}}
+{{- with index $stack.Subcharts "opentelemetry-operator" -}}
+{{- $tag = .Chart.AppVersion -}}
+{{- end -}}
+{{- $_ := set $image "tag" $tag -}}
 {{- end -}}
 {{- include "nktp.image" (dict "imageRegistry" .Values.global.imageRegistry "image" $image) -}}
 {{- end -}}

@@ -223,13 +223,6 @@ tests:
           path: spec.targetAllocator.image
           value: mirror.example.com/example/target-allocator:2.0.0
 
-  # tests/integration checks that this tag equals the bundled Operator version.
-  - it: defaults the Target Allocator tag to the bundled Operator version
-    asserts:
-      - matchRegex:
-          path: spec.targetAllocator.image
-          pattern: ^ghcr\.io/open-telemetry/opentelemetry-operator/target-allocator:\d+\.\d+\.\d+$
-
   - it: rejects disabled target allocation
     set:
       nodeless_metrics.kubernetes.targetAllocator.enabled: false
