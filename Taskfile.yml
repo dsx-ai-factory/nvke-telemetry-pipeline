@@ -109,6 +109,13 @@ tasks:
     cmds:
       - go run ./package-blueprints -check
 
+  docs:release:
+    desc: "Refresh dependency versions, image table, and Operator links; optionally update chart references (-- -from OLD -to NEW)"
+    dir: tools
+    deps: [chart:deps]
+    cmds:
+      - go run ./release-docs {{.CLI_ARGS}}
+
   license:check:
     desc: Run the SPDX header and third-party notices checks that CI runs on every pull request
     cmds:

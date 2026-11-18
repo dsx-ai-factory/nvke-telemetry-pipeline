@@ -17,10 +17,9 @@ each component in depth.
 
 Provide the following before installing NKTP.
 
-- **Kubernetes 1.31+.** The bundled metrics-server 0.8.1 supports 1.31+. Every
-  Collector Pod runs its self-telemetry sidecar as a native sidecar, an init
-  container with `restartPolicy: Always`, which Kubernetes enables by default
-  from 1.29. The bundled OpenTelemetry Operator 0.162.0 itself supports 1.25+.
+- **Kubernetes 1.31+** (1.34+ when `metrics-server.enabled=true`). Every Collector
+  Pod runs its self-telemetry sidecar as a native sidecar, an init container with
+  `restartPolicy: Always`, which Kubernetes enables by default from 1.29.
 - **Helm 4.** Choose a release compatible with your Kubernetes version.
 - **cert-manager.** Required with default values; install it separately.
   NKTP does not bundle or install it. It issues certificates for internal
@@ -447,6 +446,11 @@ including the Collectors (`otelcol_image`) and the Target Allocators
 uninstall hook's kubectl image (`opentelemetry-kube-stack.cleanupJob.image`) do **not**
 read this setting. Configure their image repositories explicitly when required.
 
+Use the [bundled image inventory](#bundled-images) for full source references.
+`global.imageRegistry` replaces only the registry; mirror the same repository
+path or change the corresponding image's `repository` setting to the path in
+your mirror.
+
 ### Cluster name
 
 Set `global.clusterName` to add `k8s.cluster.name` to telemetry as it leaves
@@ -477,18 +481,43 @@ When `global.clusterName` is empty, the value is `unknown`.
 
 ## Bundled dependencies
 
+<!-- BEGIN CHART DEPENDENCIES -->
+
 | Chart | Version | Installs | Enabled by default | Values key |
 | --- | --- | --- | --- | --- |
-| opentelemetry-kube-stack | 0.27.0 | OpenTelemetry Operator chart 0.128.0, Operator 0.162.0, and CRDs | Yes | `opentelemetry-kube-stack` |
+| opentelemetry-kube-stack | 0.27.0 | OpenTelemetry Operator and CRDs | Yes | `opentelemetry-kube-stack` |
 | prometheus-node-exporter | 4.56.1 | node-exporter | Yes | `node-exporter` |
-| metrics-server | 3.13.1 | metrics-server 0.8.1 | No | `metrics-server` |
-| prometheus-blackbox-exporter | 11.20.2 | blackbox_exporter 0.29.1 | No | `blackbox-exporter` |
+| metrics-server | 3.14.0 | Kubernetes resource metrics API | No | `metrics-server` |
+| prometheus-blackbox-exporter | 11.20.2 | blackbox_exporter | No | `blackbox-exporter` |
+
+<!-- END CHART DEPENDENCIES -->
 
 The Collector, Target Allocator, kube-state-metrics, and LGTM images are set in
 `values.yaml` under `otelcol_image`, `targetallocator_image`,
 `kube-state-metrics.image`, and `otel-lgtm.image`. The Target Allocator tag is
 empty by default, which selects the bundled Operator's version; the two are
 released together.
+
+### Bundled images
+
+Images include Collector sidecars, optional components, and Helm lifecycle hooks.
+The table explains when each image runs; Helm test images are excluded.
+
+<!-- BEGIN IMAGE INVENTORY -->
+
+| Full image reference | When it runs |
+| --- | --- |
+| `docker.io/grafana/otel-lgtm:0.41.0` | Runs only when `otel-lgtm.enabled=true` |
+| `ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-k8s:0.164.0` | Runs in Collector workloads and their sidecars |
+| `ghcr.io/open-telemetry/opentelemetry-operator/opentelemetry-operator:0.162.0` | Runs only when `opentelemetry-kube-stack.opentelemetry-operator.enabled=true` |
+| `ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:0.162.0` | Runs by default for node, large-target, nodeless, and watchdog Collectors |
+| `quay.io/prometheus/blackbox-exporter:v0.29.1` | Runs only when `blackbox-exporter.enabled=true` |
+| `quay.io/prometheus/node-exporter:v1.12.1` | Runs only when `node-exporter.enabled=true` |
+| `registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0` | Runs only when `kube-state-metrics.enabled=true` |
+| `registry.k8s.io/kubectl:v1.35.10` | Runs before install or upgrade when `namespace.labeling.enabled=true`; Runs before uninstall |
+| `registry.k8s.io/metrics-server/metrics-server:v0.9.0` | Runs only when `metrics-server.enabled=true` |
+
+<!-- END IMAGE INVENTORY -->
 
 ## Developing the chart
 
