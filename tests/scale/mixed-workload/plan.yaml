@@ -686,6 +686,54 @@ stages:
         interval: 60s
         query_timeout: 60s
         measurements:
+          # Fixed load: 10,000 local Pods + 100 Event producers + 54 large targets.
+          # Stdout: 5,000 scraped + 4,000 instrumented + 400 large-log Pods.
+          # OTLP: 4,000 instrumented Pods. Scrapes: 5,000 + 400 local + 54 large.
+          # Update these totals with generator sizes. Ready Pods are already scheduled.
+          - name: full_load
+            check:
+              action: complete
+              for: 30m
+              expr: |-
+                vector(1)
+                and on() (
+                  count(max by (namespace,pod) (
+                    (kube_pod_status_ready{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",condition="true"} == 1)
+                    and on (namespace,pod) kube_pod_labels{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",label_scale_nktp_io_run_id="{{ .Args.runId }}"}
+                  )) == 10154
+                )
+                and on() (
+                  count(rate(vector_component_sent_events_total{component_id="stdout_load",test_run_id="{{ .Args.runId }}"}[5m]) > 0) == 9400
+                )
+                and on() (
+                  count(nktp_scale_otlp_source_up{test_run_id="{{ .Args.runId }}"} == 1) == 4000
+                )
+                and on() (
+                  count(up{scale_workload=~"mixed-workload|mixed-workload-large",test_run_id="{{ .Args.runId }}"} == 1) == 5454
+                )
+
+          # Every NKTP Collector Pod needs main-container and sidecar budgets.
+          - name: resource_budgets
+            check:
+              action: complete
+              for: 30m
+              expr: |-
+                vector(1)
+                and on() (
+                  count(kube_pod_info{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog)-collector-.+"}) > 0
+                )
+                unless on() (
+                  kube_pod_info{job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",pod=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog)-collector-.+"}
+                  unless on (namespace,pod) (
+                    count by (namespace,pod) (
+                      max by (namespace,pod,container,resource) (
+                        {__name__=~"kube_pod_(init_)?container_resource_requests",job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",container=~"otc-container|otc-sidecar",resource=~"cpu|memory"} > 0
+                        and (time() - timestamp({__name__=~"kube_pod_(init_)?container_resource_requests",job=~"nktp/nktp-ksm-(pods|unscheduled-pods)",namespace="nktp",container=~"otc-container|otc-sidecar",resource=~"cpu|memory"})) < 90
+                      )
+                    ) == 4
+                  )
+                )
+
           # All delivery groups must qualify together while load is active.
           # Ten-minute transport windows reduce telemetry timing skew at 1% tolerance.
           # Nine one-minute samples allow one missing observation.
@@ -1351,28 +1399,6 @@ stages:
             units: bytes
             query: >-
               otelcol_exporter_queue_capacity{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}
-          # Retry observations retain the component, Pod, exporter and signal.
-          - name: exporter_observed_operations
-            units: operations/s
-            query: >-
-              sum by (job,instance,exporter,data_type) (rate(nktp_scale_exporter_calls_total[5m]))
-          # Retry and truncation rates report zero only when operations were observed.
-          - name: exporter_retry_attempts
-            units: attempts/s
-            query: >-
-              (
-                sum by (job,instance,exporter,data_type) (rate(nktp_scale_exporter_events_total{retry="true"}[5m]))
-                or 0 * sum by (job,instance,exporter,data_type) (rate(nktp_scale_exporter_calls_total[5m]))
-              )
-              and (sum by (job,instance,exporter,data_type) (rate(nktp_scale_exporter_calls_total[5m])) > 0)
-          - name: exporter_truncated_operations
-            units: operations/s
-            query: >-
-              (
-                sum by (job,instance,exporter,data_type) (rate(nktp_scale_exporter_calls_total{events_dropped="true"}[5m]))
-                or 0 * sum by (job,instance,exporter,data_type) (rate(nktp_scale_exporter_calls_total[5m]))
-              )
-              and (sum by (job,instance,exporter,data_type) (rate(nktp_scale_exporter_calls_total[5m])) > 0)
           - name: pod_inventory
             units: info
             query: >-
@@ -1426,6 +1452,7 @@ stages:
             query: >-
               kube_horizontalpodautoscaler_status_condition{job="nktp/nktp-ksm-workloads",namespace="nktp",horizontalpodautoscaler=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)-collector"}
 
+          # Preserve short rate observations throughout qualification.
           # Collector throughput and failures
           - name: receiver_accepted_metrics
             units: points/s
@@ -1487,31 +1514,3 @@ stages:
             units: spans/s
             query: >-
               rate(otelcol_exporter_send_failed_spans_total{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
-
-          # Exported bytes
-          - name: serialized_bytes
-            units: bytes/s
-            query: >-
-              rate(otelcol_exporter_enqueue_size_bytes_sum{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
-          - name: dispatched_bytes
-            units: bytes/s
-            query: >-
-              rate(otelcol_exporter_queue_batch_send_size_bytes_sum{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|watchdog|mixed-workload-blackhole)(-sidecar)?|nktp-mixed-workload-metrics-adapter"}[5m])
-
-          # RPC calls and latency
-          - name: rpc_client_calls
-            units: calls/s
-            query: >-
-              rate(rpc_client_call_duration_seconds_count{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|mixed-workload-blackhole)"}[5m])
-          - name: rpc_client_latency_p95
-            units: seconds
-            query: >-
-              histogram_quantile(0.95, rate(rpc_client_call_duration_seconds_bucket{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|mixed-workload-blackhole)"}[5m]))
-          - name: rpc_server_calls
-            units: calls/s
-            query: >-
-              rate(rpc_server_call_duration_seconds_count{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|mixed-workload-blackhole)"}[5m])
-          - name: rpc_server_latency_p95
-            units: seconds
-            query: >-
-              histogram_quantile(0.95, rate(rpc_server_call_duration_seconds_bucket{job=~"nktp-(daemonset|gateway-(metrics|logs|traces)|large-target-metrics|nodeless-metrics|cluster-events|mixed-workload-blackhole)"}[5m]))

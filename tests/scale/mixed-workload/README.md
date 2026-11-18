@@ -3,15 +3,15 @@
 - [Plan](plan.yaml) · [Profile](values.yaml) · [Load model](busy-node.md)
 - Load: 100k series and about 4 GiB/hour each of logs and spans per worker
 - Paths: node, Events, large-target and nodeless collectors → gateways → blackhole
-- NKTP: chart resource and autoscaling defaults, with mTLS for collector-to-gateway traffic
-- Observations: blackhole self-telemetry and OTLP adapter observations and
-  self-telemetry go directly to LGTM over plaintext OTLP/gRPC. NKTP
-  self-telemetry keeps its watchdog path.
+- NKTP: chart pipeline, self-telemetry, resource and autoscaling defaults, with mTLS for collector-to-gateway traffic
+- Observations: blackhole and OTLP adapter self-telemetry go directly to LGTM
+  over plaintext OTLP/gRPC, along with the adapter's source observations.
+  NKTP self-telemetry keeps its watchdog path.
 
-The node collector, gateways, large-target and nodeless pools, and Event reader
-use detailed self-telemetry metrics and unsampled internal traces for retry
-measurements. Blackhole also uses detailed self-telemetry metrics. Stored traces
-retain the chart sampling policy.
+NKTP collectors and sidecars inherit the chart's telemetry levels and trace
+sampling policy. Generator observations and the blackhole sink belong to the
+test harness. Blackhole enables detailed metrics for sink diagnostics. The
+profile adds no measurement pipelines to NKTP.
 
 ## Load
 
@@ -56,7 +56,7 @@ Each of 100 workers runs 100 local generator Pods:
 
 - Metrics: Avalanche, four generated labels, no churn, 30s scrapes / 10s timeout. Instrumented Pods use private Avalanche targets and an OTLP adapter.
 - Logs: Vector `demo_logs` → stdout → runtime files → native file_log receiver.
-- Adjust load: Pod counts and Avalanche arguments in the plan, log/span sizes and rates in the profile ConfigMaps. Rate calculations are beside each value. Span rates count spans, with two spans per trace.
+- Adjust load: Pod counts and Avalanche arguments in the plan, log/span sizes and rates in the profile ConfigMaps. Update the fixed qualification totals and load tables when changing generator sizes. Rate calculations are beside each value. Span rates count spans, with two spans per trace.
 - Bytes: log bodies and span payload attributes. Newline, CRI and OTLP overhead are additional. Platform telemetry adds background load.
 
 The large-target collector pool handles these additional targets at **60s / 55s**:
@@ -95,30 +95,37 @@ until `task scale:uninstall`, independently of the plan and run ID.
 
 Stop other generators and install the adapted profile, including its `extraObjects`.
 
-Edit the absolute kubeconfig path below before running these commands.
+Run these commands from the repository root. Edit the absolute kubeconfig path
+and adjust `REPORT_DIR` as needed.
 
 ```sh
 export KUBECONFIG=/path/to/kubeconfig
 task scale:install \
   HELM_VALUES_FILE=tests/scale/mixed-workload/values.yaml
+
+REPORT_DIR="$HOME/nktp-scale-results"
 RUN_ID="mixed-$(date -u +%Y%m%d%H%M%S)"
+mkdir -p "$REPORT_DIR"
+REPORT_DIR="$(cd "$REPORT_DIR" && pwd)"
+
 task scale:test TEST_TIMEOUT=130m -- \
-  -plan "$PWD/tests/scale/mixed-workload/plan.yaml" -arg run-id="$RUN_ID"
+  -plan "$PWD/tests/scale/mixed-workload/plan.yaml" \
+  -arg "run-id=$RUN_ID" \
+  -report "$REPORT_DIR/$RUN_ID.json"
 ```
 
 ## Results
 
-- Window: the delivery checks run concurrently and must pass together for 30 consecutive minutes while load is active.
+- Window: all generator Pods must be Ready, with active stdout emitters, healthy metric sources, fresh Collector resource budgets and delivery checks for 30 consecutive minutes.
 - Transport rates: metrics, logs and traces use ten-minute windows with 1% tolerance,
   at least nine counter samples and 90-second freshness. The longer history reduces
   timing skew and takes longer to settle after scaling or counter resets. Scrape-pool,
   Event-reader and per-worker liveness checks retain five-minute windows.
 - Runtime: qualification stops the generators and waits for cleanup. A generator ending before qualification or an unqualified 115-minute observation window fails the run. Generator limits remain 90 minutes, with each StatefulSet timed from its own readiness and a 120-minute plan ceiling.
-- Load: targets, series, offered stdout records and body bytes, native receipt and export rates, serialized OTLP bytes and aggregate Event acceptance. Compare rates over the same time window.
-- Performance: CPU/memory use, component requests and limits, observed peaks, throttling, queues, HPA replicas and bounds, and RPC call rates and p95 latency.
-- Retries: workload Collector export retries by component, Pod, exporter and signal. Counts arrive after export completion and can be incomplete if self-telemetry is lost or truncated.
+- Load: targets, series, offered stdout records and body bytes, native receipt and export item rates, and aggregate Event acceptance. Span rates and payload volume in the load table are configured load.
+- Performance: CPU/memory use, component requests and limits, observed peaks, throttling, queues, HPA replicas and bounds.
 - Health: readiness, restarts, termination reasons, refusals, export failures and observation freshness. Error counters can be absent when no errors occurred.
-- Events: require 10 successful updates/s per producer and 1,000/s across 100 workers, with no failed requests or dropped iterations. Exclude seeding and cleanup.
+- Events: require active producers on all 100 workers, with no failed requests or dropped iterations. Compare aggregate receipt with successful PATCH rates. The configured load is 10 updates/s per producer and 1,000/s overall. Exclude seeding and cleanup.
 - Nodeless: expect one fresh target for `scale_workload="mixed-workload-nodeless"`
   with `nktp_metrics_pool="nodeless"` in `fresh_targets`. `target_series` and
   `scrape_duration` include the same fixed target without a run-ID filter.
@@ -131,14 +138,29 @@ Pod inventory and health queries select NKTP's `nktp/nktp-ksm-pods` and
 other kube-state-metrics installations while retaining pending Pod diagnostics.
 HPA queries select `nktp/nktp-ksm-workloads`.
 
-Node counts include background traffic. Log body bytes measure generated load.
-Span payload bytes are configured load, while serialized OTLP bytes include
-encoding overhead.
+For a successful run, use the final check evaluation as the end of the benchmark
+window and subtract 30 minutes. Select every timestamped JSON observation within
+that interval, preserving each series and its labels when building the report.
+
+The JSON retains each polling result at the 60-second measurement cadence,
+not every underlying Prometheus sample. Reported throughput, failure rates and
+component CPU use five-minute lookbacks. `component_cpu_short` uses the last two
+samples within two minutes. Early rate observations can include samples before
+qualification. Whole-run console statistics also include the ramp.
+
+Native throughput includes background traffic and can include retries. It does
+not measure unique delivery or distinguish individual synthetic trace sources.
 
 ## Limitations
 
-- Passing confirms transport consistency during the observation window. Verify designed load and resource use separately.
+- The `full_load` check uses Prometheus lookback without custom sample-age gates. Recent generator samples can remain visible during short telemetry gaps.
+- Passing confirms generator readiness, stdout and metric source coverage, resource-budget availability and transport consistency. Verify achieved rates against designed load separately.
+- Telemetrygen exposes no emission counters. Readiness does not prove every trace generator is emitting. Synthetic trace source activity and payload bytes are not measured.
+- Default NKTP telemetry omits serialized/dispatched byte rates and RPC call rates and latency. Detailed blackhole telemetry describes the test sink and cannot supply these measurements for NKTP components.
+- Retry-attempt counts and export-span truncation counts are unavailable. Failed-export counters and sampled internal traces cannot establish complete retry accounting. Treat unavailable measurements as missing, not zero.
 - Delivery checks do not prove lossless processing, exactly-once delivery or delivery after load stops.
 - Event acceptance includes cluster-wide background traffic, which can mask generated Event losses.
 - Check 64 KiB log reconstruction and rotation. Source scrape health alone does not establish OTLP delivery.
+- Sidecar CPU and memory show their footprint. They do not isolate the incremental cost of self-telemetry in main collectors.
+- Earlier profiles with detailed NKTP metrics or custom counting pipelines performed additional work. Account for that instrumentation when comparing performance.
 - Repetitive payloads compress unusually well. Blackhole cannot verify durable delivery. LGTM storage is temporary.

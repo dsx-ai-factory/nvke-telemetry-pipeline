@@ -1,5 +1,5 @@
 # Mixed metrics, logs, spans, Events, large-target and nodeless workload.
-# NKTP uses default resources and autoscaling, including self-telemetry sidecars.
+# NKTP uses default pipelines, self-telemetry, resources and autoscaling.
 # Adapt placement and API access settings to the cluster. Install this profile alone.
 
 watchdog:
@@ -11,69 +11,9 @@ watchdog:
       nodeSelector: *systemSelector
       tolerations: *systemTolerations
 
-# Node collectors use native pipelines and detailed self-telemetry.
 daemonset:
   kubernetes:
     targetAllocator: *allocatorPlacement
-  otelcol:
-    config:
-      service:
-        telemetry: &loadTelemetry
-          metrics:
-            level: detailed
-          traces:
-            sampler: {always_on: {}}
-  sidecar: &retryMeasurements
-    otelcol:
-      config:
-        processors:
-          filter/export_retries:
-            error_mode: propagate
-            traces:
-              span:
-                - attributes["exporter"] == nil or attributes["data_type"] == nil
-              spanevent:
-                - name != "Sending request." or attributes["retry_num"] == nil
-          transform/export_retries:
-            error_mode: propagate
-            trace_statements:
-              - context: span
-                statements:
-                  - set(attributes["events_dropped"], false)
-                  - set(attributes["events_dropped"], true) where dropped_events_count > 0
-              - context: spanevent
-                statements:
-                  - set(attributes["retry"], false)
-                  - set(attributes["retry"], true) where attributes["retry_num"] > 0
-        connectors:
-          # Native exporter metrics do not count retry attempts. Internal span events
-          # distinguish retries from initial attempts for metrics, logs and traces.
-          span_metrics/export_retries:
-            namespace: nktp_scale_exporter
-            histogram: {disable: true}
-            dimensions:
-              - name: exporter
-              - name: data_type
-              - name: events_dropped
-            exclude_dimensions: [span.name, span.kind, status.code]
-            add_resource_attributes: true
-            aggregation_temporality: AGGREGATION_TEMPORALITY_CUMULATIVE
-            metrics_flush_interval: 60s
-            events:
-              enabled: true
-              dimensions:
-                - name: retry
-        service:
-          pipelines:
-            # Count completed exports before the separate stored-trace path samples them.
-            traces/export_retries:
-              receivers: [otlp]
-              processors: [memory_limiter, filter/export_retries, transform/export_retries]
-              exporters: [span_metrics/export_retries]
-            metrics/export_retries:
-              receivers: [span_metrics/export_retries]
-              processors: [memory_limiter]
-              exporters: [otlp_grpc]
 
 # Gateways discard load through blackhole while observations continue to LGTM.
 gateway_metrics:
@@ -82,12 +22,9 @@ gateway_metrics:
     tolerations: *systemTolerations
   otelcol:
     config:
-      service:
-        telemetry: *loadTelemetry
       exporters:
         otlp_grpc:
           endpoint: nktp-mixed-workload-blackhole-collector:4317
-  sidecar: *retryMeasurements
 
 gateway_logs:
   kubernetes:
@@ -95,12 +32,9 @@ gateway_logs:
     tolerations: *systemTolerations
   otelcol:
     config:
-      service:
-        telemetry: *loadTelemetry
       exporters:
         otlp_grpc:
           endpoint: nktp-mixed-workload-blackhole-collector:4317
-  sidecar: *retryMeasurements
 
 gateway_traces:
   kubernetes:
@@ -108,44 +42,26 @@ gateway_traces:
     tolerations: *systemTolerations
   otelcol:
     config:
-      service:
-        telemetry: *loadTelemetry
       exporters:
         otlp_grpc:
           endpoint: nktp-mixed-workload-blackhole-collector:4317
-  sidecar: *retryMeasurements
 
 large_target_metrics:
   kubernetes:
     nodeSelector: *systemSelector
     tolerations: *systemTolerations
     targetAllocator: *allocatorPlacement
-  otelcol:
-    config:
-      service:
-        telemetry: *loadTelemetry
-  sidecar: *retryMeasurements
 
 nodeless_metrics:
   kubernetes:
     nodeSelector: *systemSelector
     tolerations: *systemTolerations
     targetAllocator: *allocatorPlacement
-  otelcol:
-    config:
-      service:
-        telemetry: *loadTelemetry
-  sidecar: *retryMeasurements
 
 cluster_events:
   kubernetes:
     nodeSelector: *systemSelector
     tolerations: *systemTolerations
-  otelcol:
-    config:
-      service:
-        telemetry: *loadTelemetry
-  sidecar: *retryMeasurements
 
 kube-state-metrics:
   metricLabelsAllowlist:
