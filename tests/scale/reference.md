@@ -156,6 +156,7 @@ KWOK simulates nodes and Pod lifecycles without running containers. The
 | Input | Use |
 | --- | --- |
 | `-plan PATH` | Required plan file. Prefer an absolute path |
+| `-report PATH` | Optional JSON output. Prefer an absolute path. Requires a new file in an existing directory. No overwrite |
 | `-arg NAME=VALUE` | Repeat after `--` in `task scale:test`. Reference as `{{ .Args.name }}` in the plan |
 | Hyphenated arguments | `sample-rate` becomes `.Args.sampleRate`. Missing referenced arguments and duplicate normalized names fail |
 | `-arg run-id=example-123` | Supplies `.Args.runId`. Omitted IDs are generated and printed in the report |
@@ -217,12 +218,15 @@ freshness and coverage.
 | StatefulSet `duration` | Starts when all replicas first become Ready. Pod replacement does not restart it. Plan timeout also bounds scheduling/recovery |
 | Cleanup | Generators remove owned resources after success, failure, partial startup or cancellation. Cleanup has its own bounded timeout and errors fail the run |
 | `TEST_TIMEOUT` | Outer Go test limit. Allow time beyond the plan timeout for cleanup |
+| JSON output | After execution and cleanup, including ordinary failures and plan timeouts |
+| Forced termination or output failure | JSON may be incomplete or absent |
 | Installed environment | Persists between plans. Remove it using [shared cleanup](README.md#cleanup) |
 
 ## Reports
 
 | Output | Contents |
 | --- | --- |
+| JSON | Versioned plan inputs, timestamped observations, labels, checks and errors |
 | Plan | Plan name, run ID and started stages in declaration order |
 | Stage | Named generator outcomes, measurement results and errors, including cleanup failures |
 | Query | Per-series statistics and histograms. Missing samples, warnings and errors shown separately |
@@ -230,3 +234,44 @@ freshness and coverage.
 
 The command prints reports even when execution fails. Execution errors fail the
 test. Successful workload execution alone does not verify backend delivery.
+
+### JSON example (plan source abbreviated, collection timing omitted)
+
+```json
+{
+  "version": 1,
+  "plan": "smoke",
+  "run_id": "run-1",
+  "plan_source": "name: smoke\n# ...",
+  "arguments": {"runId": "run-1"},
+  "stages": [{
+    "name": "sample",
+    "generators": [],
+    "measurement": "prometheus",
+    "report": {
+      "queries": {
+        "targets": {
+          "expression": "up",
+          "observations": [{
+            "evaluated_at": "2026-01-01T00:00:00Z",
+            "value": [{"metric": {"job": "nktp"}, "value": [1767225600, "1"]}]
+          }]
+        },
+        "ready": {
+          "expression": "count by (job) (up{job=\"nktp\"} == 1) == 1",
+          "observations": [{
+            "evaluated_at": "2026-01-01T00:00:00Z",
+            "value": [{"metric": {"job": "nktp"}, "value": [1767225600, "1"]}]
+          }],
+          "check": {
+            "action": "complete",
+            "for": "0s",
+            "fired_at": "2026-01-01T00:00:00Z",
+            "series": [{"job": "nktp"}]
+          }
+        }
+      }
+    }
+  }]
+}
+```

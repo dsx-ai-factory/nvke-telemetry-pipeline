@@ -15,7 +15,7 @@ import (
 // Completion status clears when a later result no longer satisfies the hold.
 type CheckReport struct {
 	Action  Action         `json:"action"`
-	For     time.Duration  `json:"for"`
+	For     string         `json:"for"`
 	FiredAt *time.Time     `json:"fired_at,omitempty"`
 	Series  []model.Metric `json:"series,omitempty"`
 }

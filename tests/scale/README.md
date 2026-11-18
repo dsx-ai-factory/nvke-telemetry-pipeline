@@ -50,11 +50,18 @@ without reinstalling.
 ## Run a workload
 
 Choose a directory from the table and follow its capacity and setup notes. For
-example:
+example, adjusting `REPORT_DIR` as needed:
 
 ```sh
 task scale:install
-task scale:test -- -plan "$PWD/tests/scale/examples/telemetrygen/plan.yaml"
+REPORT_DIR="$HOME/nktp-scale-results"
+RUN_ID="run-$(date -u +%Y%m%d%H%M%S)"
+mkdir -p "$REPORT_DIR"
+
+task scale:test -- \
+  -plan "$PWD/tests/scale/examples/telemetrygen/plan.yaml" \
+  -arg "run-id=$RUN_ID" \
+  -report "$REPORT_DIR/$RUN_ID.json"
 ```
 
 A plan path is required. Installation creates or upgrades the `nktp` Helm release.

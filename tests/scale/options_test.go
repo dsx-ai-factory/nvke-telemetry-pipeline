@@ -6,6 +6,7 @@
 package scale
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -82,4 +83,81 @@ func TestRunRequiresKubeconfig(t *testing.T) {
 	output, err := cmd.CombinedOutput()
 	require.Error(t, err, "runner without kubeconfig: output = %s", output)
 	require.Contains(t, string(output), "set KUBECONFIG or pass -kubeconfig")
+}
+
+// TestWithReportFile saves callback output and closes the file on success or failure.
+func TestWithReportFile(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		err  error
+	}{
+		{name: "success"},
+		{name: "callback failure", err: errors.New("execution failed")},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "report.json")
+			const contents = `{"value": 0}`
+			var opened *os.File
+			calls := 0
+			err := withReportFile(path, func(file *os.File) error {
+				calls++
+				opened = file
+				_, err := file.WriteString(contents)
+				require.NoError(t, err)
+				return test.err
+			})
+			require.ErrorIs(t, err, test.err)
+			require.Equal(t, 1, calls)
+			data, err := os.ReadFile(path)
+			require.NoError(t, err)
+			require.Equal(t, contents, string(data))
+			_, err = opened.WriteString("unexpected")
+			require.ErrorIs(t, err, os.ErrClosed)
+		})
+	}
+}
+
+// TestWithReportFileDestination rejects unusable destinations before execution.
+func TestWithReportFileDestination(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		path     string
+		existing bool
+	}{
+		{name: "existing file", path: "report.json", existing: true},
+		{name: "missing directory", path: "missing/report.json"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), test.path)
+			const sentinel = "keep existing report"
+			if test.existing {
+				require.NoError(t, os.WriteFile(path, []byte(sentinel), 0600))
+			}
+			called := false
+			err := withReportFile(path, func(*os.File) error {
+				called = true
+				return errors.New("unexpected execution")
+			})
+			require.ErrorContains(t, err, "create report file")
+			require.False(t, called, "destination failure must prevent execution")
+			if test.existing {
+				data, err := os.ReadFile(path)
+				require.NoError(t, err)
+				require.Equal(t, sentinel, string(data))
+			}
+		})
+	}
+}
+
+// TestWithReportFileDisabled still invokes the callback and preserves its error.
+func TestWithReportFileDisabled(t *testing.T) {
+	want := errors.New("execution failed")
+	calls := 0
+	err := withReportFile("", func(file *os.File) error {
+		calls++
+		require.Nil(t, file)
+		return want
+	})
+	require.Equal(t, 1, calls)
+	require.ErrorIs(t, err, want)
 }

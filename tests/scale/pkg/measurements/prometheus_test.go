@@ -529,16 +529,17 @@ func TestPrometheusCompletionTiming(t *testing.T) {
 		delay      time.Duration
 		repeat     bool
 		hold       string
+		wantFor    string
 		wantFinish time.Duration
 		wantError  bool
 	}{
-		{name: "regular polling", hold: "3m", wantFinish: 3 * time.Minute},
-		{name: "gap at limit", delayQuery: "guard", delayAt: time.Minute, delay: 2 * time.Minute, hold: "3m", wantFinish: 3 * time.Minute},
-		{name: "gap resets hold", delayQuery: "guard", delayAt: time.Minute, delay: 3 * time.Minute, hold: "3m", wantFinish: 7 * time.Minute},
-		{name: "slow final guard", delayQuery: "guard", delayAt: 3 * time.Minute, delay: 3 * time.Minute, hold: "3m", wantFinish: 9 * time.Minute},
-		{name: "slow completion response", delayQuery: "ready", delayAt: 3 * time.Minute, delay: 3 * time.Minute, hold: "3m", wantFinish: 9 * time.Minute},
-		{name: "immediate completion needs fresh round", delayQuery: "guard", delay: 3 * time.Minute, hold: "0s", wantFinish: 3 * time.Minute},
-		{name: "repeated gaps time out", delayQuery: "guard", delay: 3 * time.Minute, repeat: true, hold: "3m", wantFinish: 12 * time.Minute, wantError: true},
+		{name: "regular polling", hold: "3m", wantFor: "3m0s", wantFinish: 3 * time.Minute},
+		{name: "gap at limit", delayQuery: "guard", delayAt: time.Minute, delay: 2 * time.Minute, hold: "3m", wantFor: "3m0s", wantFinish: 3 * time.Minute},
+		{name: "gap resets hold", delayQuery: "guard", delayAt: time.Minute, delay: 3 * time.Minute, hold: "3m", wantFor: "3m0s", wantFinish: 7 * time.Minute},
+		{name: "slow final guard", delayQuery: "guard", delayAt: 3 * time.Minute, delay: 3 * time.Minute, hold: "3m", wantFor: "3m0s", wantFinish: 9 * time.Minute},
+		{name: "slow completion response", delayQuery: "ready", delayAt: 3 * time.Minute, delay: 3 * time.Minute, hold: "3m", wantFor: "3m0s", wantFinish: 9 * time.Minute},
+		{name: "immediate completion needs fresh round", delayQuery: "guard", delay: 3 * time.Minute, hold: "0s", wantFor: "0s", wantFinish: 3 * time.Minute},
+		{name: "repeated gaps time out", delayQuery: "guard", delay: 3 * time.Minute, repeat: true, hold: "3m", wantFor: "3m0s", wantFinish: 12 * time.Minute, wantError: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
@@ -580,6 +581,7 @@ measurements:
 				queries := report["queries"].(map[string]QueryReport)
 				for _, name := range []string{"a_ready", "b_ready"} {
 					query := queries[name]
+					assert.Equal(t, test.wantFor, query.Check.For)
 					assert.NotEmpty(t, query.Observations)
 					if test.wantError {
 						assert.Nil(t, query.Check.FiredAt)

@@ -171,7 +171,7 @@ func (p *Prometheus) run(ctx context.Context, client queryClient) (report Report
 		query := QueryReport{Expression: measurement.Query, Unit: measurement.Units, Observations: []QueryObservation{}}
 		if check := measurement.Check; check != nil {
 			query.Expression = check.Expr
-			query.Check = &CheckReport{Action: check.Action, For: check.For}
+			query.Check = &CheckReport{Action: check.Action, For: check.For.String()}
 			checks[measurement.Name] = &checkState{hold: check.For, complete: check.Action == Complete, maxGap: 2 * p.config.Interval}
 		}
 		queries[measurement.Name] = query

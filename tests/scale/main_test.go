@@ -6,6 +6,7 @@
 package scale
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -15,6 +16,8 @@ import (
 
 	runner "github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/scale/pkg"
 	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/scale/pkg/format"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // planPath selects a YAML plan relative to tests/scale or by absolute path.
@@ -22,6 +25,9 @@ var planPath = flag.String("plan", "", "required scale test plan file")
 
 // kubeconfigPath selects one file for every Kubernetes-backed generator in the plan.
 var kubeconfigPath = flag.String("kubeconfig", os.Getenv("KUBECONFIG"), "kubeconfig file (default: KUBECONFIG)")
+
+// reportPath optionally saves the execution report as JSON.
+var reportPath = flag.String("report", "", "write the execution report to a new JSON file")
 
 // argumentValues holds the raw repeated flags so each TestRun gets a fresh default.
 var argumentValues []string
@@ -55,21 +61,52 @@ func TestRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse plan %q: %v", *planPath, err)
 	}
-	report, err := (runner.Executor{Kubeconfig: kubeconfig}).Execute(t.Context(), plan, args["runId"])
-	t.Logf("\nplan=%s run=%s stages=%d", report.Plan, report.RunID, len(report.Stages))
-	for _, stage := range report.Stages {
-		t.Logf("\nstage=%s", stage.Name)
-		for _, generator := range stage.Generators {
-			t.Logf("generator=%s error=%v", generator.Name, generator.Error)
+	err = withReportFile(*reportPath, func(reportFile *os.File) error {
+		report, err := (runner.Executor{Kubeconfig: kubeconfig}).Execute(t.Context(), plan, args["runId"])
+		// Preserve input identity when preparation fails before a report exists.
+		if report.Plan == "" {
+			report.Plan = plan.Name
 		}
-		if stage.Measurement != "" {
-			t.Logf("\nmeasurement=%s error=%v\n\n%s",
-				stage.Measurement, stage.MeasurementError, format.Format(stage.Report))
+		if report.RunID == "" {
+			report.RunID = args["runId"]
 		}
+		if reportFile != nil {
+			assert.NoError(t, runner.WriteReport(reportFile, data, args, report, err), "write report file")
+		}
+		t.Logf("\nplan=%s run=%s stages=%d", report.Plan, report.RunID, len(report.Stages))
+		for _, stage := range report.Stages {
+			t.Logf("\nstage=%s", stage.Name)
+			for _, generator := range stage.Generators {
+				t.Logf("generator=%s error=%v", generator.Name, generator.Error)
+			}
+			if stage.Measurement != "" {
+				t.Logf("\nmeasurement=%s error=%v\n\n%s",
+					stage.Measurement, stage.MeasurementError, format.Format(stage.Report))
+			}
+		}
+		if err != nil {
+			return fmt.Errorf("execute plan %q: %w", plan.Name, err)
+		}
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+// withReportFile creates optional output before execution and closes it afterward.
+func withReportFile(path string, run func(*os.File) error) (err error) {
+	if path == "" {
+		return run(nil)
 	}
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
-		t.Errorf("execute plan %q: %v", plan.Name, err)
+		return fmt.Errorf("create report file: %w", err)
 	}
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close report file: %w", closeErr))
+		}
+	}()
+	return run(file)
 }
 
 // resolveKubeconfig also accepts the trailing KUBECONFIG=path form forwarded by
