@@ -49,7 +49,7 @@ func TestSnapshotNormalization(t *testing.T) {
 		},
 		{
 			name:  "quoted allocator tag",
-			input: "  image: 'ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:0.161.0'\n",
+			input: "  image: 'ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:123.4.5'\n",
 			want:  "  image: 'ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:VERSION'\n",
 		},
 		{

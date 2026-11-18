@@ -212,13 +212,14 @@ tests:
   - it: mirrors the Collector and Target Allocator images through global.imageRegistry
     set:
       global.imageRegistry: mirror.example.com
+      targetallocator_image.tag: test-tag
     asserts:
       - equal:
           path: spec.image
           value: mirror.example.com/otel/opentelemetry-collector-k8s:0.164.0
       - equal:
           path: spec.targetAllocator.image
-          value: mirror.example.com/open-telemetry/opentelemetry-operator/target-allocator:0.161.0
+          value: mirror.example.com/open-telemetry/opentelemetry-operator/target-allocator:test-tag
 
   - it: rejects disabled target allocation
     set:
