@@ -29,6 +29,7 @@ jobs:
     outputs:
       release: ${{ steps.meta.outputs.release }}
       version: ${{ steps.meta.outputs.version }}
+      version_core: ${{ steps.release-version.outputs.core }}
       artifact: ${{ steps.meta.outputs.artifact }}
     steps:
       - name: Checkout
@@ -81,6 +82,18 @@ jobs:
             # the release job only, and it must still find this attempt's upload.
             echo "artifact=chart-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           } >> "${GITHUB_OUTPUT}"
+
+      - name: Validate release chart version
+        id: release-version
+        if: steps.meta.outputs.release == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        with:
+          script: |
+            const version = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.exec(process.env.VERSION);
+            if (!version) throw new Error('Invalid target chart version');
+            core.setOutput('core', version.slice(1, 4).join('.'));
 
       - name: Build NKTP dependencies
         if: inputs.chart == 'nktp'
@@ -187,6 +200,7 @@ jobs:
     env:
       CHART: ${{ inputs.chart }}
       VERSION: ${{ needs.publish.outputs.version }}
+      VERSION_CORE: ${{ needs.publish.outputs.version_core }}
     steps:
       - name: Select the previous stable chart release
         id: previous-release
@@ -194,9 +208,7 @@ jobs:
         with:
           script: |
             const prefix = `${process.env.CHART}/v`;
-            const target = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.exec(process.env.VERSION);
-            if (!target) throw new Error('Invalid target chart version');
-            const targetVersion = target.slice(1, 4).map(BigInt);
+            const targetVersion = process.env.VERSION_CORE.split('.').map(BigInt);
             const compare = (left, right) => {
               for (let i = 0; i < 3; i++) {
                 if (left[i] < right[i]) return -1;
