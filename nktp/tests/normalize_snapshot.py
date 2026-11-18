@@ -8,7 +8,7 @@ import sys
 
 
 IMAGE_PREFIXES = (
-    "otel/opentelemetry-collector-k8s:",
+    "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-k8s:",
     "ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:",
     "registry.k8s.io/kube-state-metrics/kube-state-metrics:v",
     "grafana/otel-lgtm:",

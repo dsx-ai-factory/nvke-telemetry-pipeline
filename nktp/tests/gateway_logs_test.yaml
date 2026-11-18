@@ -128,14 +128,14 @@ tests:
     asserts:
       - matchRegex:
           path: spec.image
-          pattern: '^mirror\.example\.com/otel/opentelemetry-collector-k8s:[0-9]+\.[0-9]+\.[0-9]+$'
+          pattern: '^mirror\.example\.com/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-k8s:[0-9]+\.[0-9]+\.[0-9]+$'
 
   - it: rejects a numeric image tag
     set:
       otelcol_image.tag: 1.0
     asserts:
       - failedTemplate:
-          errorMessage: image tag 1 for otel/opentelemetry-collector-k8s must be a quoted string
+          errorMessage: image tag 1 for open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-k8s must be a quoted string
 
   - it: passes workload overrides through and resolves the Collector image separately
     set:

@@ -6,30 +6,18 @@
 package integration
 
 import (
-	"os"
 	"os/exec"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.yaml.in/yaml/v3"
 )
 
 // TestSnapshotNormalization checks that version normalization preserves other
 // output and rejects malformed tags instead of hiding them in the snapshot.
 func TestSnapshotNormalization(t *testing.T) {
-	// Use the chart's backend tag so this fixture cannot retain an old image version.
-	data, err := os.ReadFile("../../nktp/values.yaml")
-	require.NoError(t, err)
-	var values struct {
-		LGTM struct {
-			Image struct {
-				Tag string `yaml:"tag"`
-			} `yaml:"image"`
-		} `yaml:"otel-lgtm"`
-	}
-	require.NoError(t, yaml.Unmarshal(data, &values))
-	require.NotEmpty(t, values.LGTM.Image.Tag)
+	// Exercise semver normalization without referencing published image versions.
+	const version = "123.456.789"
 
 	for _, tc := range []struct {
 		name    string
@@ -39,37 +27,37 @@ func TestSnapshotNormalization(t *testing.T) {
 	}{
 		{
 			name:  "chart version only",
-			input: "# Source: nktp/templates/watchdog.yaml\n  helm.sh/chart: opentelemetry-kube-stack-0.27.0\n  name: nktp-watchdog\n",
+			input: "# Source: nktp/templates/watchdog.yaml\n  helm.sh/chart: opentelemetry-kube-stack-" + version + "\n  name: nktp-watchdog\n",
 			want:  "# Source: nktp/templates/watchdog.yaml\n  helm.sh/chart: opentelemetry-kube-stack-VERSION\n  name: nktp-watchdog\n",
 		},
 		{
 			name:  "collector tag",
-			input: "  image: otel/opentelemetry-collector-k8s:0.164.0\n  replicas: 2\n",
-			want:  "  image: otel/opentelemetry-collector-k8s:VERSION\n  replicas: 2\n",
+			input: "  image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-k8s:" + version + "\n  replicas: 2\n",
+			want:  "  image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-k8s:VERSION\n  replicas: 2\n",
 		},
 		{
 			name:  "quoted allocator tag",
-			input: "  image: 'ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:0.161.0'\n",
+			input: "  image: 'ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:" + version + "'\n",
 			want:  "  image: 'ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:VERSION'\n",
 		},
 		{
 			name:  "kube-state-metrics tag prefix",
-			input: "  - image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0\n",
+			input: "  - image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v" + version + "\n",
 			want:  "  - image: registry.k8s.io/kube-state-metrics/kube-state-metrics:vVERSION\n",
 		},
 		{
 			name:  "backend tag",
-			input: "  image: grafana/otel-lgtm:" + values.LGTM.Image.Tag + "\n",
+			input: "  image: grafana/otel-lgtm:" + version + "\n",
 			want:  "  image: grafana/otel-lgtm:VERSION\n",
 		},
 		{
 			name:  "unexpected repository remains visible",
-			input: "  image: example.com/collector:0.164.0\n",
-			want:  "  image: example.com/collector:0.164.0\n",
+			input: "  image: example.com/collector:" + version + "\n",
+			want:  "  image: example.com/collector:" + version + "\n",
 		},
 		{
 			name:    "invalid image tag",
-			input:   "  image: otel/opentelemetry-collector-k8s:latest\n",
+			input:   "  image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-k8s:latest\n",
 			wantErr: true,
 		},
 		{

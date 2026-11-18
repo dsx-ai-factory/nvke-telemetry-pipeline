@@ -154,7 +154,7 @@ metadata:
   name: nktp-sidecar
 spec:
   mode: sidecar
-  image: otel/opentelemetry-collector-k8s:0.164.0
+  image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-k8s:0.164.0
   resources:
     requests:
       cpu: 10m
