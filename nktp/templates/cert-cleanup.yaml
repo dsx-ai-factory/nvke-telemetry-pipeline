@@ -4,6 +4,7 @@ SPDX-License-Identifier: Apache-2.0
 */ -}}
 {{- if .Values.certManager.internalTLS.enabled }}
 {{- $secrets := include "nktp.certSecrets" . | fromJsonArray }}
+{{- $taCertificates := include "nktp.taCertificates" . | fromJsonArray }}
 {{- $name := printf "%s-cert-cleanup" (.Release.Name | trunc 40 | trimSuffix "-") }}
 {{- $labels := dict "app.kubernetes.io/name" "nktp-cert-cleanup" "app.kubernetes.io/instance" .Release.Name }}
 {{- /* The release's own RBAC is gone when post-delete hooks run, so the Job brings its own. */}}
@@ -33,6 +34,13 @@ rules:
     resourceNames:
       {{- toYaml $secrets | nindent 6 }}
     verbs: [get, delete]
+  {{- with $taCertificates }}
+  - apiGroups: [cert-manager.io]
+    resources: [certificates]
+    resourceNames:
+      {{- toYaml . | nindent 6 }}
+    verbs: [get, list, watch]
+  {{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -63,7 +71,7 @@ metadata:
     {{- merge (dict "helm.sh/hook-weight" "0") $hook | toYaml | nindent 4 }}
 spec:
   backoffLimit: 3
-  activeDeadlineSeconds: 120
+  activeDeadlineSeconds: 300
   template:
     spec:
       serviceAccountName: {{ $name }}
@@ -76,6 +84,34 @@ spec:
         fsGroup: 65532
         seccompProfile:
           type: RuntimeDefault
+      {{- with $taCertificates }}
+      initContainers:
+        # cert-manager reissues a Secret while its Certificate exists, so wait for the Operator to remove them.
+        - name: wait-for-operator-certificates
+          image: {{ include "nktp.image" (dict "imageRegistry" $.Values.global.imageRegistry "image" $.Values.namespace.labeling.image) | quote }}
+          command: [kubectl]
+          args:
+            - wait
+            - --namespace={{ $.Release.Namespace }}
+            - --for=delete
+            - --timeout=60s
+            {{- range . }}
+            - certificate.cert-manager.io/{{ . }}
+            {{- end }}
+          env:
+            - name: HOME
+              value: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            {{- toYaml $.Values.namespace.labeling.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      {{- end }}
       containers:
         - name: delete-secrets
           image: {{ include "nktp.image" (dict "imageRegistry" .Values.global.imageRegistry "image" .Values.namespace.labeling.image) | quote }}

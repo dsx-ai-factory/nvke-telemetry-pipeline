@@ -59,7 +59,7 @@ tests:
       - contains:
           path: rules[0].resourceNames
           content: nktp-operator-controller-manager-service-cert
-      - notContains:
+      - contains:
           path: rules[0].resourceNames
           content: nktp-watchdog-ta-server-cert
   - it: deletes exactly the Secrets the Role allows
@@ -92,6 +92,58 @@ tests:
       - contains:
           path: rules[0].resourceNames
           content: nktp-gateway-logs-server-tls
+  - it: lets the Job watch only the Operator's Target Allocator Certificates
+    documentSelector:
+      path: kind
+      value: Role
+    asserts:
+      - equal:
+          path: rules[1].apiGroups
+          value: [cert-manager.io]
+      - equal:
+          path: rules[1].verbs
+          value: [get, list, watch]
+      - contains:
+          path: rules[1].resourceNames
+          content: nktp-watchdog-ta-server-cert
+      - notContains:
+          path: rules[1].resourceNames
+          content: nktp-gateway-logs-server
+  - it: waits for the Target Allocator Certificates to be deleted before deleting Secrets
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].args[2]
+          value: --for=delete
+      - contains:
+          path: spec.template.spec.initContainers[0].args
+          content: certificate.cert-manager.io/nktp-watchdog-ta-server-cert
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: nktp-watchdog-ta-server-cert
+  - it: neither waits nor watches Certificates when Target Allocator certificates are disabled
+    set:
+      certManager.targetAllocators.enabled: false
+    asserts:
+      - notExists:
+          path: spec.template.spec.initContainers
+        documentSelector:
+          path: kind
+          value: Job
+      - lengthEqual:
+          path: rules
+          count: 1
+        documentSelector:
+          path: kind
+          value: Role
+      - notContains:
+          path: rules[0].resourceNames
+          content: nktp-watchdog-ta-server-cert
+        documentSelector:
+          path: kind
+          value: Role
   - it: renders nothing when internal TLS is disabled
     set:
       certManager.internalTLS.enabled: false

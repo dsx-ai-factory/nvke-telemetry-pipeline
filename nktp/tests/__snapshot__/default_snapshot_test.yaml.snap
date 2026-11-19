@@ -41,12 +41,45 @@ matches the snapshot with default values:
           - nktp-gateway-traces-client-tls
           - nktp-gateway-logs-client-tls
           - nktp-gateway-metrics-client-tls
+          - nktp-daemonset-ca-cert
+          - nktp-daemonset-ta-server-cert
+          - nktp-daemonset-ta-client-cert
+          - nktp-large-target-metrics-ca-cert
+          - nktp-large-target-metrics-ta-server-cert
+          - nktp-large-target-metrics-ta-client-cert
+          - nktp-nodeless-metrics-ca-cert
+          - nktp-nodeless-metrics-ta-server-cert
+          - nktp-nodeless-metrics-ta-client-cert
+          - nktp-watchdog-ca-cert
+          - nktp-watchdog-ta-server-cert
+          - nktp-watchdog-ta-client-cert
           - nktp-operator-controller-manager-service-cert
         resources:
           - secrets
         verbs:
           - get
           - delete
+      - apiGroups:
+          - cert-manager.io
+        resourceNames:
+          - nktp-daemonset-ca-cert
+          - nktp-daemonset-ta-server-cert
+          - nktp-daemonset-ta-client-cert
+          - nktp-large-target-metrics-ca-cert
+          - nktp-large-target-metrics-ta-server-cert
+          - nktp-large-target-metrics-ta-client-cert
+          - nktp-nodeless-metrics-ca-cert
+          - nktp-nodeless-metrics-ta-server-cert
+          - nktp-nodeless-metrics-ta-client-cert
+          - nktp-watchdog-ca-cert
+          - nktp-watchdog-ta-server-cert
+          - nktp-watchdog-ta-client-cert
+        resources:
+          - certificates
+        verbs:
+          - get
+          - list
+          - watch
   3: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: RoleBinding
@@ -82,7 +115,7 @@ matches the snapshot with default values:
       name: RELEASE-NAME-cert-cleanup
       namespace: NAMESPACE
     spec:
-      activeDeadlineSeconds: 120
+      activeDeadlineSeconds: 300
       backoffLimit: 3
       template:
         spec:
@@ -105,6 +138,18 @@ matches the snapshot with default values:
                 - nktp-gateway-traces-client-tls
                 - nktp-gateway-logs-client-tls
                 - nktp-gateway-metrics-client-tls
+                - nktp-daemonset-ca-cert
+                - nktp-daemonset-ta-server-cert
+                - nktp-daemonset-ta-client-cert
+                - nktp-large-target-metrics-ca-cert
+                - nktp-large-target-metrics-ta-server-cert
+                - nktp-large-target-metrics-ta-client-cert
+                - nktp-nodeless-metrics-ca-cert
+                - nktp-nodeless-metrics-ta-server-cert
+                - nktp-nodeless-metrics-ta-client-cert
+                - nktp-watchdog-ca-cert
+                - nktp-watchdog-ta-server-cert
+                - nktp-watchdog-ta-client-cert
                 - nktp-operator-controller-manager-service-cert
               command:
                 - kubectl
@@ -113,6 +158,47 @@ matches the snapshot with default values:
                   value: /tmp
               image: registry.k8s.io/kubectl:v1.35.10
               name: delete-secrets
+              resources:
+                limits:
+                  cpu: 100m
+                  memory: 128Mi
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+              volumeMounts:
+                - mountPath: /tmp
+                  name: tmp
+          initContainers:
+            - args:
+                - wait
+                - --namespace=NAMESPACE
+                - --for=delete
+                - --timeout=60s
+                - certificate.cert-manager.io/nktp-daemonset-ca-cert
+                - certificate.cert-manager.io/nktp-daemonset-ta-server-cert
+                - certificate.cert-manager.io/nktp-daemonset-ta-client-cert
+                - certificate.cert-manager.io/nktp-large-target-metrics-ca-cert
+                - certificate.cert-manager.io/nktp-large-target-metrics-ta-server-cert
+                - certificate.cert-manager.io/nktp-large-target-metrics-ta-client-cert
+                - certificate.cert-manager.io/nktp-nodeless-metrics-ca-cert
+                - certificate.cert-manager.io/nktp-nodeless-metrics-ta-server-cert
+                - certificate.cert-manager.io/nktp-nodeless-metrics-ta-client-cert
+                - certificate.cert-manager.io/nktp-watchdog-ca-cert
+                - certificate.cert-manager.io/nktp-watchdog-ta-server-cert
+                - certificate.cert-manager.io/nktp-watchdog-ta-client-cert
+              command:
+                - kubectl
+              env:
+                - name: HOME
+                  value: /tmp
+              image: registry.k8s.io/kubectl:v1.35.10
+              name: wait-for-operator-certificates
               resources:
                 limits:
                   cpu: 100m

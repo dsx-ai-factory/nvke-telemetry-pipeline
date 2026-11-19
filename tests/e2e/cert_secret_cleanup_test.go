@@ -34,9 +34,6 @@ func TestCertificateSecretCleanup(t *testing.T) {
 			certificates.SetGroupVersionKind(schema.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "CertificateList"})
 			require.NoError(t, r.List(setupCtx, certificates), "listing Certificates")
 			for _, certificate := range certificates.Items {
-				if len(certificate.GetOwnerReferences()) > 0 {
-					continue
-				}
 				secretName, found, err := unstructured.NestedString(certificate.Object, "spec", "secretName")
 				require.NoError(t, err)
 				require.True(t, found, "Certificate %s should name its Secret", certificate.GetName())

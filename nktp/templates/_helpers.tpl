@@ -213,6 +213,19 @@ so the name must not contain a double quote or a backslash.
       (dict "name" "nktp-gateway-metrics-client" "commonName" "nktp-gateway-metrics") | toJson -}}
 {{- end -}}
 
+{{- define "nktp.taCertificates" -}}
+{{- $names := list -}}
+{{- if .Values.certManager.targetAllocators.enabled -}}
+{{- /* The Operator creates these Certificates at runtime and names each one's Secret the same. */ -}}
+{{- range $collector := list "nktp-daemonset" "nktp-large-target-metrics" "nktp-nodeless-metrics" "nktp-watchdog" -}}
+{{- range $suffix := list "ca-cert" "ta-server-cert" "ta-client-cert" -}}
+{{- $names = append $names (printf "%s-%s" $collector $suffix) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- $names | toJson -}}
+{{- end -}}
+
 {{- define "nktp.certSecrets" -}}
 {{- $secrets := list -}}
 {{- if .Values.certManager.internalTLS.enabled -}}
@@ -226,6 +239,7 @@ so the name must not contain a double quote or a backslash.
 {{- $secrets = append $secrets (printf "%s-tls" .name) -}}
 {{- end -}}
 {{- end -}}
+{{- $secrets = concat $secrets (include "nktp.taCertificates" . | fromJsonArray) -}}
 {{- if dig "opentelemetry-kube-stack" "opentelemetry-operator" "admissionWebhooks" "certManager" "enabled" false .Values.AsMap -}}
 {{- $secrets = append $secrets "nktp-operator-controller-manager-service-cert" -}}
 {{- end -}}
