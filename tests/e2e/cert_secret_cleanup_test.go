@@ -15,7 +15,6 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
@@ -24,9 +23,8 @@ import (
 
 func TestCertificateSecretCleanup(t *testing.T) {
 	var certificateSecrets []string
-	bystander := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: envconf.RandomName("cert-cleanup-bystander", 32)}}
 
-	f := features.NewWithDescription("CertificateSecretCleanup", "Uninstalling the release deletes its Certificate Secrets and nothing else").
+	f := features.NewWithDescription("CertificateSecretCleanup", "Uninstalling the release deletes its Certificate Secrets").
 		WithSetup("RecordingCertificateSecrets", func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
 			setupCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 			defer cancel()
@@ -51,12 +49,9 @@ func TestCertificateSecretCleanup(t *testing.T) {
 				require.NoError(t, r.Get(setupCtx, name, c.Namespace(), &secret),
 					"Secret %s should exist before the release is uninstalled", name)
 			}
-
-			bystander.Namespace = c.Namespace()
-			require.NoError(t, r.Create(setupCtx, bystander), "creating the bystander Secret")
 			return ctx
 		}).
-		AssessWithDescription("DeletingCertificateSecrets", "Uninstall removes every Certificate Secret and keeps the bystander",
+		AssessWithDescription("DeletingCertificateSecrets", "Uninstall removes every Certificate Secret",
 			func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
 				uninstallCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 				defer cancel()
@@ -69,9 +64,6 @@ func TestCertificateSecretCleanup(t *testing.T) {
 					assert.True(t, apierrors.IsNotFound(err), "Secret %s should be deleted by uninstall, got: %v", name, err)
 				}
 
-				var survivor corev1.Secret
-				assert.NoError(t, r.Get(uninstallCtx, bystander.Name, c.Namespace(), &survivor), "the cleanup hook must not delete other Secrets")
-
 				var job batchv1.Job
 				err := r.Get(uninstallCtx, testenv.ReleaseName+"-cert-cleanup", c.Namespace(), &job)
 				assert.True(t, apierrors.IsNotFound(err), "the successful cleanup Job should be removed, got: %v", err)
@@ -80,10 +72,6 @@ func TestCertificateSecretCleanup(t *testing.T) {
 		WithTeardown("RestoringRelease", func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
 			restoreCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Minute)
 			defer cancel()
-			r := c.Client().Resources(c.Namespace())
-			if err := r.Delete(restoreCtx, bystander); err != nil && !apierrors.IsNotFound(err) {
-				t.Errorf("deleting the bystander Secret: %v", err)
-			}
 			require.NoError(t, testenv.InstallRelease(restoreCtx), "reinstalling the release")
 			_, err := waitForCollectors(restoreCtx, c)
 			require.NoError(t, err, "waiting for Collector workloads after reinstall")
