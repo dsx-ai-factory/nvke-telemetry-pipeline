@@ -1,0 +1,60 @@
+# Exports metrics, logs, and traces over OTLP/HTTP with Basic authentication.
+# Set the backend endpoint and inject OTLP_USERNAME and OTLP_PASSWORD into the
+# Collector from a Kubernetes Secret; do not put credentials in Helm values.
+# Use an HTTPS backend whose certificate is trusted by the Collector.
+# Render this NVCB input with nvcb.run for a Collector with otlp, otlphttp,
+# basicauth, and forward.
+blueprints:
+  exporters:
+    authenticated_otlp:
+      version: 0.1.0
+      description: |
+        Exports metrics, logs, and traces over OTLP/HTTP with Basic authentication.
+        Parameters:
+          endpoint (required): the HTTPS backend URL.
+        Credentials come from OTLP_USERNAME and OTLP_PASSWORD in the Collector environment.
+      template: |
+        extensions:
+          basicauth:
+            client_auth:
+              username: "${env:OTLP_USERNAME}"
+              password: "${env:OTLP_PASSWORD}"
+
+        exporters:
+          otlphttp:
+            endpoint: {{ .values.endpoint | required "authenticated_otlp: endpoint is required" | quote }}
+            auth:
+              authenticator: basicauth/{{ .scope }}
+
+        pipelines:
+          metrics:
+            receivers: [{{ .forward }}]
+            exporters: [otlphttp]
+          logs:
+            receivers: [{{ .forward }}]
+            exporters: [otlphttp]
+          traces:
+            receivers: [{{ .forward }}]
+            exporters: [otlphttp]
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 127.0.0.1:4317
+
+exporters:
+  blueprint/authenticated_otlp/primary:
+    endpoint: https://telemetry.example.com:4318
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      exporters: [blueprint/authenticated_otlp/primary]
+    logs:
+      receivers: [otlp]
+      exporters: [blueprint/authenticated_otlp/primary]
+    traces:
+      receivers: [otlp]
+      exporters: [blueprint/authenticated_otlp/primary]
