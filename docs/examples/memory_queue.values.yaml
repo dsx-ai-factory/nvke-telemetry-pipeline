@@ -19,6 +19,9 @@ watchdog:
           sending_queue:
             storage: null
             queue_size: 85899346 # Per signal; about 246MiB total across the three queues.
+        blueprint/metrics_egress:
+          sending_queue:
+            storage: null
       service:
         extensions: [health_check]
 
@@ -54,7 +57,7 @@ gateway_metrics:
       extensions:
         file_storage/queue: null
       exporters:
-        otlp_grpc:
+        blueprint/metrics_egress:
           sending_queue:
             storage: null
       service:

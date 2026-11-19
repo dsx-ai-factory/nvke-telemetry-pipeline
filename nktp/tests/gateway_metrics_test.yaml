@@ -57,7 +57,11 @@ tests:
       - equal:
           path: spec.config.service.pipelines
           value:
-            metrics: {receivers: [otlp], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
+            metrics: {receivers: [otlp], processors: [memory_limiter, transform/cluster], exporters: [forward/exp/metrics_egress]}
+            "metrics/(exp/metrics_egress)":
+              receivers: [forward/exp/metrics_egress]
+              processors: ["redaction/(exp/metrics_egress)"]
+              exporters: ["otlp_grpc/(exp/metrics_egress)"]
       - equal:
           path: spec.config.processors.memory_limiter
           value:
@@ -65,9 +69,9 @@ tests:
             limit_percentage: 80
             spike_limit_percentage: 25
       - exists:
-          path: spec.config.processors["redaction/basic_v1"]
+          path: spec.config.processors["redaction/(exp/metrics_egress)"]
       - equal:
-          path: spec.config.exporters.otlp_grpc.endpoint
+          path: spec.config.exporters["otlp_grpc/(exp/metrics_egress)"].endpoint
           value: lgtm:4317
       - equal:
           path: spec.config.service.telemetry
@@ -186,23 +190,23 @@ tests:
 
   - it: changes forwarding fields without changing own telemetry or native expressions
     set:
-      gateway_metrics.otelcol.config.exporters.otlp_grpc.endpoint: ${env:DESTINATION}
-      gateway_metrics.otelcol.config.exporters.otlp_grpc.tls.insecure: false
-      gateway_metrics.otelcol.config.exporters.otlp_grpc.headers:
+      gateway_metrics.otelcol.config.exporters.blueprint/metrics_egress.endpoint: ${env:DESTINATION}
+      gateway_metrics.otelcol.config.exporters.blueprint/metrics_egress.tls.insecure: false
+      gateway_metrics.otelcol.config.exporters.blueprint/metrics_egress.headers:
         x-literal: "{{ preserved }} $$TOKEN"
-      gateway_metrics.otelcol.config.exporters.otlp_grpc.sending_queue.queue_size: 4194304
+      gateway_metrics.otelcol.config.exporters.blueprint/metrics_egress.sending_queue.queue_size: 4194304
     asserts:
       - equal:
-          path: spec.config.exporters.otlp_grpc.endpoint
+          path: spec.config.exporters["otlp_grpc/(exp/metrics_egress)"].endpoint
           value: ${env:DESTINATION}
       - equal:
-          path: spec.config.exporters.otlp_grpc.tls.insecure
+          path: spec.config.exporters["otlp_grpc/(exp/metrics_egress)"].tls.insecure
           value: false
       - equal:
-          path: spec.config.exporters.otlp_grpc.headers
+          path: spec.config.exporters["otlp_grpc/(exp/metrics_egress)"].headers
           value: {x-literal: "{{ preserved }} $$TOKEN"}
       - equal:
-          path: spec.config.exporters.otlp_grpc.sending_queue
+          path: spec.config.exporters["otlp_grpc/(exp/metrics_egress)"].sending_queue
           value:
             storage: file_storage/queue
             block_on_overflow: true
@@ -240,7 +244,7 @@ tests:
           path: spec.config.service.telemetry.traces.processors[0].batch.exporter.otlp.endpoint
           value: http://127.0.0.1:4319
       - equal:
-          path: spec.config.exporters.otlp_grpc.endpoint
+          path: spec.config.exporters["otlp_grpc/(exp/metrics_egress)"].endpoint
           value: lgtm:4317
 
   - it: replaces own log exporters independently
@@ -263,7 +267,7 @@ tests:
           path: spec.config.service.telemetry.traces.processors[0].batch.exporter.otlp.endpoint
           value: http://127.0.0.1:4319
       - equal:
-          path: spec.config.exporters.otlp_grpc.endpoint
+          path: spec.config.exporters["otlp_grpc/(exp/metrics_egress)"].endpoint
           value: lgtm:4317
 
   - it: replaces own trace exporters independently
@@ -286,7 +290,7 @@ tests:
           path: spec.config.service.telemetry.logs.processors[0].batch.exporter.otlp.endpoint
           value: http://127.0.0.1:4319
       - equal:
-          path: spec.config.exporters.otlp_grpc.endpoint
+          path: spec.config.exporters["otlp_grpc/(exp/metrics_egress)"].endpoint
           value: lgtm:4317
 
   - it: changes the gRPC listener while preserving mTLS and connection rotation
@@ -332,10 +336,34 @@ tests:
             fsync: false
       - equal:
           path: spec.config.service.extensions
-          value: [health_check, file_storage/queue]
+          value: [file_storage/queue, health_check] # NVCB sorts extensions when a blueprint is expanded.
       - equal:
-          path: spec.config.exporters.otlp_grpc.sending_queue.storage
+          path: spec.config.exporters["otlp_grpc/(exp/metrics_egress)"].sending_queue.storage
           value: file_storage/queue
       - equal:
-          path: spec.config.exporters.otlp_grpc.sending_queue.queue_size
+          path: spec.config.exporters["otlp_grpc/(exp/metrics_egress)"].sending_queue.queue_size
           value: 515396076
+
+  - it: appends additional redaction rules after the blueprint defaults
+    set:
+      gateway_metrics.otelcol.config.exporters.blueprint/metrics_egress.redaction.additional_blocked_key_patterns: ['(?i)^tenant[._-]?key$$']
+      gateway_metrics.otelcol.config.exporters.blueprint/metrics_egress.redaction.additional_blocked_values: ['\bsk-[A-Za-z0-9]{20,}\b']
+    asserts:
+      - lengthEqual:
+          path: spec.config.processors["redaction/(exp/metrics_egress)"].blocked_key_patterns
+          count: 4
+      - equal:
+          path: spec.config.processors["redaction/(exp/metrics_egress)"].blocked_key_patterns[0]
+          value: '(?i)^(?:password|passwd|db[._-]?password)$$'
+      - equal:
+          path: spec.config.processors["redaction/(exp/metrics_egress)"].blocked_key_patterns[3]
+          value: '(?i)^tenant[._-]?key$$'
+      - lengthEqual:
+          path: spec.config.processors["redaction/(exp/metrics_egress)"].blocked_values
+          count: 3
+      - equal:
+          path: spec.config.processors["redaction/(exp/metrics_egress)"].blocked_values[0]
+          value: '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
+      - equal:
+          path: spec.config.processors["redaction/(exp/metrics_egress)"].blocked_values[2]
+          value: '\bsk-[A-Za-z0-9]{20,}\b'

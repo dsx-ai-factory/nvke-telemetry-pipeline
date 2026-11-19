@@ -1,0 +1,60 @@
+blueprints:
+  exporters:
+    metrics_egress:
+      version: 0.1.0
+      description: |
+        Redacts credentials from a metrics pipeline and sends the result to an
+        OTLP gRPC backend. Use it as the exporter of every metrics pipeline that
+        leaves the cluster; only data sent through this blueprint is redacted.
+        Processors in the pipeline that uses it run before redaction.
+        Redaction keeps bare `secret` and `token` label keys, such as
+        kube-state-metrics Secret names, and blocks explicit credential keys and
+        credential-looking values.
+        Parameters:
+          endpoint (required): the backend's host:port.
+          headers (optional): request headers, such as {authorization: "Bearer ${env:TOKEN}"}.
+          tls, retry_on_failure, sending_queue (optional): passed to the exporter unchanged.
+          redaction.additional_blocked_key_patterns (optional): regular expressions appended
+            to the default blocked_key_patterns. Defaults cannot be removed.
+          redaction.additional_blocked_values (optional): regular expressions appended to the
+            default blocked_values. Defaults cannot be removed.
+          Write a literal $ in a pattern as $$, as in any Collector configuration.
+      template: |
+        processors:
+          redaction:
+            allow_all_keys: true
+            redact_all_types: true
+            summary: silent
+            blocked_key_patterns:
+              - '(?i)^(?:password|passwd|db[._-]?password)$$'
+              - '(?i)^(?:(?:access|refresh|id|session|auth)[._-]?token|(?:api|private|secret)[._-]?key|(?:aws[._-]?)?secret[._-]?access[._-]?key|client[._-]?secret)$$'
+              - '(?i)^(?:authorization|proxy[._-]?authorization|cookie|set[._-]?cookie|http[._]request[._]header[._](?:authorization|proxy[._-]?authorization|cookie))$$'
+              {{- with .values.redaction }}{{ range .additional_blocked_key_patterns }}
+              - {{ toJson . }}
+              {{- end }}{{ end }}
+            blocked_values:
+              - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
+              - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
+              {{- with .values.redaction }}{{ range .additional_blocked_values }}
+              - {{ toJson . }}
+              {{- end }}{{ end }}
+        exporters:
+          otlp_grpc:
+            endpoint: {{ required "metrics_egress: endpoint is required" .values.endpoint | quote }}
+            {{- with .values.headers }}
+            headers: {{ toJson . }}
+            {{- end }}
+            {{- with .values.tls }}
+            tls: {{ toJson . }}
+            {{- end }}
+            {{- with .values.retry_on_failure }}
+            retry_on_failure: {{ toJson . }}
+            {{- end }}
+            {{- with .values.sending_queue }}
+            sending_queue: {{ toJson . }}
+            {{- end }}
+        pipelines:
+          metrics:
+            receivers: [{{ .forward }}]
+            processors: [redaction]
+            exporters: [otlp_grpc]

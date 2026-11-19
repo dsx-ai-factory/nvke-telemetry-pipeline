@@ -47,8 +47,10 @@ tests:
               readOnly: true
       - notExists:
           path: spec.persistentVolumeClaimRetentionPolicy
+      - exists:
+          path: spec.config.exporters["otlp_grpc/(exp/metrics_egress)"].sending_queue
       - notExists:
-          path: spec.config.exporters.otlp_grpc.sending_queue.storage
+          path: spec.config.exporters["otlp_grpc/(exp/metrics_egress)"].sending_queue.storage
       - notExists:
           path: spec.config.extensions["file_storage/queue"]
       - equal:
@@ -100,6 +102,10 @@ tests:
           path: spec.persistentVolumeClaimRetentionPolicy
       - notExists:
           path: spec.config.exporters.otlp_grpc.sending_queue.storage
+      - exists:
+          path: spec.config.exporters["otlp_grpc/(exp/metrics_egress)"].sending_queue
+      - notExists:
+          path: spec.config.exporters["otlp_grpc/(exp/metrics_egress)"].sending_queue.storage
       - notExists:
           path: spec.config.extensions["file_storage/queue"]
       - equal:
