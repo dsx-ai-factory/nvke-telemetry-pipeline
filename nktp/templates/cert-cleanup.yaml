@@ -2,8 +2,8 @@
 SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 SPDX-License-Identifier: Apache-2.0
 */ -}}
-{{- $secrets := include "nktp.certSecrets" . | fromJsonArray }}
 {{- if .Values.certManager.internalTLS.enabled }}
+{{- $secrets := include "nktp.certSecrets" . | fromJsonArray }}
 {{- $name := printf "%s-cert-cleanup" (.Release.Name | trunc 40 | trimSuffix "-") }}
 {{- $labels := dict "app.kubernetes.io/name" "nktp-cert-cleanup" "app.kubernetes.io/instance" .Release.Name }}
 {{- /* The release's own RBAC is gone when post-delete hooks run, so the Job brings its own. */}}
