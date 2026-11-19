@@ -152,18 +152,7 @@ certificate.cert-manager.io/nktp-watchdog-ta-server-cert               True    n
 
 ### Uninstalling
 
-cert-manager does not delete the Secret a Certificate wrote, so removing a
-release would leave its private keys in the namespace. By default, a Helm
-`post-delete` Job deletes the Secrets that NKTP's Certificates wrote:
-the internal CA, the Collector and gateway TLS Secrets, the Target Allocator
-Secrets, and the Operator webhook Secret. It deletes these by name and cannot
-touch other Secrets in the namespace. With an external `issuerRef`, the CA
-Secret is left alone because NKTP did not create it.
-
-The hook runs whenever `certManager.internalTLS.enabled` is true. It needs an
-installer that runs Helm hooks, which `helm uninstall` does. It uses the
-`namespace.labeling.image` and `namespace.labeling.resources` values, and
-`global.imageRegistry` for a registry mirror.
+Runs a post-delete hook that removes Secret resources created by Certificate CRs by cert-manager.
 
 ## Installing NKTP without cert-manager
 
