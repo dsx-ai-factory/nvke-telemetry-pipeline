@@ -1,20 +1,23 @@
 # Contributing to NKTP
 
-NKTP is developed in an internal NVIDIA repository. Changes arrive as pull
-requests from branches in this repository and are reviewed by the maintainers
-listed in [.github/CODEOWNERS](.github/CODEOWNERS).
+NKTP is developed in the open on GitHub. Changes arrive as pull requests from
+forks and are reviewed by the maintainers listed in
+[.github/CODEOWNERS](.github/CODEOWNERS).
 
 ## Contribution scope
 
-Open a pull request directly for:
+Every pull request links an issue. For the following changes, you can open the
+issue alongside the pull request:
 
 - Bug fixes, test additions, and documentation improvements.
 - Chart template and values changes that do not alter what NKTP installs by
   default.
 - New local development configs under `dev/configs/`.
 
-Open an issue first for:
+For the following changes, open an issue and agree on the approach with a
+maintainer before you start work:
 
+- New features and changes in behavior.
 - Changes to the default deployment: what NKTP installs, enables, or exposes
   out of the box.
 - Adding, removing, or upgrading a bundled dependency in `nktp/Chart.yaml`.
@@ -22,8 +25,9 @@ Open an issue first for:
 - New test suites under `tests/`.
 
 Settling the approach in an issue costs less than reworking a finished pull
-request. If you are not sure which kind of change you have, open an issue and
-ask.
+request. If you are not sure which kind of change you have, open the issue first
+and ask. Pull requests opened by automation, such as dependency bots, need no
+issue.
 
 Problems in the bundled upstream components themselves belong upstream unless
 NKTP's configuration of them is the cause.
@@ -236,34 +240,37 @@ By making a contribution to this project, I certify that:
 
 ## Pull request process
 
-1. Branch from `main` in this repository. The convention in use is
-   `<user>/<topic>`.
-2. Give the pull request a title in
+1. Fork the repository, branch from `main` in your fork, and open the pull
+   request from there. This applies even if you have write access to this
+   repository.
+2. Link the issue in the pull request description: `Closes: #<N>` if the pull
+   request resolves it, or `Related: #<N>` if it is partial work.
+3. Give the pull request a title in
    [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/)
    form: `<type>[(scope)][!]: <subject>`. Allowed types are `build`, `chore`,
    `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style`, and
    `test`. Mark a
    breaking change with `!`. A workflow lints the title on every pull request,
    and editing the title re-runs it without a new commit.
-3. Write the title for a reader, not for the linter. Pull requests merge by
+4. Write the title for a reader, not for the linter. Pull requests merge by
    squash only, so the title becomes the commit subject on `main`, where it
    cannot be corrected. Branch commits are discarded at merge, so there is no
    need to tidy them.
-4. Fill in both sections of the pull request template. The Testing section
+5. Fill in both sections of the pull request template. The Testing section
    should say what you ran and what it told you.
-5. Keep a pull request to one change. Dependency version bumps go in their own
+6. Keep a pull request to one change. Dependency version bumps go in their own
    pull request with the corresponding `Chart.lock` update.
-6. Include regenerated snapshots or golden files in the same pull request as
+7. Include regenerated snapshots or golden files in the same pull request as
    the change that alters them, so reviewers see the rendered effect.
-7. Update the documentation in the same pull request when a change alters chart
+8. Update the documentation in the same pull request when a change alters chart
    defaults, bundled dependencies, or user-visible configuration: the affected
    component's page under `docs/components/`, and `nktp/README.md` when the
    change touches what it covers.
-8. Keep `nktp/README.md` self-contained. It is packaged into the chart and read
+9. Keep `nktp/README.md` self-contained. It is packaged into the chart and read
    through `helm show readme` and the chart registry, where links to other files
    do not resolve. It must not link to other documentation, except its closing
    link to `docs/` on `main`. Put in-depth material under `docs/`.
-9. Keep the pull request in draft while you are still reshaping it. Once it is
+10. Keep the pull request in draft while you are still reshaping it. Once it is
    ready for review, address feedback by pushing new commits rather than
    rewriting history, and reply on the thread with what changed and where.
 
