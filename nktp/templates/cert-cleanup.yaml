@@ -1,0 +1,107 @@
+{{- /*
+SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- $secrets := include "nktp.certSecrets" . | fromJsonArray }}
+{{- if .Values.certManager.internalTLS.enabled }}
+{{- $name := printf "%s-cert-cleanup" (.Release.Name | trunc 40 | trimSuffix "-") }}
+{{- $labels := dict "app.kubernetes.io/name" "nktp-cert-cleanup" "app.kubernetes.io/instance" .Release.Name }}
+{{- /* The release's own RBAC is gone when post-delete hooks run, so the Job brings its own. */}}
+{{- $hook := dict "helm.sh/hook" "post-delete" "helm.sh/hook-delete-policy" "before-hook-creation,hook-succeeded" }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- toYaml $labels | nindent 4 }}
+  annotations:
+    {{- merge (dict "helm.sh/hook-weight" "-10") $hook | toYaml | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- toYaml $labels | nindent 4 }}
+  annotations:
+    {{- merge (dict "helm.sh/hook-weight" "-10") $hook | toYaml | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames:
+      {{- toYaml $secrets | nindent 6 }}
+    verbs: [get, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- toYaml $labels | nindent 4 }}
+  annotations:
+    {{- merge (dict "helm.sh/hook-weight" "-10") $hook | toYaml | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ .Release.Namespace | quote }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- toYaml $labels | nindent 4 }}
+  annotations:
+    {{- merge (dict "helm.sh/hook-weight" "0") $hook | toYaml | nindent 4 }}
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 120
+  template:
+    spec:
+      serviceAccountName: {{ $name }}
+      automountServiceAccountToken: true
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: delete-secrets
+          image: {{ include "nktp.image" (dict "imageRegistry" .Values.global.imageRegistry "image" .Values.namespace.labeling.image) | quote }}
+          command: [kubectl]
+          args:
+            - delete
+            - secret
+            - --namespace={{ .Release.Namespace }}
+            - --ignore-not-found=true
+            {{- range $secrets }}
+            - {{ . | quote }}
+            {{- end }}
+          env:
+            - name: HOME
+              value: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            {{- toYaml .Values.namespace.labeling.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}

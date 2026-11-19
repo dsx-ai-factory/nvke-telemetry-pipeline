@@ -78,29 +78,40 @@ func (e *Environment) Install() {
 		if err := e.cleanup(ctx, cfg); err != nil {
 			return ctx, fmt.Errorf("cleaning up helm chart in target cluster: %w", err)
 		}
-		chart, err := loader.Load(e.ChartPath)
-		if err != nil {
-			return ctx, fmt.Errorf("failed to load chart at target path %s: %w", e.ChartPath, err)
-		}
-		values, err := common.ReadValuesFile(e.ValuesPath)
-		if err != nil {
-			return ctx, fmt.Errorf("failed to load values file at target path %s: %w", e.ValuesPath, err)
-		}
-		install := action.NewInstall(e.helmcfg)
-		install.ReleaseName = e.ReleaseName
-		install.Namespace = e.ReleaseNamespace
-		install.CreateNamespace = true
-		install.WaitStrategy = kube.StatusWatcherStrategy
-		install.Timeout = 5 * time.Minute
-		install.WaitForJobs = true
-		slog.Info("installing chart on target cluster", "release", e.ReleaseName, "namespace", e.ReleaseNamespace)
-		if _, err = install.RunWithContext(ctx, chart, values); err != nil {
-			return ctx, fmt.Errorf("failed to helm install: %w", err)
+		if err := e.InstallRelease(ctx); err != nil {
+			return ctx, err
 		}
 		slog.Info("setup complete, starting suite")
 		return ctx, nil
 	})
 
+}
+
+func (e *Environment) InstallRelease(ctx context.Context) error {
+	chart, err := loader.Load(e.ChartPath)
+	if err != nil {
+		return fmt.Errorf("failed to load chart at target path %s: %w", e.ChartPath, err)
+	}
+	values, err := common.ReadValuesFile(e.ValuesPath)
+	if err != nil {
+		return fmt.Errorf("failed to load values file at target path %s: %w", e.ValuesPath, err)
+	}
+	install := action.NewInstall(e.helmcfg)
+	install.ReleaseName = e.ReleaseName
+	install.Namespace = e.ReleaseNamespace
+	install.CreateNamespace = true
+	install.WaitStrategy = kube.StatusWatcherStrategy
+	install.Timeout = 5 * time.Minute
+	install.WaitForJobs = true
+	slog.Info("installing chart on target cluster", "release", e.ReleaseName, "namespace", e.ReleaseNamespace)
+	if _, err = install.RunWithContext(ctx, chart, values); err != nil {
+		return fmt.Errorf("failed to helm install: %w", err)
+	}
+	return nil
+}
+
+func (e *Environment) UninstallRelease(ctx context.Context, cfg *envconf.Config) error {
+	return e.cleanup(ctx, cfg)
 }
 
 func (e *Environment) Uninstall() {

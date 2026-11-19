@@ -193,3 +193,49 @@ so the name must not contain a double quote or a backslash.
 {{- end -}}
 {{- toYaml (dict "env" $env) -}}
 {{- end -}}
+
+{{- define "nktp.tlsServers" -}}
+{{- list
+      (dict "name" "nktp-watchdog-server" "secretName" "nktp-watchdog-server-tls" "serviceName" "nktp-watchdog-collector")
+      (dict "name" "nktp-gateway-logs-server" "secretName" "nktp-gateway-logs-server-tls" "serviceName" "nktp-gateway-logs-collector" "headless" true)
+      (dict "name" "nktp-gateway-metrics-server" "secretName" "nktp-gateway-metrics-server-tls" "serviceName" "nktp-gateway-metrics-collector" "headless" true)
+      (dict "name" "nktp-gateway-traces-server" "secretName" "nktp-gateway-traces-server-tls" "serviceName" "nktp-gateway-traces-collector" "headless" true) | toJson -}}
+{{- end -}}
+
+{{- define "nktp.tlsClients" -}}
+{{- list
+      (dict "name" "nktp-daemonset-client" "commonName" "nktp-daemonset")
+      (dict "name" "nktp-large-target-metrics-client" "commonName" "nktp-large-target-metrics")
+      (dict "name" "nktp-nodeless-metrics-client" "commonName" "nktp-nodeless-metrics")
+      (dict "name" "nktp-cluster-events-client" "commonName" "nktp-cluster-events")
+      (dict "name" "nktp-gateway-traces-client" "commonName" "nktp-gateway-traces")
+      (dict "name" "nktp-gateway-logs-client" "commonName" "nktp-gateway-logs")
+      (dict "name" "nktp-gateway-metrics-client" "commonName" "nktp-gateway-metrics") | toJson -}}
+{{- end -}}
+
+{{- define "nktp.certSecrets" -}}
+{{- $secrets := list -}}
+{{- if .Values.certManager.internalTLS.enabled -}}
+{{- if empty .Values.certManager.internalTLS.issuerRef -}}
+{{- $secrets = append $secrets "nktp-internal-ca" -}}
+{{- end -}}
+{{- range include "nktp.tlsServers" . | fromJsonArray -}}
+{{- $secrets = append $secrets .secretName -}}
+{{- end -}}
+{{- range include "nktp.tlsClients" . | fromJsonArray -}}
+{{- $secrets = append $secrets (printf "%s-tls" .name) -}}
+{{- end -}}
+{{- end -}}
+{{- if .Values.certManager.targetAllocators.enabled -}}
+{{- /* The Operator names each Target Allocator Certificate and its Secret alike. */ -}}
+{{- range $collector := list "nktp-daemonset" "nktp-large-target-metrics" "nktp-nodeless-metrics" "nktp-watchdog" -}}
+{{- range $suffix := list "ca-cert" "ta-server-cert" "ta-client-cert" -}}
+{{- $secrets = append $secrets (printf "%s-%s" $collector $suffix) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if dig "opentelemetry-kube-stack" "opentelemetry-operator" "admissionWebhooks" "certManager" "enabled" false .Values.AsMap -}}
+{{- $secrets = append $secrets "nktp-operator-controller-manager-service-cert" -}}
+{{- end -}}
+{{- $secrets | toJson -}}
+{{- end -}}

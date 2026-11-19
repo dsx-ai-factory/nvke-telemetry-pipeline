@@ -1,0 +1,120 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+suite: cert-manager Secret cleanup
+release:
+  name: nktp
+  namespace: custom-telemetry
+templates:
+  - templates/cert-cleanup.yaml
+tests:
+  - it: renders post-delete RBAC and a Job by default
+    asserts:
+      - hasDocuments:
+          count: 4
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-delete
+        documentSelector:
+          path: kind
+          value: Job
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: before-hook-creation,hook-succeeded
+        documentSelector:
+          path: kind
+          value: Role
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-10"
+        documentSelector:
+          path: kind
+          value: Role
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "0"
+        documentSelector:
+          path: kind
+          value: Job
+  - it: limits deletion to the named Secrets in the release namespace
+    documentSelector:
+      path: kind
+      value: Role
+    asserts:
+      - equal:
+          path: metadata.namespace
+          value: custom-telemetry
+      - equal:
+          path: rules[0].verbs
+          value: [get, delete]
+      - contains:
+          path: rules[0].resourceNames
+          content: nktp-internal-ca
+      - contains:
+          path: rules[0].resourceNames
+          content: nktp-gateway-logs-server-tls
+      - contains:
+          path: rules[0].resourceNames
+          content: nktp-nodeless-metrics-client-tls
+      - contains:
+          path: rules[0].resourceNames
+          content: nktp-watchdog-ta-server-cert
+      - contains:
+          path: rules[0].resourceNames
+          content: nktp-operator-controller-manager-service-cert
+  - it: deletes exactly the Secrets the Role allows
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: nktp-internal-ca
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --ignore-not-found=true
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --namespace=custom-telemetry
+  - it: leaves out an internal CA Secret NKTP did not create when issuerRef is set
+    set:
+      certManager.internalTLS.issuerRef:
+        name: corporate-workload-ca
+        kind: ClusterIssuer
+        group: cert-manager.io
+    documentSelector:
+      path: kind
+      value: Role
+    asserts:
+      - notContains:
+          path: rules[0].resourceNames
+          content: nktp-internal-ca
+      - contains:
+          path: rules[0].resourceNames
+          content: nktp-gateway-logs-server-tls
+  - it: omits the Target Allocator Secrets when Target Allocator certificates are disabled
+    set:
+      certManager.targetAllocators.enabled: false
+    documentSelector:
+      path: kind
+      value: Role
+    asserts:
+      - notContains:
+          path: rules[0].resourceNames
+          content: nktp-watchdog-ta-server-cert
+  - it: renders nothing when internal TLS is disabled
+    set:
+      certManager.internalTLS.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: honors global.imageRegistry
+    set:
+      global.imageRegistry: mirror.example.com
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: mirror.example.com/kubectl:v1.35.10
