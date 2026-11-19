@@ -10,10 +10,10 @@ registries at install time and are not redistributed with this chart.
 
 | Chart | Version | Copyright | License | Source |
 |---|---|---|---|---|
-| opentelemetry-kube-stack | 0.27.0 | Copyright The OpenTelemetry Authors | Apache-2.0 | https://github.com/open-telemetry/opentelemetry-helm-charts |
+| opentelemetry-kube-stack | 0.27.1 | Copyright The OpenTelemetry Authors | Apache-2.0 | https://github.com/open-telemetry/opentelemetry-helm-charts |
 | opentelemetry-kube-stack / opentelemetry-operator | 0.128.0 | Copyright The OpenTelemetry Authors | Apache-2.0 | https://github.com/open-telemetry/opentelemetry-helm-charts |
-| opentelemetry-kube-stack / otel-crds | bundled in opentelemetry-kube-stack 0.27.0 | Copyright The OpenTelemetry Authors | Apache-2.0 | https://github.com/open-telemetry/opentelemetry-helm-charts |
-| opentelemetry-kube-stack / prometheus-crds | bundled in opentelemetry-kube-stack 0.27.0 | Copyright The OpenTelemetry Authors; CRDs Copyright The prometheus-operator Authors | Apache-2.0 | https://github.com/open-telemetry/opentelemetry-helm-charts, https://github.com/prometheus-operator/prometheus-operator |
+| opentelemetry-kube-stack / otel-crds | bundled in opentelemetry-kube-stack 0.27.1 | Copyright The OpenTelemetry Authors | Apache-2.0 | https://github.com/open-telemetry/opentelemetry-helm-charts |
+| opentelemetry-kube-stack / prometheus-crds | bundled in opentelemetry-kube-stack 0.27.1 | Copyright The OpenTelemetry Authors; CRDs Copyright The prometheus-operator Authors | Apache-2.0 | https://github.com/open-telemetry/opentelemetry-helm-charts, https://github.com/prometheus-operator/prometheus-operator |
 | opentelemetry-kube-stack / kube-state-metrics | 6.3.0 | Copyright The Prometheus Community Authors | Apache-2.0 | https://github.com/prometheus-community/helm-charts |
 | opentelemetry-kube-stack / prometheus-node-exporter | 4.48.0 | Copyright The Prometheus Community Authors | Apache-2.0 | https://github.com/prometheus-community/helm-charts |
 | prometheus-node-exporter | 4.56.1 | Copyright The Prometheus Community Authors | Apache-2.0 | https://github.com/prometheus-community/helm-charts |
