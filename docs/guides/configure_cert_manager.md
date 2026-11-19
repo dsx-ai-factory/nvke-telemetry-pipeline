@@ -152,7 +152,9 @@ certificate.cert-manager.io/nktp-watchdog-ta-server-cert               True    n
 
 ### Uninstalling
 
-Runs a post-delete hook that removes Secret resources created by Certificate CRs by cert-manager.
+Runs a post-delete hook that removes Certificate created Secret resources made by the Helm chart.
+
+**NOTE:** OpenTelemetry Operator created Certificate secrets are not cleaned up as part of this.
 
 ## Installing NKTP without cert-manager
 
