@@ -226,14 +226,6 @@ so the name must not contain a double quote or a backslash.
 {{- $secrets = append $secrets (printf "%s-tls" .name) -}}
 {{- end -}}
 {{- end -}}
-{{- if .Values.certManager.targetAllocators.enabled -}}
-{{- /* The Operator names each Target Allocator Certificate and its Secret alike. */ -}}
-{{- range $collector := list "nktp-daemonset" "nktp-large-target-metrics" "nktp-nodeless-metrics" "nktp-watchdog" -}}
-{{- range $suffix := list "ca-cert" "ta-server-cert" "ta-client-cert" -}}
-{{- $secrets = append $secrets (printf "%s-%s" $collector $suffix) -}}
-{{- end -}}
-{{- end -}}
-{{- end -}}
 {{- if dig "opentelemetry-kube-stack" "opentelemetry-operator" "admissionWebhooks" "certManager" "enabled" false .Values.AsMap -}}
 {{- $secrets = append $secrets "nktp-operator-controller-manager-service-cert" -}}
 {{- end -}}

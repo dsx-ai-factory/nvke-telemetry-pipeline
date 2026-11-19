@@ -41,18 +41,6 @@ matches the snapshot with default values:
           - nktp-gateway-traces-client-tls
           - nktp-gateway-logs-client-tls
           - nktp-gateway-metrics-client-tls
-          - nktp-daemonset-ca-cert
-          - nktp-daemonset-ta-server-cert
-          - nktp-daemonset-ta-client-cert
-          - nktp-large-target-metrics-ca-cert
-          - nktp-large-target-metrics-ta-server-cert
-          - nktp-large-target-metrics-ta-client-cert
-          - nktp-nodeless-metrics-ca-cert
-          - nktp-nodeless-metrics-ta-server-cert
-          - nktp-nodeless-metrics-ta-client-cert
-          - nktp-watchdog-ca-cert
-          - nktp-watchdog-ta-server-cert
-          - nktp-watchdog-ta-client-cert
           - nktp-operator-controller-manager-service-cert
         resources:
           - secrets
@@ -117,18 +105,6 @@ matches the snapshot with default values:
                 - nktp-gateway-traces-client-tls
                 - nktp-gateway-logs-client-tls
                 - nktp-gateway-metrics-client-tls
-                - nktp-daemonset-ca-cert
-                - nktp-daemonset-ta-server-cert
-                - nktp-daemonset-ta-client-cert
-                - nktp-large-target-metrics-ca-cert
-                - nktp-large-target-metrics-ta-server-cert
-                - nktp-large-target-metrics-ta-client-cert
-                - nktp-nodeless-metrics-ca-cert
-                - nktp-nodeless-metrics-ta-server-cert
-                - nktp-nodeless-metrics-ta-client-cert
-                - nktp-watchdog-ca-cert
-                - nktp-watchdog-ta-server-cert
-                - nktp-watchdog-ta-client-cert
                 - nktp-operator-controller-manager-service-cert
               command:
                 - kubectl

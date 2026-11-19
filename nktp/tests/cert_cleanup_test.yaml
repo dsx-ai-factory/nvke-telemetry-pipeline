@@ -58,10 +58,10 @@ tests:
           content: nktp-nodeless-metrics-client-tls
       - contains:
           path: rules[0].resourceNames
-          content: nktp-watchdog-ta-server-cert
-      - contains:
-          path: rules[0].resourceNames
           content: nktp-operator-controller-manager-service-cert
+      - notContains:
+          path: rules[0].resourceNames
+          content: nktp-watchdog-ta-server-cert
   - it: deletes exactly the Secrets the Role allows
     documentSelector:
       path: kind
@@ -92,16 +92,6 @@ tests:
       - contains:
           path: rules[0].resourceNames
           content: nktp-gateway-logs-server-tls
-  - it: omits the Target Allocator Secrets when Target Allocator certificates are disabled
-    set:
-      certManager.targetAllocators.enabled: false
-    documentSelector:
-      path: kind
-      value: Role
-    asserts:
-      - notContains:
-          path: rules[0].resourceNames
-          content: nktp-watchdog-ta-server-cert
   - it: renders nothing when internal TLS is disabled
     set:
       certManager.internalTLS.enabled: false
