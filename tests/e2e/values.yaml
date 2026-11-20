@@ -180,7 +180,7 @@ kube-state-metrics:
     secrets:
       enabled: true
       resource_types: [secrets]
-      namespaces: [nktp-e2e-ksm]
+      namespaces: [nktp] # The Go suite substitutes its selected release namespace.
       shards: 1
       kubernetes: {}
   kubernetes:

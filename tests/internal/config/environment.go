@@ -96,6 +96,14 @@ func (e *Environment) InstallRelease(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to load values file at target path %s: %w", e.ValuesPath, err)
 	}
+	// Keep Secret fixture collection scoped to the suite's selected namespace.
+	if ksm, ok := values["kube-state-metrics"].(map[string]any); ok {
+		if deployments, ok := ksm["deployments"].(map[string]any); ok {
+			if secrets, ok := deployments["secrets"].(map[string]any); ok {
+				secrets["namespaces"] = []string{e.ReleaseNamespace}
+			}
+		}
+	}
 	install := action.NewInstall(e.helmcfg)
 	install.ReleaseName = e.ReleaseName
 	install.Namespace = e.ReleaseNamespace

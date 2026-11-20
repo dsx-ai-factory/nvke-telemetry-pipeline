@@ -28,10 +28,9 @@ import (
 )
 
 // TestKubeStateMetrics checks every default collection group through the backend.
-// Suite setup creates ksmFixtureNamespace before installation for namespace-scoped
-// Secret collection. Two fake Secrets and their ingress TLS references must
-// retain distinct names after source and gateway redaction. Teardown removes
-// fixtures; suite cleanup removes the namespace unless the release is kept.
+// Two fake Secrets and their ingress TLS references must retain distinct names
+// after source and gateway redaction. Fixtures use unique names in the release
+// namespace and are removed during teardown or cleanup after a setup failure.
 func TestKubeStateMetrics(t *testing.T) {
 	releaseNamespace := testenv.EnvConf().Namespace()
 	type metricCheck struct {
@@ -40,8 +39,8 @@ func TestKubeStateMetrics(t *testing.T) {
 	}
 	var checks []metricCheck
 	var proxyClient coreclient.CoreV1Interface
-	ns := ksmFixtureNamespace
-	ingressName := envconf.RandomName("fixture", 40)
+	ns := releaseNamespace
+	fixtureName := envconf.RandomName("nktp-e2e-ksm", 36)
 	secretNames := map[string]string{
 		"first":  envconf.RandomName("first", 40),
 		"second": envconf.RandomName("second", 40),
@@ -50,13 +49,27 @@ func TestKubeStateMetrics(t *testing.T) {
 	fixtureOptions := []decoder.DecodeOption{
 		decoder.MutateNamespace(ns),
 		decoder.MutateOption(func(obj k8s.Object) error {
+			originalName := obj.GetName()
+			obj.SetName(fixtureName)
 			switch obj := obj.(type) {
+			case *corev1.Service:
+				obj.Spec.Selector["app.kubernetes.io/name"] = fixtureName
+			case *appsv1.Deployment:
+				obj.Spec.Selector.MatchLabels["app.kubernetes.io/name"] = fixtureName
+				obj.Spec.Template.Labels["app.kubernetes.io/name"] = fixtureName
+			case *appsv1.DaemonSet:
+				obj.Name = fixtureName + "-node"
+				obj.Spec.Selector.MatchLabels["app.kubernetes.io/name"] = obj.Name
+				obj.Spec.Template.Labels["app.kubernetes.io/name"] = obj.Name
+			case *corev1.Pod:
+				obj.Name = fixtureName + "-unscheduled"
+				obj.Labels["app.kubernetes.io/name"] = fixtureName
 			case *corev1.PersistentVolumeClaim:
 				obj.Spec.VolumeName = volumeName
 			case *corev1.Secret:
-				obj.Name = secretNames[obj.Name]
+				obj.Name = secretNames[originalName]
 			case *networkingv1.Ingress:
-				obj.Name = ingressName
+				obj.Spec.DefaultBackend.Service.Name = fixtureName
 				for i := range obj.Spec.TLS {
 					obj.Spec.TLS[i].SecretName = secretNames[obj.Spec.TLS[i].SecretName]
 				}
@@ -112,11 +125,11 @@ func TestKubeStateMetrics(t *testing.T) {
 
 			for _, tc := range []struct{ group, metric, labels string }{
 				{"cluster", "kube_namespace_status_phase", `phase="Active"`},
-				{"configuration", "kube_configmap_info", `configmap="fixture"`},
-				{"networking", "kube_service_info", `service="fixture"`},
-				{"storage", "kube_persistentvolumeclaim_info", `persistentvolumeclaim="fixture"`},
-				{"workloads", "kube_deployment_spec_replicas", `deployment="fixture"`},
-				{"unscheduled-pods", "kube_pod_info", `pod="unscheduled",node=""`},
+				{"configuration", "kube_configmap_info", fmt.Sprintf(`configmap=%q`, fixtureName)},
+				{"networking", "kube_service_info", fmt.Sprintf(`service=%q`, fixtureName)},
+				{"storage", "kube_persistentvolumeclaim_info", fmt.Sprintf(`persistentvolumeclaim=%q`, fixtureName)},
+				{"workloads", "kube_deployment_spec_replicas", fmt.Sprintf(`deployment=%q`, fixtureName)},
+				{"unscheduled-pods", "kube_pod_info", fmt.Sprintf(`pod=%q,node=""`, fixtureName+"-unscheduled")},
 			} {
 				checks = append(checks, metricCheck{
 					name: tc.group,
@@ -138,7 +151,7 @@ func TestKubeStateMetrics(t *testing.T) {
 				checks = append(checks, metricCheck{
 					name: "kube_ingress_tls/" + secret,
 					metric: fmt.Sprintf(`kube_ingress_tls{namespace=%q,ingress=%q,tls_host=%q,job=%q,nktp_metrics_pool="large-target"}`,
-						ns, ingressName, secret+".example.test", releaseNamespace+"/nktp-ksm-networking"),
+						ns, fixtureName, secret+".example.test", releaseNamespace+"/nktp-ksm-networking"),
 					label: "secret",
 					want:  []string{secretNames[secret]},
 				})
@@ -149,7 +162,7 @@ func TestKubeStateMetrics(t *testing.T) {
 			require.NoError(t, err)
 			require.NotEmpty(t, nodes.Items)
 			require.NoError(t, funcs.WaitForDaemonSet(setupCtx, funcs.DaemonSetWaitOptions{
-				Name: "node-fixture", Namespace: ns, Client: c.Client(), NodeCount: new(int32(len(nodes.Items))),
+				Name: fixtureName + "-node", Namespace: ns, Client: c.Client(), NodeCount: new(int32(len(nodes.Items))),
 			}))
 			var desiredNodes []string
 			for _, node := range nodes.Items {
@@ -157,8 +170,8 @@ func TestKubeStateMetrics(t *testing.T) {
 			}
 			checks = append(checks, metricCheck{
 				name: "pods",
-				metric: fmt.Sprintf(`kube_pod_info{namespace=%q,pod=~"node-fixture-.+",job=%q,nktp_metrics_pool=""}`,
-					ns, releaseNamespace+"/nktp-ksm-pods"),
+				metric: fmt.Sprintf(`kube_pod_info{namespace=%q,pod=~%q,job=%q,nktp_metrics_pool=""}`,
+					ns, fixtureName+"-node-.+", releaseNamespace+"/nktp-ksm-pods"),
 				label: "node",
 				want:  desiredNodes,
 			})
