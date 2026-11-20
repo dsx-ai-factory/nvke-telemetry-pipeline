@@ -240,7 +240,9 @@ so the name must not contain a double quote or a backslash.
 {{- end -}}
 {{- end -}}
 {{- $secrets = concat $secrets (include "nktp.taCertificates" . | fromJsonArray) -}}
-{{- if dig "opentelemetry-kube-stack" "opentelemetry-operator" "admissionWebhooks" "certManager" "enabled" false .Values.AsMap -}}
+{{- /* The Operator subchart renders the webhook Certificate only while it is enabled; `enabled` defaults to true upstream. */ -}}
+{{- $operator := dig "opentelemetry-kube-stack" "opentelemetry-operator" (dict) .Values.AsMap -}}
+{{- if and (dig "enabled" true $operator) (dig "admissionWebhooks" "certManager" "enabled" false $operator) -}}
 {{- $secrets = append $secrets "nktp-operator-controller-manager-service-cert" -}}
 {{- end -}}
 {{- $secrets | toJson -}}

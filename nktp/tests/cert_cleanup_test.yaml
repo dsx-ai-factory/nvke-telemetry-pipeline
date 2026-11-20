@@ -144,9 +144,43 @@ tests:
         documentSelector:
           path: kind
           value: Role
-  - it: renders nothing when internal TLS is disabled
+  - it: still cleans the Target Allocator and webhook Secrets when internal TLS is disabled
     set:
       certManager.internalTLS.enabled: false
+    documentSelector:
+      path: kind
+      value: Role
+    asserts:
+      - notContains:
+          path: rules[0].resourceNames
+          content: nktp-internal-ca
+      - notContains:
+          path: rules[0].resourceNames
+          content: nktp-gateway-logs-server-tls
+      - contains:
+          path: rules[0].resourceNames
+          content: nktp-watchdog-ta-server-cert
+      - contains:
+          path: rules[0].resourceNames
+          content: nktp-operator-controller-manager-service-cert
+  - it: omits the Operator webhook Secret when the bundled Operator is disabled
+    set:
+      opentelemetry-kube-stack.opentelemetry-operator.enabled: false
+    documentSelector:
+      path: kind
+      value: Role
+    asserts:
+      - notContains:
+          path: rules[0].resourceNames
+          content: nktp-operator-controller-manager-service-cert
+      - contains:
+          path: rules[0].resourceNames
+          content: nktp-internal-ca
+  - it: renders nothing when every cert-manager switch is disabled
+    set:
+      certManager.internalTLS.enabled: false
+      certManager.targetAllocators.enabled: false
+      opentelemetry-kube-stack.opentelemetry-operator.admissionWebhooks.certManager.enabled: false
     asserts:
       - hasDocuments:
           count: 0
