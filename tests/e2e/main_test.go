@@ -20,6 +20,9 @@ import (
 	"helm.sh/helm/v4/pkg/chart/common"
 	"helm.sh/helm/v4/pkg/chart/loader"
 	"helm.sh/helm/v4/pkg/kube"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -32,6 +35,9 @@ var testenv = config.NewEnvironmentFromFlags()
 
 const ReleaseName = "nktp-e2e"
 const FieldManager = "nktp-e2e"
+
+// ksmFixtureNamespace matches the Secret collection group in values.yaml.
+const ksmFixtureNamespace = "nktp-e2e-ksm"
 
 func TestMain(t *testing.M) {
 	// Match the Helm CLI instead of recording the test binary as the field manager.
@@ -50,9 +56,47 @@ func TestMain(t *testing.M) {
 		testenv.ReleaseNamespace = cfg.Namespace()
 	}
 	testenv.SetEnvironment(env.NewWithConfig(cfg))
+	// The namespace must exist before Helm installs its Secret-watch RoleBinding.
+	var ksmNamespaceReady bool
+	testenv.Setup(func(ctx context.Context, c *envconf.Config) (context.Context, error) {
+		ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+			Name: ksmFixtureNamespace, Labels: map[string]string{"app.kubernetes.io/managed-by": FieldManager},
+		}}
+		err := c.Client().Resources().Create(ctx, ns)
+		if apierrors.IsAlreadyExists(err) {
+			err = c.Client().Resources().Get(ctx, ksmFixtureNamespace, "", ns)
+			if err == nil && ns.Labels["app.kubernetes.io/managed-by"] != FieldManager {
+				err = fmt.Errorf("fixture namespace %s is not managed by %s", ksmFixtureNamespace, FieldManager)
+			}
+		}
+		ksmNamespaceReady = err == nil
+		return ctx, err
+	})
 	testenv.Install()
 	testenv.Setup(waitForCollectors)
-	testenv.Uninstall()
+	if !testenv.KeepRelease {
+		testenv.Finish(func(ctx context.Context, c *envconf.Config) (context.Context, error) {
+			if !ksmNamespaceReady {
+				return ctx, nil
+			}
+			return ctx, testenv.UninstallRelease(ctx, c)
+		})
+	}
+	// Finish also runs when suite or feature setup fails before normal teardown.
+	testenv.Finish(func(ctx context.Context, c *envconf.Config) (context.Context, error) {
+		// A kept release still owns a RoleBinding in this namespace.
+		if testenv.KeepRelease || !ksmNamespaceReady {
+			return ctx, nil
+		}
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ksmFixtureNamespace}}
+		err := c.Client().Resources().Delete(cleanupCtx, ns)
+		if apierrors.IsNotFound(err) {
+			err = nil
+		}
+		return ctx, err
+	})
 	os.Exit(testenv.Run(t))
 }
 

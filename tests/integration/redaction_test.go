@@ -36,7 +36,7 @@ func TestTelemetryRedaction(t *testing.T) {
 	// in this Collector, without repeating scrape discovery covered by e2e.
 	processors := config["processors"].(object)
 	for _, stage := range []struct{ template, processor string }{
-		{"daemonset", "transform/ksm_prepare"},
+		{"large-target-metrics", "transform/ksm_prepare"},
 		{"gateway-metrics", "transform/ksm_restore"},
 	} {
 		var workload struct {
@@ -82,11 +82,12 @@ func TestTelemetryRedaction(t *testing.T) {
 	for _, signal := range []string{"logs", "metrics", "traces", "metrics/ksm"} {
 		t.Run(signal, func(t *testing.T) {
 			var input, expected object
-			if signal == "logs" {
+			switch signal {
+			case "logs":
 				input, expected = redactionFixture(t)
-			} else if signal == "metrics/ksm" {
+			case "metrics/ksm":
 				input, expected = ksmRedactionFixture(t)
-			} else {
+			default:
 				input, expected = metadataFixture(t, signal)
 			}
 			// The watchdog's cluster processor adds the default name to every resource.
@@ -118,22 +119,32 @@ func TestTelemetryRedaction(t *testing.T) {
 func ksmRedactionFixture(t *testing.T) (object, object) {
 	t.Helper()
 	build := func(redact bool) object {
-		resource, scope := object{}, object{"name": "ksm-redaction-test"}
-		if !redact {
-			resource["attributes"] = []any{attribute("nktp_internal_ksm_secret_name", value("stringValue", "FAKE_RESOURCE"))}
-			scope["attributes"] = []any{attribute("nktp_internal_ksm_secret_name", value("stringValue", "FAKE_SCOPE"))}
-		}
-		var points []any
+		var resources []any
 		for _, tc := range []struct {
-			name, secret, setting, wantSecret, wantSetting string
-			marked                                         bool
+			name, metric, service, secret, setting, wantSecret, wantSetting string
+			marked                                                          bool
 		}{
-			{"enabled", "first", "true", "first", "true", true},
-			{"disabled", "second", "false", "second", "false", true},
-			{"unset", "third", "", "third", "", true},
-			{"unmarked", "FAKE_SECRET", "FAKE_TOKEN", "****", "****", false},
-			{"value-check", "Bearer FAKE_BEARER", "token=FAKE_TOKEN", "****", "****", true},
+			{"enabled", "kube_serviceaccount_info", "nktp/nktp-ksm-accounts", "first", "true", "first", "true", true},
+			{"disabled", "kube_serviceaccount_info", "nktp/nktp-ksm-accounts", "second", "false", "second", "false", true},
+			{"unset", "kube_serviceaccount_info", "nktp/nktp-ksm-accounts", "third", "", "third", "", true},
+			{"secret", "kube_secret_info", "nktp/nktp-ksm-secrets", "first", "true", "first", "true", true},
+			{"ingress", "kube_ingress_tls", "nktp/nktp-ksm-networking", "second", "false", "second", "false", true},
+			{"unmarked", "kube_secret_info", "nktp/nktp-ksm-secrets", "FAKE_SECRET", "FAKE_TOKEN", "****", "****", false},
+			{"other-metric", "application_metric", "nktp/nktp-ksm-secrets", "FAKE_SECRET", "FAKE_TOKEN", "****", "****", true},
+			{"other-job", "kube_secret_info", "nktp/application", "FAKE_SECRET", "FAKE_TOKEN", "****", "****", true},
+			{"missing-job", "kube_secret_info", "", "FAKE_SECRET", "FAKE_TOKEN", "****", "****", true},
+			{"value-check", "kube_secret_info", "nktp/nktp-ksm-secrets", "Bearer FAKE_BEARER", "token=FAKE_TOKEN", "****", "****", true},
 		} {
+			resource, scope := object{}, object{"name": "ksm-redaction-test"}
+			var resourceAttrs []any
+			if tc.service != "" {
+				resourceAttrs = append(resourceAttrs, attribute("service.name", value("stringValue", tc.service)))
+			}
+			if !redact {
+				resourceAttrs = append(resourceAttrs, attribute("nktp_internal_ksm_secret_name", value("stringValue", "FAKE_RESOURCE")))
+				scope["attributes"] = []any{attribute("nktp_internal_ksm_secret_name", value("stringValue", "FAKE_SCOPE"))}
+			}
+			resource["attributes"] = resourceAttrs
 			secret, setting, password := tc.secret, tc.setting, "FAKE_PASSWORD"
 			if redact {
 				secret, setting, password = tc.wantSecret, tc.wantSetting, "****"
@@ -153,11 +164,12 @@ func ksmRedactionFixture(t *testing.T) (object, object) {
 					attrs = append(attrs, attribute("nktp_internal_ksm_origin", value("stringValue", "true")))
 				}
 			}
-			points = append(points, object{"timeUnixNano": "1700000000000000000", "asDouble": 1, "attributes": attrs})
+			point := object{"timeUnixNano": "1700000000000000000", "asDouble": 1, "attributes": attrs}
+			resources = append(resources, object{"resource": resource, "scopeMetrics": []any{object{
+				"scope": scope, "metrics": []any{object{"name": tc.metric, "gauge": object{"dataPoints": []any{point}}}},
+			}}})
 		}
-		return object{"resourceMetrics": []any{object{"resource": resource, "scopeMetrics": []any{object{
-			"scope": scope, "metrics": []any{object{"name": "ksm_identifier_policy", "gauge": object{"dataPoints": points}}},
-		}}}}}
+		return object{"resourceMetrics": resources}
 	}
 	var input, expected object
 	require.NoError(t, json.Unmarshal(marshal(t, build(false)), &input))

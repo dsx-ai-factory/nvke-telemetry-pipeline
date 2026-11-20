@@ -177,9 +177,12 @@ blackbox-exporter:
 # resource types on a cluster that holds almost nothing.
 kube-state-metrics:
   deployments:
-    configuration:
-      # Opt in so the KSM test can check distinct fake Secret names after export.
-      resource_types: [configmaps, secrets]
+    secrets:
+      enabled: true
+      resource_types: [secrets]
+      namespaces: [nktp-e2e-ksm]
+      shards: 1
+      kubernetes: {}
   kubernetes:
     resources:
       requests:
