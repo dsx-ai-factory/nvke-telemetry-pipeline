@@ -153,7 +153,7 @@ certificate.cert-manager.io/nktp-watchdog-ta-server-cert               True    n
 ### Uninstalling
 
 Runs a post-delete Helm hook to clean up lingering Secret resources created by cert-manager's Certificate CRs, including those created by
-the OpenTelemetry Operator. It waits for all Certificate resources to be removed from the namespace before initiating the clean-up Job.
+the OpenTelemetry Operator. It waits for all Certificate resources to be removed from the namespace before initiating the clean-up Job. The hook only runs when `certManager.internalTLS.enabled=true`.
 
 ## Installing NKTP without cert-manager
 
