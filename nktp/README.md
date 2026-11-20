@@ -153,6 +153,11 @@ Review the upgrade notes for your target version, available through
 [More information](#more-information), and merge the required changes into
 your Helm values file before upgrading.
 
+Existing node allocator namespace grants are preserved when
+`grantClusterSecretAccess` remains `false` and the node's `daemonset.rbac.create`
+and `secretNamespaces` settings are retained. Enabling cluster-wide access
+replaces redundant node namespace grants with the broader shared cluster grant.
+
 If the target chart version updates the bundled OpenTelemetry or Prometheus
 CRDs, follow [Update CRDs](#update-crds) before `helm upgrade`. Helm does not upgrade
 CRDs installed from a chart's `crds/` directory. Leaving outdated CRDs in place
@@ -328,9 +333,23 @@ receiver's `otelcol.config`.
 - **Prometheus metrics:** create a `ServiceMonitor` or `PodMonitor`. It can live
   in any namespace and needs no NKTP-specific label. If a NetworkPolicy guards
   the metrics port, admit the release namespace. If a monitor references a
-  Secret or CA ConfigMap, list its namespace in
-  `daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces` so the
-  node Target Allocator can read it. Both the node and large-target allocators
+  Secret or CA ConfigMap, enable `grantClusterSecretAccess: true` to let the
+  monitor-watching Target Allocators resolve it across namespaces. The default
+  is `false`, which creates no cluster-wide Secret grant. The existing node-only
+  option remains available: with `daemonset.rbac.create: true`, namespaces in
+  `daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces` receive
+  node allocator credential Roles. An empty list creates no namespace grants.
+  Those Roles do not authorize the nodeless allocator that reads the same
+  monitors. Enabling the cluster-wide switch grants
+  `get/list/watch` on every Secret's contents and `get` on ConfigMaps across the
+  cluster, including objects not referenced by monitors. It also defaults the
+  Secret watches to all namespaces; an explicit native `secretNamespaces` list
+  still limits the watch, but does not narrow the cluster-wide RBAC grant.
+  Monitor discovery remains enabled when the switch is off, and monitors that
+  need credentials require the allocator to already have access. Without it, the
+  upstream Secret watcher can log authorization errors even for unauthenticated
+  monitors.
+  Both the node and large-target allocators
   default `prometheusCR.denyFSAccessThroughSMs` to `false` for compatibility
   with monitors that reference files in Collector containers. Before setting
   it to `true`, replace file references in the selected monitors with Secret

@@ -1016,3 +1016,33 @@ tests:
       - contains:
           path: spec.volumeMounts
           content: {name: pod-logs, mountPath: /var/log/pods, readOnly: true}
+
+  - it: defaults the Secret watch to all namespaces when cluster access is enabled
+    set:
+      grantClusterSecretAccess: true
+    asserts:
+      - equal:
+          path: spec.targetAllocator.prometheusCR.secretNamespaces
+          value: [""]
+
+  - it: leaves the upstream Secret watch unchanged by default
+    asserts:
+      - notExists:
+          path: spec.targetAllocator.prometheusCR.secretNamespaces
+
+  - it: preserves an explicit Secret namespace list with cluster access enabled
+    set:
+      grantClusterSecretAccess: true
+      daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces: [metrics-monitors]
+    asserts:
+      - equal:
+          path: spec.targetAllocator.prometheusCR.secretNamespaces
+          value: [metrics-monitors]
+
+  - it: does not configure Secret watching when monitor discovery is disabled
+    set:
+      grantClusterSecretAccess: true
+      daemonset.kubernetes.targetAllocator.prometheusCR.enabled: false
+    asserts:
+      - notExists:
+          path: spec.targetAllocator.prometheusCR.secretNamespaces

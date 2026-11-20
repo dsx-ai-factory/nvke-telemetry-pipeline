@@ -263,11 +263,19 @@ The node and large-target allocators allow ServiceMonitor and PodMonitor file
 references by default (`denyFSAccessThroughSMs: false`). Referenced files must
 exist in the scraping Collector container; paths in your application's
 container are not available there. Prefer Secret or CA ConfigMap references.
-For the node allocator to read Secrets and CA ConfigMaps referenced by monitors,
-the NKTP chart configuration must include the monitors' namespaces in
-`daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces`. See
-[Monitor credentials](../components/node_collector.md#monitor-credentials) for
-the access this grants.
+To let the monitor-watching allocators resolve Secret and CA ConfigMap
+references across namespaces, the NKTP operator can enable
+`grantClusterSecretAccess: true`. This grants read access to every Secret's
+contents and ConfigMap in the cluster, including objects not referenced by
+monitors. The default is `false`: credentialed monitors require the allocator
+to already have access, and the upstream Secret watcher can log authorization
+errors without it.
+See [Configure Secret access](configure_secret_access.md) for the operator's
+configuration and trade-offs.
+The existing node-only namespace grants remain available through
+`daemonset.rbac.create` and the node allocator's `secretNamespaces` list when the
+cluster-wide switch is off. They do not grant access to the nodeless allocator
+that reads the same monitors by default.
 
 Before enabling `denyFSAccessThroughSMs` on either allocator, ensure that none
 of its selected ServiceMonitors or PodMonitors reference files in the Collector
