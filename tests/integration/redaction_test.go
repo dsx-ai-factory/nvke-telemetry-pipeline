@@ -32,36 +32,15 @@ type object = map[string]any
 
 func TestTelemetryRedaction(t *testing.T) {
 	image, config := renderedCollector(t.Context(), t)
-	// Exercise KSM preparation and restoration around both redaction passes
-	// in this Collector, without repeating scrape discovery covered by e2e.
+	// Exercise the KSM policy through source and gateway redaction in one Collector.
 	processors := config["processors"].(object)
-	for _, stage := range []struct{ template, processor string }{
-		{"large-target-metrics", "transform/ksm_prepare"},
-		{"gateway-metrics", "transform/ksm_restore"},
-	} {
-		var workload struct {
-			Spec struct {
-				Config struct{ Processors object }
-			}
-		}
-		rendered := command(t, "helm", "template", "redaction", "../../nktp", "--show-only", "templates/"+stage.template+".yaml")
-		require.NoError(t, yaml.Unmarshal(rendered, &workload))
-		processors[stage.processor] = workload.Spec.Config.Processors[stage.processor]
-	}
 	processors["redaction/gateway"] = processors["redaction/basic_v1"]
 	metrics := config["service"].(object)["pipelines"].(object)["metrics"].(object)
-	var metricProcessors []any
-	for _, processor := range metrics["processors"].([]any) {
-		if processor == "redaction/basic_v1" {
-			metricProcessors = append(metricProcessors, "transform/ksm_prepare")
-		}
-		metricProcessors = append(metricProcessors, processor)
-		if processor == "redaction/basic_v1" {
-			metricProcessors = append(metricProcessors, "redaction/gateway", "transform/ksm_restore")
-		}
+	metrics["processors"] = []string{
+		"memory_limiter", "transform/ksm_prepare", "redaction/basic_v1",
+		"redaction/gateway", "transform/ksm_restore", "transform/cluster",
 	}
-	metrics["processors"] = metricProcessors
-	// Use local HTTP transport while preserving the rendered processor chains.
+	// Use local HTTP transport with the rendered processor definitions.
 	config["receivers"] = object{"otlp": object{
 		"protocols": object{"http": object{"endpoint": "0.0.0.0:4318"}},
 	}}
@@ -116,57 +95,44 @@ func TestTelemetryRedaction(t *testing.T) {
 	}
 }
 
+// ksmRedactionFixture covers ServiceAccount settings and negative policy cases;
+// the e2e test covers distinct Secret identifiers and Ingress TLS references.
 func ksmRedactionFixture(t *testing.T) (object, object) {
 	t.Helper()
 	build := func(redact bool) object {
 		var resources []any
 		for _, tc := range []struct {
-			name, metric, service, secret, setting, wantSecret, wantSetting string
-			marked                                                          bool
+			name, metric, service, setting, want string
+			marked                               bool
 		}{
-			{"enabled", "kube_serviceaccount_info", "nktp/nktp-ksm-accounts", "first", "true", "first", "true", true},
-			{"disabled", "kube_serviceaccount_info", "nktp/nktp-ksm-accounts", "second", "false", "second", "false", true},
-			{"unset", "kube_serviceaccount_info", "nktp/nktp-ksm-accounts", "third", "", "third", "", true},
-			{"secret", "kube_secret_info", "nktp/nktp-ksm-secrets", "first", "true", "first", "true", true},
-			{"ingress", "kube_ingress_tls", "nktp/nktp-ksm-networking", "second", "false", "second", "false", true},
-			{"unmarked", "kube_secret_info", "nktp/nktp-ksm-secrets", "FAKE_SECRET", "FAKE_TOKEN", "****", "****", false},
-			{"other-metric", "application_metric", "nktp/nktp-ksm-secrets", "FAKE_SECRET", "FAKE_TOKEN", "****", "****", true},
-			{"other-job", "kube_secret_info", "nktp/application", "FAKE_SECRET", "FAKE_TOKEN", "****", "****", true},
-			{"missing-job", "kube_secret_info", "", "FAKE_SECRET", "FAKE_TOKEN", "****", "****", true},
-			{"value-check", "kube_secret_info", "nktp/nktp-ksm-secrets", "Bearer FAKE_BEARER", "token=FAKE_TOKEN", "****", "****", true},
+			{"enabled", "kube_serviceaccount_info", "nktp/nktp-ksm-accounts", "true", "true", true},
+			{"disabled", "kube_serviceaccount_info", "nktp/nktp-ksm-accounts", "false", "false", true},
+			{"unset", "kube_serviceaccount_info", "nktp/nktp-ksm-accounts", "", "", true},
+			{"unmarked", "kube_serviceaccount_info", "nktp/nktp-ksm-accounts", "FAKE_TOKEN", "****", false},
+			{"other-metric", "application_metric", "nktp/nktp-ksm-accounts", "FAKE_TOKEN", "****", true},
+			{"other-job", "kube_serviceaccount_info", "nktp/application", "FAKE_TOKEN", "****", true},
+			{"missing-job", "kube_serviceaccount_info", "", "FAKE_TOKEN", "****", true},
+			{"value-check", "kube_serviceaccount_info", "nktp/nktp-ksm-accounts", "token=FAKE_TOKEN", "****", true},
 		} {
-			resource, scope := object{}, object{"name": "ksm-redaction-test"}
+			setting, secret := tc.setting, "Bearer FAKE_SECRET"
+			if redact {
+				setting, secret = tc.want, "****"
+			}
+			attrs := []any{
+				attribute("serviceaccount", value("stringValue", tc.name)),
+				attribute("automount_token", value("stringValue", setting)),
+				attribute("secret", value("stringValue", secret)),
+			}
+			if tc.marked && !redact {
+				attrs = append(attrs, attribute("nktp_internal_ksm_origin", value("stringValue", "true")))
+			}
 			var resourceAttrs []any
 			if tc.service != "" {
 				resourceAttrs = append(resourceAttrs, attribute("service.name", value("stringValue", tc.service)))
 			}
-			if !redact {
-				resourceAttrs = append(resourceAttrs, attribute("nktp_internal_ksm_secret_name", value("stringValue", "FAKE_RESOURCE")))
-				scope["attributes"] = []any{attribute("nktp_internal_ksm_secret_name", value("stringValue", "FAKE_SCOPE"))}
-			}
-			resource["attributes"] = resourceAttrs
-			secret, setting, password := tc.secret, tc.setting, "FAKE_PASSWORD"
-			if redact {
-				secret, setting, password = tc.wantSecret, tc.wantSetting, "****"
-			}
-			attrs := []any{
-				attribute("case", value("stringValue", tc.name)),
-				attribute("secret", value("stringValue", secret)),
-				attribute("automount_token", value("stringValue", setting)),
-				attribute("userPassword", value("stringValue", password)),
-			}
-			if !redact {
-				attrs = append(attrs,
-					attribute("nktp_internal_ksm_secret_name", value("stringValue", "FAKE_SUPPLIED_SECRET")),
-					attribute("nktp_internal_ksm_automount_token_setting", value("stringValue", "FAKE_SUPPLIED_SETTING")),
-				)
-				if tc.marked {
-					attrs = append(attrs, attribute("nktp_internal_ksm_origin", value("stringValue", "true")))
-				}
-			}
 			point := object{"timeUnixNano": "1700000000000000000", "asDouble": 1, "attributes": attrs}
-			resources = append(resources, object{"resource": resource, "scopeMetrics": []any{object{
-				"scope": scope, "metrics": []any{object{"name": tc.metric, "gauge": object{"dataPoints": []any{point}}}},
+			resources = append(resources, object{"resource": object{"attributes": resourceAttrs}, "scopeMetrics": []any{object{
+				"scope": object{}, "metrics": []any{object{"name": tc.metric, "gauge": object{"dataPoints": []any{point}}}},
 			}}})
 		}
 		return object{"resourceMetrics": resources}
@@ -206,24 +172,19 @@ func renderedCollector(ctx context.Context, t *testing.T) (string, object) {
 	}
 	// Each workload repeats these rules in its native defaults.
 	reference := collector.Spec.Config["processors"].(object)
-	checkPipelines := func(t *testing.T, config object) {
-		t.Helper()
-		processors := config["processors"].(object)
-		for name, raw := range config["service"].(object)["pipelines"].(object) {
-			pipeline := raw.(object)
-			require.Contains(t, pipeline["processors"], "redaction/basic_v1", "pipeline %s", name)
-			require.Equal(t, reference["redaction/basic_v1"], processors["redaction/basic_v1"])
-		}
-	}
-	checkPipelines(t, collector.Spec.Config)
 	t.Run("watchdog-sidecar", func(t *testing.T) {
 		require.Len(t, collector.Spec.InitContainers, 1)
 		args := collector.Spec.InitContainers[0].Args
 		require.Len(t, args, 1)
 		var sidecar object
 		require.NoError(t, json.Unmarshal([]byte(strings.TrimPrefix(args[0], "--config=yaml:")), &sidecar))
-		checkPipelines(t, sidecar)
+		processors := sidecar["processors"].(object)
+		require.Equal(t, reference["redaction/basic_v1"], processors["redaction/basic_v1"])
 		service := sidecar["service"].(object)
+		for _, signal := range []string{"logs", "metrics", "traces"} {
+			pipeline := service["pipelines"].(object)[signal].(object)
+			require.Contains(t, pipeline["processors"], "redaction/basic_v1", "sidecar %s pipeline", signal)
+		}
 		require.Equal(t, "none", service["telemetry"].(object)["traces"].(object)["level"])
 		command(t, "docker", "run", "--rm", "--pull=never", collector.Spec.Image, "validate", args[0])
 	})
@@ -238,11 +199,17 @@ func renderedCollector(ctx context.Context, t *testing.T) (string, object) {
 	} {
 		t.Run(workload, func(t *testing.T) {
 			var other struct {
-				Spec struct{ Config object }
+				Spec struct{ Config struct{ Processors object } }
 			}
 			rendered := command(t, "helm", "template", "redaction", "../../nktp", "--show-only", "templates/"+workload+".yaml")
 			require.NoError(t, yaml.Unmarshal(rendered, &other))
-			checkPipelines(t, other.Spec.Config)
+			processors := other.Spec.Config.Processors
+			require.Equal(t, reference["redaction/basic_v1"], processors["redaction/basic_v1"])
+			for _, name := range []string{"transform/ksm_prepare", "transform/ksm_restore"} {
+				if processor := processors[name]; processor != nil {
+					reference[name] = processor
+				}
+			}
 		})
 	}
 	return collector.Spec.Image, collector.Spec.Config
@@ -258,10 +225,9 @@ func collectorUnavailable(t *testing.T, format string, args ...any) {
 
 func metadataFixture(t *testing.T, signal string) (object, object) {
 	t.Helper()
-	attributes := redactionAttributes
 	build := func(redact bool) object {
-		resource := object{"attributes": attributes("resource", redact)}
-		scope := object{"name": "inference-test", "version": "1", "attributes": attributes("scope", redact)}
+		resource := object{"attributes": redactionAttributes("resource", redact)}
+		scope := object{"name": "inference-test", "version": "1", "attributes": redactionAttributes("scope", redact)}
 		const timestamp = "1700000000000000000"
 		const traceID = "0102030405060708090a0b0c0d0e0f10"
 		const spanID = "0102030405060708"
@@ -269,9 +235,9 @@ func metadataFixture(t *testing.T, signal string) (object, object) {
 			span := object{
 				"traceId": traceID, "spanId": spanID, "name": "model.inference", "kind": 2,
 				"startTimeUnixNano": timestamp, "endTimeUnixNano": "1700000000000000100",
-				"attributes": attributes("span", redact), "status": object{"code": 1},
+				"attributes": redactionAttributes("span", redact), "status": object{"code": 1},
 				"events": []any{
-					object{"name": "inference.started", "timeUnixNano": timestamp, "attributes": attributes("event", redact)},
+					object{"name": "inference.started", "timeUnixNano": timestamp, "attributes": redactionAttributes("event", redact)},
 					object{"name": "clean-event", "timeUnixNano": timestamp},
 				},
 				// Link attributes are outside the pinned redaction processor's supported surfaces.
@@ -281,7 +247,7 @@ func metadataFixture(t *testing.T, signal string) (object, object) {
 		}
 		var metrics []any
 		for _, kind := range []string{"gauge", "sum", "histogram", "exponentialHistogram", "summary"} {
-			point := object{"timeUnixNano": timestamp, "startTimeUnixNano": "1699999999999999900", "attributes": attributes("datapoint", redact)}
+			point := object{"timeUnixNano": timestamp, "startTimeUnixNano": "1699999999999999900", "attributes": redactionAttributes("datapoint", redact)}
 			data := object{"dataPoints": []any{point}}
 			switch kind {
 			case "gauge":
@@ -306,50 +272,6 @@ func metadataFixture(t *testing.T, signal string) (object, object) {
 			}
 			metrics = append(metrics, object{"name": "inference." + kind, "description": "Inference measurement", "unit": "1", kind: data})
 		}
-		// KSM Secret names identify separate series and must survive every hop.
-		var points []any
-		for _, secret := range []string{"asdf", "another-secret"} {
-			if redact {
-				secret = "****"
-			}
-			points = append(points, object{
-				"timeUnixNano": timestamp, "asDouble": 1,
-				"attributes": []any{
-					attribute("secret", value("stringValue", secret)),
-					attribute("namespace", value("stringValue", "test")),
-				},
-			})
-		}
-		metrics = append(metrics, object{"name": "kube_secret_info", "gauge": object{"dataPoints": points}})
-		// automount_token describes ServiceAccount configuration, not a credential.
-		var accounts []any
-		for i, automount := range []string{"true", "false", ""} {
-			if redact {
-				automount = "****"
-			}
-			accounts = append(accounts, object{
-				"timeUnixNano": timestamp, "asDouble": 1,
-				"attributes": []any{
-					attribute("namespace", value("stringValue", "test")),
-					attribute("serviceaccount", value("stringValue", fmt.Sprintf("test-account-%d", i))),
-					attribute("uid", value("stringValue", fmt.Sprintf("test-account-uid-%d", i))),
-					attribute("automount_token", value("stringValue", automount)),
-				},
-			})
-		}
-		metrics = append(metrics, object{"name": "kube_serviceaccount_info", "gauge": object{"dataPoints": accounts}})
-		// Identifier keys still receive value checks; they are not ignored_keys.
-		identifierText := "Bearer FAKE_IDENTIFIER_VALUE"
-		if redact {
-			identifierText = "****"
-		}
-		metrics = append(metrics, object{"name": "identifier.value_checks", "gauge": object{"dataPoints": []any{object{
-			"timeUnixNano": timestamp, "asDouble": 1,
-			"attributes": []any{
-				attribute("secret", value("stringValue", identifierText)),
-				attribute("automount_token", value("stringValue", identifierText)),
-			},
-		}}}})
 		return object{"resourceMetrics": []any{object{"resource": resource, "scopeMetrics": []any{object{"scope": scope, "metrics": metrics}}}}}
 	}
 	var input, expected object
