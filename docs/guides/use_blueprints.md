@@ -61,7 +61,7 @@ deploy NKTP:
    spec:
      sources:
        - repoURL: https://github.com/dsx-ai-factory/nvke-telemetry-pipeline.git
-         targetRevision: nktp/v0.2.0
+         targetRevision: nktp/v0.3.0
          path: nktp
          helm:
            valueFiles:

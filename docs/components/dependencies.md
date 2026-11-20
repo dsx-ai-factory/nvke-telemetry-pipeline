@@ -33,9 +33,9 @@ the versions bundled inside other upstream charts.
 
 ## OpenTelemetry Operator and CRDs
 
-NKTP depends on the published [opentelemetry-kube-stack 0.27.0](https://github.com/open-telemetry/opentelemetry-helm-charts/tree/opentelemetry-kube-stack-0.27.0/charts/opentelemetry-kube-stack)
-chart. It supplies OpenTelemetry Operator chart 0.128.0, operator image 0.162.0,
-and native CRDs. NKTP disables its default Collector and general Collector RBAC.
+NKTP depends on the published [opentelemetry-kube-stack](https://github.com/open-telemetry/opentelemetry-helm-charts/tree/main/charts/opentelemetry-kube-stack)
+chart, which supplies the OpenTelemetry Operator and native CRDs.
+NKTP disables its default Collector and general Collector RBAC.
 Settings pass through under `opentelemetry-kube-stack` using upstream values.
 
 Helm installs missing OpenTelemetry CRDs (OpenTelemetryCollector, Instrumentation,
@@ -162,11 +162,12 @@ metrics-server:
   enabled: true
 ```
 
-The bundled chart is pinned to metrics-server chart 3.13.1, which installs metrics-server
-0.8.1. That version supports Kubernetes 1.31+.
+See the [bundled dependency and image inventory](../../nktp/README.md#bundled-dependencies)
+for the current chart and image versions. Enabling the bundled metrics-server
+requires Kubernetes 1.34+; see the [upstream compatibility matrix](https://github.com/kubernetes-sigs/metrics-server/blob/v0.9.0/README.md#compatibility-matrix).
 
 Settings pass through under `metrics-server` using the upstream chart's own values, none
-of which NKTP overrides. See the [chart's values reference](https://github.com/kubernetes-sigs/metrics-server/blob/metrics-server-helm-chart-3.13.1/charts/metrics-server/README.md)
+of which NKTP overrides. See the [chart's values reference](https://github.com/kubernetes-sigs/metrics-server/blob/metrics-server-helm-chart-3.14.0/charts/metrics-server/README.md)
 for what is configurable, including the TLS defaults for the APIService and for kubelet
 certificate verification.
 
