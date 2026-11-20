@@ -4,7 +4,7 @@
 # large-target, and nodeless Target Allocators that discover monitors. This grants
 # access to every Secret's contents, not only credentials referenced by monitors.
 # Also defaults their Secret watches to all namespaces unless secretNamespaces is set.
-# False creates no chart-managed Secret grants; external RBAC remains effective.
+# False preserves the node allocator's namespace RBAC options below.
 grantClusterSecretAccess: false
 
 # Optionally label an existing release namespace before installing workloads.
@@ -1604,6 +1604,12 @@ gateway_traces:
 
 # Node-level collector. Collects local telemetry and forwards received OTLP signals.
 daemonset:
+  rbac:
+    # Create credential Roles and RoleBindings for the node Target Allocator in
+    # kubernetes.targetAllocator.prometheusCR.secretNamespaces. Omitted/empty
+    # lists create no grants. Skipped when grantClusterSecretAccess is true.
+    # False disables only these namespace grants, not the cluster-wide option.
+    create: true
   kubernetes:
     mode: daemonset
     managementState: managed
@@ -1659,6 +1665,8 @@ daemonset:
         metrics:
           enableMetrics: false # Metrics are pushed over OTLP without a ServiceMonitor.
       prometheusCR:
+        # Explicit namespaces for Secret watching and node namespace RBAC.
+        # secretNamespaces: [metrics-monitors]
         enabled: true
         denyFSAccessThroughSMs: false # Preserve compatibility with monitors that reference files in the Collector container.
         # Exclude monitoring CRs labeled nktp.nvidia.io/large-target: "true" and common kubelet ServiceMonitors.

@@ -153,12 +153,10 @@ Review the upgrade notes for your target version, available through
 [More information](#more-information), and merge the required changes into
 your Helm values file before upgrading.
 
-When upgrading from a chart that creates node allocator credential Roles from
-`daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces`, Helm removes
-those namespace grants. To use the replacement chart-managed grant, explicitly
-enable `grantClusterSecretAccess: true` after reviewing its cluster-wide scope.
-The switch defaults to `false` and creates no replacement grants; retaining
-`secretNamespaces` alone does not preserve access for credentialed monitors.
+Existing node allocator namespace grants are preserved when
+`grantClusterSecretAccess` remains `false` and the node's `daemonset.rbac.create`
+and `secretNamespaces` settings are retained. Enabling cluster-wide access
+replaces redundant node namespace grants with the broader shared cluster grant.
 
 If the target chart version updates the bundled OpenTelemetry or Prometheus
 CRDs, follow [Update CRDs](#update-crds) before `helm upgrade`. Helm does not upgrade
@@ -337,7 +335,12 @@ receiver's `otelcol.config`.
   the metrics port, admit the release namespace. If a monitor references a
   Secret or CA ConfigMap, enable `grantClusterSecretAccess: true` to let the
   monitor-watching Target Allocators resolve it across namespaces. The default
-  is `false`, which creates no chart-managed Secret grants. Enabling it grants
+  is `false`, which creates no cluster-wide Secret grant. The existing node-only
+  option remains available: with `daemonset.rbac.create: true`, namespaces in
+  `daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces` receive
+  node allocator credential Roles. An empty list creates no namespace grants.
+  Those Roles do not authorize the nodeless allocator that reads the same
+  monitors. Enabling the cluster-wide switch grants
   `get/list/watch` on every Secret's contents and `get` on ConfigMaps across the
   cluster, including objects not referenced by monitors. It also defaults the
   Secret watches to all namespaces; an explicit native `secretNamespaces` list

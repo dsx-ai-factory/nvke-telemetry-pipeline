@@ -8,21 +8,20 @@ When an upgrade changes bundled CRDs, review the relevant versions in the
 or [Prometheus Operator changelog](https://github.com/prometheus-operator/prometheus-operator/blob/main/CHANGELOG.md)
 and complete any required migrations before applying those CRDs.
 
-## Upgrading to the cluster Secret access switch
+## Cluster-wide Secret access is opt-in
 
-**ACTION REQUIRED if you used chart-managed monitor credential grants:** this
-version removes the node allocator's namespace Roles and RoleBindings created
-from `daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces`.
-The replacement `grantClusterSecretAccess` option defaults to `false`, so Helm
-removes those grants without creating a replacement by default. Existing
-credentialed monitors can lose Secret and CA ConfigMap access.
+`grantClusterSecretAccess` defaults to `false`. Existing node allocator namespace
+grants remain in place when `daemonset.rbac.create` is `true` and
+`daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces` lists the
+required namespaces. Keep those settings to preserve the existing behavior.
 
-To use the replacement chart-managed grant, explicitly enable
-`grantClusterSecretAccess: true` in the upgrade values after reviewing its
-cluster-wide scope. With the default `false`, the chart creates no replacement
-grants. Merely retaining `secretNamespaces` is insufficient. Review the
-[credential-access migration](guides/configure_secret_access.md#upgrade-from-chart-managed-namespace-grants)
-before running `helm upgrade`.
+Enabling `grantClusterSecretAccess: true` replaces redundant node namespace
+grants with a shared cluster-wide grant for the monitor-watching allocators.
+Review its broader scope before enabling it. Turning it off restores node
+namespace grants when configured, but removes the chart's credential grant for
+the large-target and nodeless allocators. See
+[Secret access and upgrade behavior](guides/configure_secret_access.md#upgrade-behavior)
+and verify credentialed scraping after any permission change.
 
 ## From 0.2.x to 0.3.x
 

@@ -294,14 +294,33 @@ allocator's selected monitors reference files in the Collector container. See
 
 ### Monitor credentials
 
-Secret and CA ConfigMap access is disabled by default. Set the chart-wide
-`grantClusterSecretAccess: true` to grant all monitor-watching allocators Secret
-`get/list/watch` and ConfigMap `get` across the cluster, including objects not
-referenced by monitors. The chart also defaults their Secret watches to all
-namespaces, while preserving explicit native `prometheusCR.secretNamespaces` lists.
+The node allocator supports namespace grants alongside the optional cluster-wide
+grant. To preserve namespace-scoped access, keep `grantClusterSecretAccess: false`
+and list the namespaces containing monitors and their referenced objects:
 
-With the switch off, credentialed monitors require the allocator to already
-have the necessary permissions. The upstream Secret watcher can log authorization
-errors without them. See
-[Configure Secret access](../guides/configure_secret_access.md) for the scope,
-default behavior, and existing ServiceAccount overrides.
+```yaml
+daemonset:
+  rbac:
+    create: true
+  kubernetes:
+    targetAllocator:
+      prometheusCR:
+        secretNamespaces: [metrics-monitors]
+```
+
+`daemonset.rbac.create` defaults to `true`. Helm creates a Role and RoleBinding
+in each listed namespace granting Secrets `get/list/watch` and ConfigMaps `get`
+to the allocator's ServiceAccount in the release namespace. The binding honors
+`daemonset.kubernetes.targetAllocator.serviceAccount`. Omitted, empty, or null
+namespace lists create no grants. Set `daemonset.rbac.create: false` to disable
+these namespace grants.
+
+Set `grantClusterSecretAccess: true` to grant all monitor-watching allocators
+cluster-wide credential access instead. Redundant node namespace grants are
+then skipped, independently of `daemonset.rbac.create`.
+
+Both grants allow reading all Secrets in their scope, including contents not
+referenced by monitors. The node namespace option grants no access to the
+nodeless allocator, which selects the same monitors by default. See
+[Configure Secret access](../guides/configure_secret_access.md) for precedence,
+watch behavior, and upgrade considerations.

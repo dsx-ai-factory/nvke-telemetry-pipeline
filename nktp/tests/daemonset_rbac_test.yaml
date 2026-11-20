@@ -137,3 +137,182 @@ tests:
           apiVersion: rbac.authorization.k8s.io/v1
           name: nktp-daemonset-targetallocator-metrics
         not: true
+
+  - it: creates scoped read permissions by default with deduplicated namespace strings
+    release:
+      namespace: telemetry
+    set:
+      daemonset.kubernetes.targetAllocator.serviceAccount: existing-allocator
+      daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces: [team-b, "null", team-b]
+    asserts:
+      - hasDocuments:
+          count: 8
+      - equal:
+          path: rules
+          value:
+            - apiGroups: [""]
+              resources: [pods, services, endpoints, namespaces, nodes]
+              verbs: [get, list, watch]
+            - apiGroups: [discovery.k8s.io]
+              resources: [endpointslices]
+              verbs: [get, list, watch]
+            - apiGroups: [monitoring.coreos.com]
+              resources: [servicemonitors, podmonitors, probes, scrapeconfigs]
+              verbs: [get, list, watch]
+        documentIndex: 0
+      - equal:
+          path: kind
+          value: Role
+        documentIndex: 4
+      - equal:
+          path: metadata
+          value:
+            name: nktp-daemonset-monitor-telemetry
+            namespace: team-b
+        documentIndex: 4
+      - equal:
+          path: rules
+          value:
+            - apiGroups: [""]
+              resources: [secrets]
+              verbs: [get, list, watch]
+            - apiGroups: [""]
+              resources: [configmaps]
+              verbs: [get]
+        documentIndex: 4
+      - equal:
+          path: kind
+          value: RoleBinding
+        documentIndex: 5
+      - equal:
+          path: metadata.namespace
+          value: team-b
+        documentIndex: 5
+      - equal:
+          path: roleRef
+          value:
+            apiGroup: rbac.authorization.k8s.io
+            kind: Role
+            name: nktp-daemonset-monitor-telemetry
+        documentIndex: 5
+      - equal:
+          path: subjects
+          value:
+            - kind: ServiceAccount
+              name: existing-allocator
+              namespace: telemetry
+        documentIndex: 5
+      - equal:
+          path: metadata.namespace
+          value: "null"
+        documentIndex: 6
+      - equal:
+          path: metadata.namespace
+          value: "null"
+        documentIndex: 7
+      - equal:
+          path: subjects
+          value:
+            - kind: ServiceAccount
+              name: existing-allocator
+              namespace: telemetry
+        documentIndex: 7
+
+  - it: binds the default allocator account without requiring mTLS
+    set:
+      daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces: [metrics-monitors]
+    asserts:
+      - hasDocuments:
+          count: 6
+      - equal:
+          path: subjects
+          value:
+            - kind: ServiceAccount
+              name: nktp-daemonset-targetallocator
+              namespace: nktp
+        documentIndex: 5
+
+  - it: manages namespace RBAC independently of monitor discovery settings
+    set:
+      daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces: [metrics-monitors]
+      daemonset.kubernetes.targetAllocator.prometheusCR.allowNamespaces: [other-monitors]
+    asserts:
+      - hasDocuments:
+          count: 6
+
+      - equal:
+          path: metadata.namespace
+          value: metrics-monitors
+        documentIndex: 4
+      - equal:
+          path: metadata.namespace
+          value: metrics-monitors
+        documentIndex: 5
+
+  - it: allows external namespace RBAC management
+    set:
+      daemonset.rbac.create: false
+      daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces: [metrics-monitors]
+    asserts:
+      - hasDocuments:
+          count: 4
+      - containsDocument:
+          kind: Role
+          apiVersion: rbac.authorization.k8s.io/v1
+        not: true
+      - containsDocument:
+          kind: RoleBinding
+          apiVersion: rbac.authorization.k8s.io/v1
+        not: true
+
+  - it: does not grant Secret or ConfigMap access in the release namespace for an empty list
+    set:
+      daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces: []
+    asserts:
+      - hasDocuments:
+          count: 4
+
+  - it: does not grant Secret or ConfigMap access in the release namespace for a null list
+    set:
+      daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces: null
+    asserts:
+      - hasDocuments:
+          count: 4
+
+  - it: rejects a string instead of a boolean RBAC switch
+    set:
+      daemonset.rbac.create: "false"
+    asserts:
+      - failedTemplate:
+          errorMessage: daemonset.rbac.create must be a boolean
+
+  - it: rejects an unscoped namespace entry
+    set:
+      daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces: [""]
+    asserts:
+      - failedTemplate:
+          errorMessage: daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces must not contain empty namespace names
+
+  - it: skips redundant node namespace grants when cluster access is enabled
+    set:
+      grantClusterSecretAccess: true
+      daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces: [metrics-monitors]
+    asserts:
+      - hasDocuments:
+          count: 4
+      - containsDocument:
+          kind: Role
+          apiVersion: rbac.authorization.k8s.io/v1
+        not: true
+      - containsDocument:
+          kind: RoleBinding
+          apiVersion: rbac.authorization.k8s.io/v1
+        not: true
+
+  - it: allows the all-namespace watch convention when cluster access is enabled
+    set:
+      grantClusterSecretAccess: true
+      daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces: [""]
+    asserts:
+      - hasDocuments:
+          count: 4
