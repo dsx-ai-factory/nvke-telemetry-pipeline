@@ -21,7 +21,12 @@ tests:
           value: nktp-ksm-workloads
       - equal:
           path: spec.podMetricsEndpoints
-          value: [{port: http-metrics, honorLabels: true}, {port: telemetry}]
+          value:
+            - port: http-metrics
+              honorLabels: true
+              metricRelabelings:
+                - {action: replace, targetLabel: nktp_internal_ksm_origin, replacement: "true"}
+            - port: telemetry
         documentSelector:
           path: metadata.name
           value: nktp-ksm-workloads
@@ -79,4 +84,9 @@ tests:
     asserts:
       - equal:
           path: spec.podMetricsEndpoints
-          value: [{port: http-metrics, honorLabels: true}, {port: telemetry}]
+          value:
+            - port: http-metrics
+              honorLabels: true
+              metricRelabelings:
+                - {action: replace, targetLabel: nktp_internal_ksm_origin, replacement: "true"}
+            - port: telemetry

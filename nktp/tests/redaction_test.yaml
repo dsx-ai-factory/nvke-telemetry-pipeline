@@ -2,6 +2,8 @@ suite: basic telemetry redaction
 templates:
   - templates/daemonset.yaml
   - templates/gateway-metrics.yaml
+  - templates/large-target-metrics.yaml
+  - templates/nodeless-metrics.yaml
 tests:
   - it: uses safe redaction defaults
     template: templates/daemonset.yaml
@@ -39,3 +41,17 @@ tests:
       - equal:
           path: spec.config.service.pipelines.metrics.processors
           value: [memory_limiter]
+
+  - it: redacts every node metric input through the shared pipeline
+    template: templates/daemonset.yaml
+    asserts:
+      - equal:
+          path: spec.config.service.pipelines.metrics.receivers
+          value: [prometheus, prometheus/kubelet, otlp]
+      - equal:
+          path: spec.config.service.pipelines.metrics.processors
+          value: [memory_limiter, resource/node, redaction/basic_v1]
+      - notExists:
+          path: spec.config.service.pipelines["metrics/otlp"]
+      - notExists:
+          path: spec.config.processors["transform/ksm_prepare"]

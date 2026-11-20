@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"helm.sh/helm/v4/pkg/action"
-	"helm.sh/helm/v4/pkg/chart/common"
 	"helm.sh/helm/v4/pkg/chart/loader"
 	"helm.sh/helm/v4/pkg/kube"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -142,7 +141,7 @@ func TestStableReapply(t *testing.T) {
 			require.NotEmpty(t, wasHelm, "the release must contain Helm-managed workloads")
 			chart, err := loader.Load(testenv.ChartPath)
 			require.NoError(t, err)
-			values, err := common.ReadValuesFile(testenv.ValuesPath)
+			values, err := testenv.LoadValues()
 			require.NoError(t, err)
 			getter := &genericclioptions.ConfigFlags{
 				KubeConfig: new(c.KubeconfigFile()),

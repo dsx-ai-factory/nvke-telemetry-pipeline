@@ -110,6 +110,13 @@ task dev:down
    compatibility notes, or decision rationale only when they affect a user's
    actions or understanding; keep other details in code comments, design docs,
    or pull request descriptions.
+9. **Keep upgrade guidance in the upgrade notes.** Record breaking changes and
+   required migration steps in [docs/upgrading.md](docs/upgrading.md), under the
+   relevant version transition. Keep each note focused on the user-visible
+   problem or motivation and the actions required to upgrade. Omit implementation
+   walkthroughs, development constraints, and background that does not change
+   what users must do. Other documentation describes the current
+   configuration and behavior, without version-transition or migration notices.
 
 ## Secrets and credentials
 

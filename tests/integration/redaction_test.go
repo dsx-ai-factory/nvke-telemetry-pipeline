@@ -32,7 +32,15 @@ type object = map[string]any
 
 func TestTelemetryRedaction(t *testing.T) {
 	image, config := renderedCollector(t.Context(), t)
-	// Use local HTTP transport while preserving the rendered processor chains.
+	// Exercise the KSM policy through source and gateway redaction in one Collector.
+	processors := config["processors"].(object)
+	processors["redaction/gateway"] = processors["redaction/basic_v1"]
+	metrics := config["service"].(object)["pipelines"].(object)["metrics"].(object)
+	metrics["processors"] = []string{
+		"memory_limiter", "transform/ksm_prepare", "redaction/basic_v1",
+		"redaction/gateway", "transform/ksm_restore", "transform/cluster",
+	}
+	// Use local HTTP transport with the rendered processor definitions.
 	config["receivers"] = object{"otlp": object{
 		"protocols": object{"http": object{"endpoint": "0.0.0.0:4318"}},
 	}}
@@ -50,12 +58,15 @@ func TestTelemetryRedaction(t *testing.T) {
 	exporters, received := captureExports(t)
 	config["exporters"] = exporters
 	url := runCollector(t, image, config)
-	for _, signal := range []string{"logs", "metrics", "traces"} {
+	for _, signal := range []string{"logs", "metrics", "traces", "metrics/ksm"} {
 		t.Run(signal, func(t *testing.T) {
 			var input, expected object
-			if signal == "logs" {
+			switch signal {
+			case "logs":
 				input, expected = redactionFixture(t)
-			} else {
+			case "metrics/ksm":
+				input, expected = ksmRedactionFixture(t)
+			default:
 				input, expected = metadataFixture(t, signal)
 			}
 			// The watchdog's cluster processor adds the default name to every resource.
@@ -67,8 +78,14 @@ func TestTelemetryRedaction(t *testing.T) {
 				}
 			}
 			// Source and gateway redaction must preserve already-masked telemetry.
-			for hop := 0; hop < 2; hop++ {
-				sendTelemetry(t, url+"/v1/"+signal, input)
+			hops := 2
+			if signal == "metrics/ksm" {
+				// Both redaction passes are already in the metrics chain. A
+				// restored identifier must not pass through source redaction again.
+				hops = 1
+			}
+			for hop := 0; hop < hops; hop++ {
+				sendTelemetry(t, url+"/v1/"+strings.SplitN(signal, "/", 2)[0], input)
 				exported := receiveTelemetry(t, received)
 				require.Equal(t, normalize(expected), normalize(exported))
 				require.NotContains(t, string(marshal(t, exported)), "FAKE_")
@@ -76,6 +93,54 @@ func TestTelemetryRedaction(t *testing.T) {
 			}
 		})
 	}
+}
+
+// ksmRedactionFixture covers ServiceAccount settings and negative policy cases;
+// the e2e test covers distinct Secret identifiers and Ingress TLS references.
+func ksmRedactionFixture(t *testing.T) (object, object) {
+	t.Helper()
+	build := func(redact bool) object {
+		var resources []any
+		for _, tc := range []struct {
+			name, metric, service, setting, want string
+			marked                               bool
+		}{
+			{"enabled", "kube_serviceaccount_info", "nktp/nktp-ksm-accounts", "true", "true", true},
+			{"disabled", "kube_serviceaccount_info", "nktp/nktp-ksm-accounts", "false", "false", true},
+			{"unset", "kube_serviceaccount_info", "nktp/nktp-ksm-accounts", "", "", true},
+			{"unmarked", "kube_serviceaccount_info", "nktp/nktp-ksm-accounts", "FAKE_TOKEN", "****", false},
+			{"other-metric", "application_metric", "nktp/nktp-ksm-accounts", "FAKE_TOKEN", "****", true},
+			{"other-job", "kube_serviceaccount_info", "nktp/application", "FAKE_TOKEN", "****", true},
+			{"missing-job", "kube_serviceaccount_info", "", "FAKE_TOKEN", "****", true},
+			{"value-check", "kube_serviceaccount_info", "nktp/nktp-ksm-accounts", "token=FAKE_TOKEN", "****", true},
+		} {
+			setting, secret := tc.setting, "Bearer FAKE_SECRET"
+			if redact {
+				setting, secret = tc.want, "****"
+			}
+			attrs := []any{
+				attribute("serviceaccount", value("stringValue", tc.name)),
+				attribute("automount_token", value("stringValue", setting)),
+				attribute("secret", value("stringValue", secret)),
+			}
+			if tc.marked && !redact {
+				attrs = append(attrs, attribute("nktp_internal_ksm_origin", value("stringValue", "true")))
+			}
+			var resourceAttrs []any
+			if tc.service != "" {
+				resourceAttrs = append(resourceAttrs, attribute("service.name", value("stringValue", tc.service)))
+			}
+			point := object{"timeUnixNano": "1700000000000000000", "asDouble": 1, "attributes": attrs}
+			resources = append(resources, object{"resource": object{"attributes": resourceAttrs}, "scopeMetrics": []any{object{
+				"scope": object{}, "metrics": []any{object{"name": tc.metric, "gauge": object{"dataPoints": []any{point}}}},
+			}}})
+		}
+		return object{"resourceMetrics": resources}
+	}
+	var input, expected object
+	require.NoError(t, json.Unmarshal(marshal(t, build(false)), &input))
+	require.NoError(t, json.Unmarshal(marshal(t, build(true)), &expected))
+	return input, expected
 }
 
 func renderedCollector(ctx context.Context, t *testing.T) (string, object) {
@@ -130,6 +195,7 @@ func renderedCollector(ctx context.Context, t *testing.T) (string, object) {
 		"gateway-metrics",
 		"gateway-traces",
 		"large-target-metrics",
+		"nodeless-metrics",
 	} {
 		t.Run(workload, func(t *testing.T) {
 			var other struct {
@@ -139,6 +205,11 @@ func renderedCollector(ctx context.Context, t *testing.T) (string, object) {
 			require.NoError(t, yaml.Unmarshal(rendered, &other))
 			processors := other.Spec.Config.Processors
 			require.Equal(t, reference["redaction/basic_v1"], processors["redaction/basic_v1"])
+			for _, name := range []string{"transform/ksm_prepare", "transform/ksm_restore"} {
+				if processor := processors[name]; processor != nil {
+					reference[name] = processor
+				}
+			}
 		})
 	}
 	return collector.Spec.Image, collector.Spec.Config
@@ -218,7 +289,11 @@ func captureExports(t *testing.T) (object, <-chan object) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		received <- payload
+		select {
+		case received <- payload:
+		case <-r.Context().Done():
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte("{}"))
 	}))
@@ -252,6 +327,7 @@ func redactionAttributes(surface string, redact bool) []any {
 		"session_token", "auth_token", "accessToken", "refreshToken", "clientSecret", "secret_key", "set-cookie",
 		"dbPassword", "userPassword", "apiToken", "bearerToken", "githubToken", "AWS_SECRET_ACCESS_KEY",
 		"x-auth-token", "x-amz-security-token", "client_secret_key", "dbPASSWORD", "appApiKey",
+		"automount_token",
 	}
 	result := []any{attribute("count", value("intValue", "7")), attribute("ok", value("boolValue", true)), attribute("message", value("stringValue", "****"))}
 	// Inference usage and configuration fields must keep their original numeric types.
@@ -409,6 +485,9 @@ func runCollector(t *testing.T, image string, config object) string {
 		defer command(t, "docker", "stop", "--time=1", id)
 		diagnostics := command(t, "docker", "logs", id)
 		require.NotContains(t, string(diagnostics), "FAKE_", "Collector diagnostics must not expose fixture credentials")
+		if t.Failed() {
+			t.Logf("Collector diagnostics:\n%s", diagnostics)
+		}
 	})
 	address := strings.TrimSpace(string(command(t, "docker", "port", id, "4318/tcp")))
 	require.Eventually(t, func() bool {

@@ -20,5 +20,10 @@ spec:
     - port: http-metrics
       # Preserve the namespace and Pod labels of the objects described by KSM.
       honorLabels: true
+      # Select identifier protection in the shared metrics pipeline.
+      metricRelabelings:
+        - action: replace
+          targetLabel: nktp_internal_ksm_origin
+          replacement: "true"
     - port: telemetry
 {{- end }}

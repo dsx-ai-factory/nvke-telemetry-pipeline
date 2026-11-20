@@ -8,6 +8,21 @@ When an upgrade changes bundled CRDs, review the relevant versions in the
 or [Prometheus Operator changelog](https://github.com/prometheus-operator/prometheus-operator/blob/main/CHANGELOG.md)
 and complete any required migrations before applying those CRDs.
 
+## From 0.3.x to 0.4.x
+
+### KSM identifier preservation
+
+Fixes unintended redaction of the `secret` and `automount_token` labels on
+kube-state-metrics series, which could collapse distinct series.
+
+**ACTION REQUIRED:** If you override `metrics.processors` or define a custom
+metrics pipeline that receives KSM metrics, such as `metrics/ksm`, under
+`<component>.otelcol.config.service.pipelines`, include:
+
+- Add `transform/ksm_prepare` before `redaction/basic_v1` under
+  `large_target_metrics`.
+- Add `transform/ksm_restore` after `redaction/basic_v1` under `gateway_metrics`.
+
 ## From 0.2.x to 0.3.x
 
 ### OpenTelemetry CRDs

@@ -1049,6 +1049,15 @@ gateway_metrics:
                   max_connection_age: 1m
                   max_connection_age_grace: 30s # Increase if in-flight exports need longer before forced closure.
       processors:
+        # Restore identifiers after its final credential-redaction pass.
+        transform/ksm_restore:
+          error_mode: propagate
+          metric_statements:
+            - context: datapoint
+              statements:
+                - 'set(datapoint.attributes["secret"], datapoint.attributes["nktp_internal_ksm_secret_name"]) where datapoint.attributes["nktp_internal_ksm_secret_name"] != nil'
+                - 'set(datapoint.attributes["automount_token"], datapoint.attributes["nktp_internal_ksm_automount_token_setting"]) where datapoint.attributes["nktp_internal_ksm_automount_token_setting"] != nil'
+                - 'delete_matching_keys(datapoint.attributes, "^nktp_internal_ksm_")'
         redaction/basic_v1:
           allow_all_keys: true
           redact_all_types: true
@@ -1121,7 +1130,7 @@ gateway_metrics:
         pipelines:
           metrics:
             receivers: [otlp]
-            processors: [memory_limiter, redaction/basic_v1, transform/cluster]
+            processors: [memory_limiter, redaction/basic_v1, transform/ksm_restore, transform/cluster]
             exporters: [otlp_grpc]
   # Native sidecar for this workload's own telemetry. It buffers through outages,
   # keeps only error and slow traces, and exports over gRPC to nktp-watchdog-collector:4317.
@@ -2492,6 +2501,26 @@ large_target_metrics:
             # The Target Allocator supplies scrape jobs and assigned targets from monitoring CRs.
             scrape_configs: []
       processors:
+        # Protect identifiers only on marked KSM series in this scrape-only pool.
+        # Keep temporary names until the metrics gateway finishes redaction.
+        transform/ksm_prepare:
+          error_mode: propagate
+          metric_statements:
+            - context: resource
+              statements:
+                - 'delete_matching_keys(resource.attributes, "^nktp_internal_ksm_")'
+            - context: scope
+              statements:
+                - 'delete_matching_keys(scope.attributes, "^nktp_internal_ksm_")'
+            - context: datapoint
+              statements:
+                - 'delete_key(datapoint.attributes, "nktp_internal_ksm_secret_name")'
+                - 'delete_key(datapoint.attributes, "nktp_internal_ksm_automount_token_setting")'
+                - 'set(datapoint.attributes["nktp_internal_ksm_secret_name"], datapoint.attributes["secret"]) where datapoint.attributes["nktp_internal_ksm_origin"] == "true" and IsMatch(metric.name, "^kube_(secret_.+|ingress_tls|serviceaccount_info)$$") and resource.attributes["service.name"] != nil and IsMatch(resource.attributes["service.name"], "/nktp-ksm-") and datapoint.attributes["secret"] != nil'
+                - 'set(datapoint.attributes["nktp_internal_ksm_automount_token_setting"], datapoint.attributes["automount_token"]) where datapoint.attributes["nktp_internal_ksm_origin"] == "true" and IsMatch(metric.name, "^kube_(secret_.+|ingress_tls|serviceaccount_info)$$") and resource.attributes["service.name"] != nil and IsMatch(resource.attributes["service.name"], "/nktp-ksm-") and datapoint.attributes["automount_token"] != nil'
+                - 'delete_key(datapoint.attributes, "secret") where datapoint.attributes["nktp_internal_ksm_origin"] == "true" and IsMatch(metric.name, "^kube_(secret_.+|ingress_tls|serviceaccount_info)$$") and resource.attributes["service.name"] != nil and IsMatch(resource.attributes["service.name"], "/nktp-ksm-")'
+                - 'delete_key(datapoint.attributes, "automount_token") where datapoint.attributes["nktp_internal_ksm_origin"] == "true" and IsMatch(metric.name, "^kube_(secret_.+|ingress_tls|serviceaccount_info)$$") and resource.attributes["service.name"] != nil and IsMatch(resource.attributes["service.name"], "/nktp-ksm-")'
+                - 'delete_key(datapoint.attributes, "nktp_internal_ksm_origin")'
         redaction/basic_v1:
           allow_all_keys: true
           redact_all_types: true
@@ -2563,7 +2592,7 @@ large_target_metrics:
         pipelines:
           metrics:
             receivers: [prometheus]
-            processors: [memory_limiter, redaction/basic_v1, batch]
+            processors: [memory_limiter, transform/ksm_prepare, redaction/basic_v1, batch]
             exporters: [otlp_grpc]
   # Native sidecar for this workload's own telemetry. It buffers through outages,
   # keeps only error and slow traces, and exports over gRPC to nktp-watchdog-collector:4317.
