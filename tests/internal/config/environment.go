@@ -87,14 +87,12 @@ func (e *Environment) Install() {
 
 }
 
-func (e *Environment) InstallRelease(ctx context.Context) error {
-	chart, err := loader.Load(e.ChartPath)
-	if err != nil {
-		return fmt.Errorf("failed to load chart at target path %s: %w", e.ChartPath, err)
-	}
+// LoadValues reads the suite values and scopes Secret collection to the selected
+// release namespace.
+func (e *Environment) LoadValues() (common.Values, error) {
 	values, err := common.ReadValuesFile(e.ValuesPath)
 	if err != nil {
-		return fmt.Errorf("failed to load values file at target path %s: %w", e.ValuesPath, err)
+		return nil, fmt.Errorf("failed to load values file at target path %s: %w", e.ValuesPath, err)
 	}
 	// Keep Secret fixture collection scoped to the suite's selected namespace.
 	if ksm, ok := values["kube-state-metrics"].(map[string]any); ok {
@@ -103,6 +101,18 @@ func (e *Environment) InstallRelease(ctx context.Context) error {
 				secrets["namespaces"] = []string{e.ReleaseNamespace}
 			}
 		}
+	}
+	return values, nil
+}
+
+func (e *Environment) InstallRelease(ctx context.Context) error {
+	chart, err := loader.Load(e.ChartPath)
+	if err != nil {
+		return fmt.Errorf("failed to load chart at target path %s: %w", e.ChartPath, err)
+	}
+	values, err := e.LoadValues()
+	if err != nil {
+		return err
 	}
 	install := action.NewInstall(e.helmcfg)
 	install.ReleaseName = e.ReleaseName
