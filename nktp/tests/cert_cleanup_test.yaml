@@ -176,6 +176,29 @@ tests:
       - contains:
           path: rules[0].resourceNames
           content: nktp-internal-ca
+  - it: omits the Operator webhook Secret when the Operator does not create its webhook
+    set:
+      opentelemetry-kube-stack.opentelemetry-operator.admissionWebhooks.create: false
+    documentSelector:
+      path: kind
+      value: Role
+    asserts:
+      - notContains:
+          path: rules[0].resourceNames
+          content: nktp-operator-controller-manager-service-cert
+  - it: cleans the Operator webhook Secret under its overridden name
+    set:
+      opentelemetry-kube-stack.opentelemetry-operator.admissionWebhooks.secretName: custom-webhook-tls
+    documentSelector:
+      path: kind
+      value: Role
+    asserts:
+      - contains:
+          path: rules[0].resourceNames
+          content: custom-webhook-tls
+      - notContains:
+          path: rules[0].resourceNames
+          content: nktp-operator-controller-manager-service-cert
   - it: renders nothing when every cert-manager switch is disabled
     set:
       certManager.internalTLS.enabled: false
