@@ -44,12 +44,9 @@ Before enabling the restriction:
    through a Secret or ConfigMap, and client certificates and keys through
    Secret references. The [complete vLLM monitors](#vllm-servicemonitor-before-and-after)
    show the bearer-token change. Grant the responsible allocator access to the
-   referenced objects. For the node allocator, see
-   [Monitor credentials](../components/node_collector.md#monitor-credentials).
-   For the large-target and nodeless allocators, configure their
-   `prometheusCR.secretNamespaces` and
-   [provide namespace RBAC separately](#grant-the-large-target-and-nodeless-allocators-access);
-   automatic chart credential grants cover only the node allocator.
+   referenced objects. Set `grantClusterSecretAccess: true` to enable cluster-wide
+   Secret and CA ConfigMap reads for the monitor-watching allocators after
+   reviewing the scope in [Configure Secret access](configure_secret_access.md).
 3. If another chart cannot configure these references, disable its generated
    ServiceMonitors through that chart's values and maintain replacements with
    the same target selection, pool label, ports, paths, and authentication.
@@ -155,8 +152,8 @@ The target validates the token and authorizes the ServiceAccount it identifies;
 the authentication type itself grants no permissions. Reference the Secret
 using `authorization.credentials`, as shown in the complete monitor below.
 
-Include `metrics-monitors` in the responsible allocator's `secretNamespaces`
-and grant its Secret access as described above. For TLS authentication, Secret
+Enable `grantClusterSecretAccess` after reviewing its scope as described above.
+For TLS authentication, Secret
 keys must contain the PEM CA certificate, client certificate, or private key
 referenced by `tlsConfig.ca`, `cert`, or `keySecret`, respectively; replace
 `caFile`, `certFile`, and `keyFile` with those object references as well.
@@ -165,57 +162,10 @@ Probes and ScrapeConfigs reference credentials the same way, through
 
 ## Grant the large-target and nodeless allocators access
 
-The chart creates credential Roles only for the node allocator. For the
-large-target or nodeless allocator, list each namespace that holds monitors and
-their referenced Secrets or ConfigMaps:
-
-```yaml
-nodeless_metrics:
-  kubernetes:
-    targetAllocator:
-      prometheusCR:
-        secretNamespaces: [metrics-monitors]
-```
-
-Then grant the allocator's ServiceAccount the same access in each listed
-namespace. The ServiceAccounts are `nktp-large-target-metrics-targetallocator`
-and `nktp-nodeless-metrics-targetallocator`, in the NKTP release namespace,
-unless you set `<component>.kubernetes.targetAllocator.serviceAccount`. Edit the
-namespaces before applying; this example assumes NKTP runs in `nktp`:
-
-```yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: nktp-nodeless-metrics-monitor
-  namespace: metrics-monitors
-rules:
-  - apiGroups: [""]
-    resources: [secrets]
-    verbs: [get, list, watch]
-  - apiGroups: [""]
-    resources: [configmaps]
-    verbs: [get]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: nktp-nodeless-metrics-monitor
-  namespace: metrics-monitors
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: nktp-nodeless-metrics-monitor
-subjects:
-  - kind: ServiceAccount
-    name: nktp-nodeless-metrics-targetallocator
-    namespace: nktp
-```
-
-For the large-target allocator, change the names and subject to
-`nktp-large-target-metrics-targetallocator`. Monitors without the large-target
-label need both the node and nodeless allocators granted: list the namespace
-under `daemonset` too, and the chart creates the node allocator's Role.
+The chart-wide `grantClusterSecretAccess: true` option grants Secret
+`get/list/watch` and CA ConfigMap `get` across all namespaces to the node,
+large-target, and nodeless allocators. See
+[Configure Secret access](configure_secret_access.md) before enabling it.
 
 ## Replace a CA file with a ConfigMap reference
 

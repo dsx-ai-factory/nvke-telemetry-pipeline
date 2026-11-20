@@ -1,5 +1,12 @@
 # Default values for the NKTP Helm chart.
 
+# Opt in to all-namespace Secret get/list/watch and CA ConfigMap get for the node,
+# large-target, and nodeless Target Allocators that discover monitors. This grants
+# access to every Secret's contents, not only credentials referenced by monitors.
+# Also defaults their Secret watches to all namespaces unless secretNamespaces is set.
+# False creates no chart-managed Secret grants; external RBAC remains effective.
+grantClusterSecretAccess: false
+
 # Optionally label an existing release namespace before installing workloads.
 # Helm must still create the namespace with --create-namespace, or it must exist.
 # Leave disabled when platform automation already manages namespace labels.
@@ -1597,12 +1604,6 @@ gateway_traces:
 
 # Node-level collector. Collects local telemetry and forwards received OTLP signals.
 daemonset:
-  rbac:
-    # Create Roles and RoleBindings granting the target allocator read access to
-    # Secrets and ConfigMaps in namespaces listed in
-    # kubernetes.targetAllocator.prometheusCR.secretNamespaces.
-    # No Roles or RoleBindings are created when the list is omitted or empty.
-    create: true
   kubernetes:
     mode: daemonset
     managementState: managed
@@ -1660,8 +1661,6 @@ daemonset:
       prometheusCR:
         enabled: true
         denyFSAccessThroughSMs: false # Preserve compatibility with monitors that reference files in the Collector container.
-        # Explicit namespaces for chart-managed RBAC and Secret watching.
-        # secretNamespaces: [metrics-monitors]
         # Exclude monitoring CRs labeled nktp.nvidia.io/large-target: "true" and common kubelet ServiceMonitors.
         # nodeless_metrics uses the same selectors.
         serviceMonitorSelector:

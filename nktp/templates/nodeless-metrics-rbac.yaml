@@ -6,8 +6,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: {{ $name }}-{{ $.Release.Namespace }}
-# Unauthenticated discovery does not need Secret access.
-# The upstream Secret watcher can log Forbidden while monitor discovery continues.
 rules:
   - apiGroups: [""]
     resources: [pods, services, endpoints, namespaces, nodes]

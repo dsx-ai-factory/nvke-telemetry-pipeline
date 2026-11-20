@@ -294,25 +294,14 @@ allocator's selected monitors reference files in the Collector container. See
 
 ### Monitor credentials
 
-To grant the allocator access to Secrets and CA ConfigMaps referenced by monitors, list
-the namespaces containing those monitors and their referenced objects:
+Secret and CA ConfigMap access is disabled by default. Set the chart-wide
+`grantClusterSecretAccess: true` to grant all monitor-watching allocators Secret
+`get/list/watch` and ConfigMap `get` across the cluster, including objects not
+referenced by monitors. The chart also defaults their Secret watches to all
+namespaces, while preserving explicit native `prometheusCR.secretNamespaces` lists.
 
-```yaml
-daemonset:
-  kubernetes:
-    targetAllocator:
-      prometheusCR:
-        secretNamespaces: [metrics-monitors]
-```
-
-`daemonset.rbac.create` defaults to `true`. For each explicitly
-listed namespace, Helm creates a Role granting Secrets `get/list/watch` and
-ConfigMaps `get`, bound to the allocator ServiceAccount in the release namespace.
-The binding honors `daemonset.kubernetes.targetAllocator.serviceAccount`.
-Omitting the list or setting it to `[]` creates no namespace RBAC. Set
-`daemonset.rbac.create: false` to manage these grants externally.
-
-Grants cover all Secrets in each listed namespace. Use namespaces with trusted
-monitor authors. Secret and CA references resolve in the monitor's namespace.
-The namespaces must already exist. `secretNamespaces` controls Secret watching.
-Configure monitor and namespace selectors separately.
+With the switch off, credentialed monitors require the allocator to already
+have the necessary permissions. The upstream Secret watcher can log authorization
+errors without them. See
+[Configure Secret access](../guides/configure_secret_access.md) for the scope,
+default behavior, and existing ServiceAccount overrides.
