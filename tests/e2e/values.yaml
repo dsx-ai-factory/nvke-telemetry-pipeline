@@ -176,6 +176,10 @@ blackbox-exporter:
 # than the rest of the chart put together. Each one watches a handful of
 # resource types on a cluster that holds almost nothing.
 kube-state-metrics:
+  deployments:
+    configuration:
+      # Opt in so the KSM test can check distinct fake Secret names after export.
+      resource_types: [configmaps, secrets]
   kubernetes:
     resources:
       requests:

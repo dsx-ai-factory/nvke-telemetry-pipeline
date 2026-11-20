@@ -127,3 +127,34 @@ spec:
         readOnlyRootFilesystem: true
         capabilities:
           drop: ["ALL"]
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: first
+stringData:
+  fixture: FAKE_E2E_FIRST
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: second
+stringData:
+  fixture: FAKE_E2E_SECOND
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fixture
+spec:
+  tls:
+    - hosts: [first.example.test]
+      secretName: first
+    - hosts: [second.example.test]
+      secretName: second
+  defaultBackend:
+    service:
+      name: fixture
+      port:
+        number: 8080

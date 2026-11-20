@@ -234,7 +234,7 @@ tests:
           value:
             metrics:
               receivers: [prometheus]
-              processors: [memory_limiter, redaction/basic_v1, batch]
+              processors: [memory_limiter, transform/ksm_prepare, redaction/basic_v1, batch]
               exporters: [otlp_grpc]
       - notExists:
           path: spec.config.exporters["otlp_grpc/watchdog"]

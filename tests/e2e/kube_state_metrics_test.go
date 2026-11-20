@@ -24,6 +24,10 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/features"
 )
 
+// TestKubeStateMetrics checks every default collection group through the backend.
+// Suite values opt into Secret collection. Two fake Secrets and their ingress TLS
+// references must retain distinct names after source and gateway redaction. The
+// test removes all namespaced fixtures during teardown.
 func TestKubeStateMetrics(t *testing.T) {
 	releaseNamespace := testenv.EnvConf().Namespace()
 	type metricCheck struct {
@@ -79,6 +83,19 @@ func TestKubeStateMetrics(t *testing.T) {
 						tc.metric, ns, releaseNamespace+"/nktp-ksm-"+tc.group, tc.labels),
 					label: "namespace",
 					want:  []string{ns},
+				})
+			}
+
+			for _, tc := range []struct{ metric, group string }{
+				{"kube_secret_info", "configuration"},
+				{"kube_ingress_tls", "networking"},
+			} {
+				checks = append(checks, metricCheck{
+					name: tc.metric + "/secret-identifiers",
+					metric: fmt.Sprintf(`%s{namespace=%q,job=%q,nktp_metrics_pool="large-target"}`,
+						tc.metric, ns, releaseNamespace+"/nktp-ksm-"+tc.group),
+					label: "secret",
+					want:  []string{"first", "second"},
 				})
 			}
 

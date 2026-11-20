@@ -954,6 +954,24 @@ matches the snapshot with default values:
               - action: upsert
                 key: k8s.node.name
                 value: ${env:NODE_NAME}
+          transform/ksm_prepare:
+            error_mode: propagate
+            metric_statements:
+              - context: resource
+                statements:
+                  - delete_matching_keys(resource.attributes, "^nktp_internal_ksm_")
+              - context: scope
+                statements:
+                  - delete_matching_keys(scope.attributes, "^nktp_internal_ksm_")
+              - context: datapoint
+                statements:
+                  - delete_key(datapoint.attributes, "nktp_internal_ksm_secret_name")
+                  - delete_key(datapoint.attributes, "nktp_internal_ksm_automount_token_setting")
+                  - set(datapoint.attributes["nktp_internal_ksm_secret_name"], datapoint.attributes["secret"]) where datapoint.attributes["nktp_internal_ksm_origin"] == "true" and datapoint.attributes["secret"] != nil
+                  - set(datapoint.attributes["nktp_internal_ksm_automount_token_setting"], datapoint.attributes["automount_token"]) where datapoint.attributes["nktp_internal_ksm_origin"] == "true" and datapoint.attributes["automount_token"] != nil
+                  - delete_key(datapoint.attributes, "secret") where datapoint.attributes["nktp_internal_ksm_origin"] == "true"
+                  - delete_key(datapoint.attributes, "automount_token") where datapoint.attributes["nktp_internal_ksm_origin"] == "true"
+                  - delete_key(datapoint.attributes, "nktp_internal_ksm_origin")
           transform/operator:
             log_statements:
               - context: resource
@@ -1226,6 +1244,7 @@ matches the snapshot with default values:
               processors:
                 - memory_limiter
                 - resource/node
+                - transform/ksm_prepare
                 - redaction/basic_v1
               receivers:
                 - prometheus
@@ -1853,6 +1872,14 @@ matches the snapshot with default values:
               - context: resource
                 statements:
                   - set(attributes["k8s.cluster.name"], "${env:K8S_CLUSTER_NAME:-unknown}") where attributes["k8s.cluster.name"] == nil
+          transform/ksm_restore:
+            error_mode: propagate
+            metric_statements:
+              - context: datapoint
+                statements:
+                  - set(datapoint.attributes["secret"], datapoint.attributes["nktp_internal_ksm_secret_name"]) where datapoint.attributes["nktp_internal_ksm_secret_name"] != nil
+                  - set(datapoint.attributes["automount_token"], datapoint.attributes["nktp_internal_ksm_automount_token_setting"]) where datapoint.attributes["nktp_internal_ksm_automount_token_setting"] != nil
+                  - delete_matching_keys(datapoint.attributes, "^nktp_internal_ksm_")
         receivers:
           otlp:
             protocols:
@@ -1878,6 +1905,7 @@ matches the snapshot with default values:
               processors:
                 - memory_limiter
                 - redaction/basic_v1
+                - transform/ksm_restore
                 - transform/cluster
               receivers:
                 - otlp
@@ -2300,6 +2328,10 @@ matches the snapshot with default values:
     spec:
       podMetricsEndpoints:
         - honorLabels: true
+          metricRelabelings:
+            - action: replace
+              replacement: "true"
+              targetLabel: nktp_internal_ksm_origin
           port: http-metrics
         - port: telemetry
       selector:
@@ -2321,6 +2353,10 @@ matches the snapshot with default values:
     spec:
       podMetricsEndpoints:
         - honorLabels: true
+          metricRelabelings:
+            - action: replace
+              replacement: "true"
+              targetLabel: nktp_internal_ksm_origin
           port: http-metrics
         - port: telemetry
       selector:
@@ -2342,6 +2378,10 @@ matches the snapshot with default values:
     spec:
       podMetricsEndpoints:
         - honorLabels: true
+          metricRelabelings:
+            - action: replace
+              replacement: "true"
+              targetLabel: nktp_internal_ksm_origin
           port: http-metrics
         - port: telemetry
       selector:
@@ -2362,6 +2402,10 @@ matches the snapshot with default values:
     spec:
       podMetricsEndpoints:
         - honorLabels: true
+          metricRelabelings:
+            - action: replace
+              replacement: "true"
+              targetLabel: nktp_internal_ksm_origin
           port: http-metrics
         - port: telemetry
       selector:
@@ -2383,6 +2427,10 @@ matches the snapshot with default values:
     spec:
       podMetricsEndpoints:
         - honorLabels: true
+          metricRelabelings:
+            - action: replace
+              replacement: "true"
+              targetLabel: nktp_internal_ksm_origin
           port: http-metrics
         - port: telemetry
       selector:
@@ -2404,6 +2452,10 @@ matches the snapshot with default values:
     spec:
       podMetricsEndpoints:
         - honorLabels: true
+          metricRelabelings:
+            - action: replace
+              replacement: "true"
+              targetLabel: nktp_internal_ksm_origin
           port: http-metrics
         - port: telemetry
       selector:
@@ -2425,6 +2477,10 @@ matches the snapshot with default values:
     spec:
       podMetricsEndpoints:
         - honorLabels: true
+          metricRelabelings:
+            - action: replace
+              replacement: "true"
+              targetLabel: nktp_internal_ksm_origin
           port: http-metrics
         - port: telemetry
       selector:
@@ -3573,6 +3629,24 @@ matches the snapshot with default values:
               - (?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)
             redact_all_types: true
             summary: silent
+          transform/ksm_prepare:
+            error_mode: propagate
+            metric_statements:
+              - context: resource
+                statements:
+                  - delete_matching_keys(resource.attributes, "^nktp_internal_ksm_")
+              - context: scope
+                statements:
+                  - delete_matching_keys(scope.attributes, "^nktp_internal_ksm_")
+              - context: datapoint
+                statements:
+                  - delete_key(datapoint.attributes, "nktp_internal_ksm_secret_name")
+                  - delete_key(datapoint.attributes, "nktp_internal_ksm_automount_token_setting")
+                  - set(datapoint.attributes["nktp_internal_ksm_secret_name"], datapoint.attributes["secret"]) where datapoint.attributes["nktp_internal_ksm_origin"] == "true" and datapoint.attributes["secret"] != nil
+                  - set(datapoint.attributes["nktp_internal_ksm_automount_token_setting"], datapoint.attributes["automount_token"]) where datapoint.attributes["nktp_internal_ksm_origin"] == "true" and datapoint.attributes["automount_token"] != nil
+                  - delete_key(datapoint.attributes, "secret") where datapoint.attributes["nktp_internal_ksm_origin"] == "true"
+                  - delete_key(datapoint.attributes, "automount_token") where datapoint.attributes["nktp_internal_ksm_origin"] == "true"
+                  - delete_key(datapoint.attributes, "nktp_internal_ksm_origin")
         receivers:
           prometheus:
             config:
@@ -3594,6 +3668,7 @@ matches the snapshot with default values:
                 - otlp_grpc
               processors:
                 - memory_limiter
+                - transform/ksm_prepare
                 - redaction/basic_v1
                 - batch
               receivers:
@@ -3908,6 +3983,24 @@ matches the snapshot with default values:
               - (?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)
             redact_all_types: true
             summary: silent
+          transform/ksm_prepare:
+            error_mode: propagate
+            metric_statements:
+              - context: resource
+                statements:
+                  - delete_matching_keys(resource.attributes, "^nktp_internal_ksm_")
+              - context: scope
+                statements:
+                  - delete_matching_keys(scope.attributes, "^nktp_internal_ksm_")
+              - context: datapoint
+                statements:
+                  - delete_key(datapoint.attributes, "nktp_internal_ksm_secret_name")
+                  - delete_key(datapoint.attributes, "nktp_internal_ksm_automount_token_setting")
+                  - set(datapoint.attributes["nktp_internal_ksm_secret_name"], datapoint.attributes["secret"]) where datapoint.attributes["nktp_internal_ksm_origin"] == "true" and datapoint.attributes["secret"] != nil
+                  - set(datapoint.attributes["nktp_internal_ksm_automount_token_setting"], datapoint.attributes["automount_token"]) where datapoint.attributes["nktp_internal_ksm_origin"] == "true" and datapoint.attributes["automount_token"] != nil
+                  - delete_key(datapoint.attributes, "secret") where datapoint.attributes["nktp_internal_ksm_origin"] == "true"
+                  - delete_key(datapoint.attributes, "automount_token") where datapoint.attributes["nktp_internal_ksm_origin"] == "true"
+                  - delete_key(datapoint.attributes, "nktp_internal_ksm_origin")
         receivers:
           prometheus:
             config:
@@ -3924,6 +4017,7 @@ matches the snapshot with default values:
                 - otlp_grpc
               processors:
                 - memory_limiter
+                - transform/ksm_prepare
                 - redaction/basic_v1
               receivers:
                 - prometheus
