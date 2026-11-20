@@ -3521,15 +3521,11 @@ node-exporter:
   # Match the node Collector and KSM DaemonSets, including NoExecute taints.
   tolerations:
     - operator: Exists
-  # node_exporter's cpufreq collector hangs on arm64 nodes that use the
-  # cppc_cpufreq driver. A read of cpuinfo_avg_freq never returns, so scrapes of
-  # the exporter hang and time out (prometheus/node_exporter#3791). The fix,
-  # prometheus/procfs#879, is in no node_exporter release yet. Remove this once
-  # the chart's node_exporter has it. Without the collector there are no
-  # node_cpu_frequency_* or node_cpu_scaling_* series, and nothing in nktp reads
-  # them.
-  extraArgs:
-    - --no-collector.cpufreq
+  # The chart's default node_exporter, 1.12.1, hangs in its cpufreq collector on
+  # arm64 nodes that use the cppc_cpufreq driver (prometheus/node_exporter#3791).
+  # 1.13.1 has the fix. Remove this once the chart's default is 1.13.1 or later.
+  image:
+    tag: v1.13.1
   prometheus:
     monitor:
       # Declares the exporter as a scrape target, ready for a collector to pick up.

@@ -100,16 +100,10 @@ node-exporter:
   enabled: false
 ```
 
-The exporter's cpufreq collector is turned off with `--no-collector.cpufreq`. In node_exporter 1.12.1,
-this collector hangs on arm64 nodes that use the `cppc_cpufreq` driver, so scrapes of the exporter time out
-([prometheus/node_exporter#3791](https://github.com/prometheus/node_exporter/issues/3791)). As a result,
-the exporter does not produce the `node_cpu_frequency_*` and `node_cpu_scaling_*` series.
-To turn the collector back on, set `extraArgs` to an empty list:
-
-```yaml
-node-exporter:
-  extraArgs: []
-```
+NKTP sets `node-exporter.image.tag` to `v1.13.1`. The chart's default, node_exporter 1.12.1, hangs in its
+cpufreq collector on arm64 nodes that use the `cppc_cpufreq` driver, so scrapes of the exporter time out
+([prometheus/node_exporter#3791](https://github.com/prometheus/node_exporter/issues/3791)). If you override
+`node-exporter.image`, for example to pull from a mirror, use node_exporter 1.13.1 or later.
 
 NKTP does not support node_exporter's own TLS server or its supervisord collector. The chart's values schema
 rejects `--web.config.file` and `--collector.supervisord` in `node-exporter.extraArgs`, and also rejects

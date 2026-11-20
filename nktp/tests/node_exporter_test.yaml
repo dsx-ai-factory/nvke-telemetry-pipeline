@@ -42,10 +42,13 @@ tests:
           path: spec.template.spec.containers[0].ports[0].containerPort
           value: 9100
 
-  - it: turns off the cpufreq collector by default
+  - it: runs node_exporter 1.13.1, whose cpufreq collector does not hang on arm64
     template: charts/node-exporter/templates/daemonset.yaml
     asserts:
-      - contains:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: quay.io/prometheus/node-exporter:v1.13.1
+      - notContains:
           path: spec.template.spec.containers[0].args
           content: --no-collector.cpufreq
 
