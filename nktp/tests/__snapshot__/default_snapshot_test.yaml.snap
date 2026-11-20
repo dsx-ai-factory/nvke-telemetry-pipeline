@@ -153,9 +153,6 @@ matches the snapshot with default values:
                 - nktp-operator-controller-manager-service-cert
               command:
                 - kubectl
-              env:
-                - name: HOME
-                  value: /tmp
               image: registry.k8s.io/kubectl:v1.35.10
               name: delete-secrets
               resources:
@@ -171,9 +168,6 @@ matches the snapshot with default values:
                   drop:
                     - ALL
                 readOnlyRootFilesystem: true
-              volumeMounts:
-                - mountPath: /tmp
-                  name: tmp
           initContainers:
             - args:
                 - wait
@@ -194,9 +188,6 @@ matches the snapshot with default values:
                 - certificate.cert-manager.io/nktp-watchdog-ta-client-cert
               command:
                 - kubectl
-              env:
-                - name: HOME
-                  value: /tmp
               image: registry.k8s.io/kubectl:v1.35.10
               name: wait-for-operator-certificates
               resources:
@@ -212,9 +203,6 @@ matches the snapshot with default values:
                   drop:
                     - ALL
                 readOnlyRootFilesystem: true
-              volumeMounts:
-                - mountPath: /tmp
-                  name: tmp
           restartPolicy: Never
           securityContext:
             fsGroup: 65532
@@ -224,9 +212,6 @@ matches the snapshot with default values:
             seccompProfile:
               type: RuntimeDefault
           serviceAccountName: RELEASE-NAME-cert-cleanup
-          volumes:
-            - emptyDir: {}
-              name: tmp
   5: |
     apiVersion: cert-manager.io/v1
     kind: Issuer
