@@ -52,11 +52,17 @@ Before enabling the restriction:
    the same target selection, pool label, ports, paths, and authentication.
    Include the [bundled Kubernetes component monitors](../components/large_target_metrics.md#kubernetes-component-metrics)
    when preparing the large-target pool.
-4. Verify that replacements scrape successfully while the setting is still
-   `false`. Then [enable the restriction](#enable-the-restriction) for each
-   prepared allocator through your normal NKTP Helm upgrade. Check allocator
-   logs for [dropped scrape jobs](#recognize-a-denied-scrape-job) and confirm
-   that expected targets still report metrics.
+4. Apply `grantClusterSecretAccess: true` through your normal NKTP Helm upgrade,
+   keeping `denyFSAccessThroughSMs: false` for each allocator being prepared.
+   Confirm that the installed release includes the
+   `nktp-targetallocator-secrets-<release-namespace>` ClusterRole and
+   ClusterRoleBinding granting the allocator ServiceAccounts credential access.
+5. Verify that the replacement monitors scrape successfully while
+   `denyFSAccessThroughSMs` remains `false`.
+6. In a later NKTP Helm upgrade, [enable the restriction](#enable-the-restriction)
+   for each prepared allocator. Check allocator logs for
+   [dropped scrape jobs](#recognize-a-denied-scrape-job) and confirm that expected
+   targets still report metrics.
 
 ## Supply a bearer token through a Secret
 
