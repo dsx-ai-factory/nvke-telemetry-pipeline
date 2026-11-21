@@ -2,6 +2,23 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
+    "global": {
+      "type": "object",
+      "properties": {
+        "imagePullSecrets": {
+          "type": "array",
+          "description": "Existing registry Secret references shared by NKTP Collectors and compatible dependencies.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name"],
+            "properties": {
+              "name": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    },
     "namespace": {
       "type": "object",
       "additionalProperties": false,

@@ -4,6 +4,15 @@ release:
 templates:
   - templates/nodeless-metrics.yaml
 tests:
+  - it: replaces global image pull secrets with the Collector override
+    set:
+      global.imagePullSecrets: [{name: shared-registry}]
+      nodeless_metrics.kubernetes.imagePullSecrets: [{name: nodeless-registry}]
+    asserts:
+      - equal:
+          path: spec.imagePullSecrets
+          value: [{name: nodeless-registry}]
+
   - it: scrapes targets without a node with consistent hashing
     asserts:
       - hasDocuments:

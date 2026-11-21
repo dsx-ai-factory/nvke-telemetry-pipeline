@@ -4,6 +4,15 @@ release:
 templates:
   - templates/gateway-traces.yaml
 tests:
+  - it: replaces global image pull secrets with the Collector override
+    set:
+      global.imagePullSecrets: [{name: shared-registry}]
+      gateway_traces.kubernetes.imagePullSecrets: [{name: traces-registry}]
+    asserts:
+      - equal:
+          path: spec.imagePullSecrets
+          value: [{name: traces-registry}]
+
   - it: forwards only traces and sends its own telemetry through its sidecar
     asserts:
       - equal:

@@ -5,6 +5,20 @@ templates:
   - charts/node-exporter/templates/*.yaml
   - templates/otel-lgtm.yaml
 tests:
+  - it: appends local image pull secrets to the global list
+    set:
+      global.imagePullSecrets: [{name: shared-registry}]
+      node-exporter.imagePullSecrets: [{name: node-registry}]
+    asserts:
+      - equal:
+          path: spec.template.spec.imagePullSecrets
+          value: [{name: shared-registry}, {name: node-registry}]
+        template: charts/node-exporter/templates/daemonset.yaml
+      - equal:
+          path: imagePullSecrets
+          value: [{name: shared-registry}]
+        template: charts/node-exporter/templates/serviceaccount.yaml
+
   - it: runs the upstream exporter on every node by default
     template: charts/node-exporter/templates/daemonset.yaml
     asserts:

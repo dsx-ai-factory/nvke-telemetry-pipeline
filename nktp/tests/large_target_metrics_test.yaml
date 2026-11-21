@@ -4,6 +4,15 @@ release:
 templates:
   - templates/large-target-metrics.yaml
 tests:
+  - it: replaces global image pull secrets with the Collector override
+    set:
+      global.imagePullSecrets: [{name: shared-registry}]
+      large_target_metrics.kubernetes.imagePullSecrets: [{name: large-registry}]
+    asserts:
+      - equal:
+          path: spec.imagePullSecrets
+          value: [{name: large-registry}]
+
   - it: reserves memory for large-target scrapes
     asserts:
       - equal:

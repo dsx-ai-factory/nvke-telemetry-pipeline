@@ -8,6 +8,7 @@
 {{- $sidecar := $workload.sidecar | default dict -}}
 
 {{- include "nktp.builder.withPriorityClass" (dict "target" $spec "root" $) -}}
+{{- include "nktp.builder.withImagePullSecrets" (dict "target" $spec "root" $) -}}
 {{- include "nktp.builder.withTargetAllocator" (dict "target" $spec "root" $) -}}
 {{- with $spec.targetAllocator.prometheusCR -}}
   {{- $_ := set . "scrapeClasses" (include "nktp.nodeScrapeClasses" (dict "classes" .scrapeClasses "action" "drop" "name" "nktp-nodeless-targets") | fromYaml).scrapeClasses -}}

@@ -104,6 +104,12 @@ blueprints value).
   {{- end -}}
 {{- end -}}
 
+{{- define "nktp.builder.withImagePullSecrets" -}}
+  {{- if and (not (hasKey .target "imagePullSecrets")) .root.Values.global.imagePullSecrets -}}
+    {{- $_ := set .target "imagePullSecrets" (deepCopy .root.Values.global.imagePullSecrets) -}}
+  {{- end -}}
+{{- end -}}
+
 {{- define "nktp.builder.withEnv" -}}
   {{- $env := .target.env | default list -}}
   {{- $item := .item -}}

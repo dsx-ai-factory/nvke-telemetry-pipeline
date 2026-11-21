@@ -4,6 +4,15 @@ release:
 templates:
   - templates/daemonset.yaml
 tests:
+  - it: replaces global image pull secrets with the Collector override
+    set:
+      global.imagePullSecrets: [{name: shared-registry}]
+      daemonset.kubernetes.imagePullSecrets: [{name: node-registry}]
+    asserts:
+      - equal:
+          path: spec.imagePullSecrets
+          value: [{name: node-registry}]
+
   - it: rejects disabled target allocation
     set:
       daemonset.kubernetes.targetAllocator.enabled: false

@@ -6,6 +6,16 @@ templates:
   - templates/watchdog.yaml
   - charts/opentelemetry-kube-stack/templates/hooks.yaml
 tests:
+  - it: replaces global image pull secrets with the Collector override
+    template: templates/watchdog.yaml
+    set:
+      global.imagePullSecrets: [{name: shared-registry}]
+      watchdog.kubernetes.imagePullSecrets: [{name: watchdog-registry}]
+    asserts:
+      - equal:
+          path: spec.imagePullSecrets
+          value: [{name: watchdog-registry}]
+
   - it: creates a Collector StatefulSet with the default image
     template: templates/watchdog.yaml
     asserts:
@@ -409,7 +419,9 @@ tests:
   - it: passes Kubernetes settings to the Collector spec
     template: templates/watchdog.yaml
     set:
+      global.imagePullSecrets: [{name: shared-registry}]
       watchdog.kubernetes:
+        imagePullSecrets: []
         replicas: 6
         autoscaler:
           targetCPUUtilization: 60
@@ -431,6 +443,9 @@ tests:
           - name: EXAMPLE
             value: watchdog
     asserts:
+      - equal:
+          path: spec.imagePullSecrets
+          value: []
       - equal:
           path: spec.replicas
           value: 6

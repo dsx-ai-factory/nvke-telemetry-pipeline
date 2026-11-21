@@ -66,6 +66,14 @@ The Operator's admission webhook certificate comes from cert-manager by default.
 See [Configure cert-manager](../guides/configure_cert_manager.md#installing-nktp-without-cert-manager) for the
 alternative.
 
+### Collector image pull secrets
+
+Set `global.imagePullSecrets: [{name: registry-credentials}]` to share existing
+registry Secrets in the release namespace across NKTP Collectors, their sidecars,
+and Target Allocators.
+Override `<component>.kubernetes.imagePullSecrets` to replace the list, or use
+`[]` to opt out of the chart's shared default.
+
 ## OpenTelemetry version alignment
 
 OpenTelemetry components that NKTP installs follow three release lines. Each

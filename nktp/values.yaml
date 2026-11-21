@@ -38,6 +38,11 @@ global:
   #         repository: <mirror>/kubectl
   imageRegistry: ""
 
+  # Existing registry Secret references for all NKTP Collectors, their sidecars,
+  # and (through the Operator) their Target Allocators. Secrets must exist in the
+  # release namespace.
+  imagePullSecrets: []
+
   # Cluster name to set as k8s.cluster.name on telemetry that leaves NKTP for the
   # backend. The gateways, the watchdog and the watchdog sidecar read it from the
   # K8S_CLUSTER_NAME environment variable in their transform/cluster processor.
@@ -48,7 +53,7 @@ global:
 # Cluster-scoped class inherited by all NKTP Collectors and kube-state-metrics,
 # below system-critical Pods.
 # Disable creation and set name to use an existing class. With creation disabled,
-# name: "" uses the cluster's default priority. 
+# name: "" uses the cluster's default priority.
 # A workload's kubernetes.priorityClassName overrides this default; "" opts out.
 priorityClass:
   create: true
@@ -129,7 +134,6 @@ blueprints:
             receivers: [{{ .forward }}]
             exporters: [otlp_grpc]
 # END DEFAULT BLUEPRINTS
-
 # OTel workloads. Each workload uses the same structure:
 #   kubernetes:     Standard Kubernetes settings (resources, affinity, selectors, labels, ...).
 #   otelcol.image:  Set a custom image for this workload only, as a {registry, repository, tag} map.
@@ -264,9 +268,9 @@ watchdog:
         secret:
           secretName: nktp-watchdog-server-tls
           items:
-            - {key: tls.crt, path: tls.crt}
-            - {key: tls.key, path: tls.key}
-            - {key: ca.crt, path: ca.crt}
+            - { key: tls.crt, path: tls.crt }
+            - { key: tls.key, path: tls.key }
+            - { key: ca.crt, path: ca.crt }
     volumeMounts:
       - name: internal-tls-server
         mountPath: /etc/nktp/internal-tls/server
@@ -334,7 +338,8 @@ watchdog:
                     action: keep
                   - source_labels: [__meta_kubernetes_namespace]
                     target_label: namespace
-                  - source_labels: [__meta_kubernetes_endpointslice_address_target_name]
+                  - source_labels:
+                      [__meta_kubernetes_endpointslice_address_target_name]
                     target_label: pod
       processors:
         redaction/basic_v1:
@@ -342,7 +347,7 @@ watchdog:
           redact_all_types: true
           summary: silent
           blocked_key_patterns:
-            - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
+            - "(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$"
           blocked_values:
             - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
             - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
@@ -484,7 +489,7 @@ watchdog:
             redact_all_types: true
             summary: silent
             blocked_key_patterns:
-              - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
+              - "(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$"
             blocked_values:
               - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
               - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
@@ -567,15 +572,23 @@ watchdog:
           pipelines:
             metrics:
               receivers: [otlp]
-              processors: [memory_limiter, redaction/basic_v1, transform/cluster]
+              processors:
+                [memory_limiter, redaction/basic_v1, transform/cluster]
               exporters: [otlp_grpc]
             logs:
               receivers: [otlp]
-              processors: [memory_limiter, redaction/basic_v1, transform/cluster]
+              processors:
+                [memory_limiter, redaction/basic_v1, transform/cluster]
               exporters: [otlp_grpc]
             traces:
               receivers: [otlp]
-              processors: [memory_limiter, tail_sampling, redaction/basic_v1, transform/cluster]
+              processors:
+                [
+                  memory_limiter,
+                  tail_sampling,
+                  redaction/basic_v1,
+                  transform/cluster,
+                ]
               exporters: [otlp_grpc]
 
 # Log gateway. Exports all logs from the cluster.
@@ -659,16 +672,16 @@ gateway_logs:
         secret:
           secretName: nktp-gateway-logs-server-tls
           items:
-            - {key: tls.crt, path: tls.crt}
-            - {key: tls.key, path: tls.key}
-            - {key: ca.crt, path: ca.crt}
+            - { key: tls.crt, path: tls.crt }
+            - { key: tls.key, path: tls.key }
+            - { key: ca.crt, path: ca.crt }
       - name: internal-tls-client
         secret:
           secretName: nktp-gateway-logs-client-tls
           items:
-            - {key: tls.crt, path: tls.crt}
-            - {key: tls.key, path: tls.key}
-            - {key: ca.crt, path: ca.crt}
+            - { key: tls.crt, path: tls.crt }
+            - { key: tls.key, path: tls.key }
+            - { key: ca.crt, path: ca.crt }
     volumeMounts:
       - name: internal-tls-server
         mountPath: /etc/nktp/internal-tls/server
@@ -715,7 +728,7 @@ gateway_logs:
           redact_all_types: true
           summary: silent
           blocked_key_patterns:
-            - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
+            - "(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$"
           blocked_values:
             - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
             - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
@@ -998,16 +1011,16 @@ gateway_metrics:
         secret:
           secretName: nktp-gateway-metrics-server-tls
           items:
-            - {key: tls.crt, path: tls.crt}
-            - {key: tls.key, path: tls.key}
-            - {key: ca.crt, path: ca.crt}
+            - { key: tls.crt, path: tls.crt }
+            - { key: tls.key, path: tls.key }
+            - { key: ca.crt, path: ca.crt }
       - name: internal-tls-client
         secret:
           secretName: nktp-gateway-metrics-client-tls
           items:
-            - {key: tls.crt, path: tls.crt}
-            - {key: tls.key, path: tls.key}
-            - {key: ca.crt, path: ca.crt}
+            - { key: tls.crt, path: tls.crt }
+            - { key: tls.key, path: tls.key }
+            - { key: ca.crt, path: ca.crt }
     volumeMounts:
       - name: internal-tls-server
         mountPath: /etc/nktp/internal-tls/server
@@ -1054,7 +1067,7 @@ gateway_metrics:
           redact_all_types: true
           summary: silent
           blocked_key_patterns:
-            - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
+            - "(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$"
           blocked_values:
             - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
             - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
@@ -1337,16 +1350,16 @@ gateway_traces:
         secret:
           secretName: nktp-gateway-traces-server-tls
           items:
-            - {key: tls.crt, path: tls.crt}
-            - {key: tls.key, path: tls.key}
-            - {key: ca.crt, path: ca.crt}
+            - { key: tls.crt, path: tls.crt }
+            - { key: tls.key, path: tls.key }
+            - { key: ca.crt, path: ca.crt }
       - name: internal-tls-client
         secret:
           secretName: nktp-gateway-traces-client-tls
           items:
-            - {key: tls.crt, path: tls.crt}
-            - {key: tls.key, path: tls.key}
-            - {key: ca.crt, path: ca.crt}
+            - { key: tls.crt, path: tls.crt }
+            - { key: tls.key, path: tls.key }
+            - { key: ca.crt, path: ca.crt }
     volumeMounts:
       - name: internal-tls-server
         mountPath: /etc/nktp/internal-tls/server
@@ -1393,7 +1406,7 @@ gateway_traces:
           redact_all_types: true
           summary: silent
           blocked_key_patterns:
-            - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
+            - "(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$"
           blocked_values:
             - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
             - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
@@ -1671,7 +1684,8 @@ daemonset:
               values: ["true"]
             - key: app
               operator: NotIn
-              values: [kube-prometheus-stack-kubelet, prometheus-operator-kubelet]
+              values:
+                [kube-prometheus-stack-kubelet, prometheus-operator-kubelet]
         podMonitorSelector:
           matchExpressions:
             - key: nktp.nvidia.io/large-target
@@ -1761,9 +1775,9 @@ daemonset:
         secret:
           secretName: nktp-daemonset-client-tls
           items:
-            - {key: tls.crt, path: tls.crt}
-            - {key: tls.key, path: tls.key}
-            - {key: ca.crt, path: ca.crt}
+            - { key: tls.crt, path: tls.crt }
+            - { key: tls.key, path: tls.key }
+            - { key: ca.crt, path: ca.crt }
       # Existing overrides must include log-checkpoints in both volumes and volumeMounts.
       # Otherwise, use the memory-only configuration in docs/guides/configure_daemonset_log_checkpoints.md.
       - name: log-checkpoints
@@ -1876,7 +1890,7 @@ daemonset:
           include: [/hostfs/var/log/auth.log, /hostfs/var/log/secure]
           start_at: end
           include_file_path: true
-          retry_on_failure: {enabled: true, max_elapsed_time: 0}
+          retry_on_failure: { enabled: true, max_elapsed_time: 0 }
           resource:
             nvidia.telemetry.class: system.auth
             service.name: auth
@@ -1885,7 +1899,7 @@ daemonset:
           include: [/hostfs/var/log/audit/audit.log]
           start_at: end
           include_file_path: true
-          retry_on_failure: {enabled: true, max_elapsed_time: 0}
+          retry_on_failure: { enabled: true, max_elapsed_time: 0 }
           resource:
             nvidia.telemetry.class: system.audit
             service.name: auditd
@@ -1895,13 +1909,16 @@ daemonset:
           include: [/hostfs/var/log/kubernetes/audit/audit.log]
           start_at: end
           include_file_path: true
-          retry_on_failure: {enabled: true, max_elapsed_time: 0}
+          retry_on_failure: { enabled: true, max_elapsed_time: 0 }
           resource:
             nvidia.telemetry.class: k8s.api.audit
             service.name: kube-apiserver
         file_log/targetallocator:
           storage: file_storage/log-checkpoints
-          include: ["/var/log/pods/${env:POD_NAMESPACE}_nktp-*-targetallocator-*_*/ta-container/*.log"]
+          include:
+            [
+              "/var/log/pods/${env:POD_NAMESPACE}_nktp-*-targetallocator-*_*/ta-container/*.log",
+            ]
           start_at: beginning # Include allocator startup diagnostics.
           include_file_path: true
           retry_on_failure:
@@ -1911,7 +1928,10 @@ daemonset:
             - type: container
         file_log/operator:
           storage: file_storage/log-checkpoints
-          include: ["/var/log/pods/${env:POD_NAMESPACE}_nktp-operator-*_*/manager/*.log"]
+          include:
+            [
+              "/var/log/pods/${env:POD_NAMESPACE}_nktp-operator-*_*/manager/*.log",
+            ]
           start_at: beginning # Include operator startup diagnostics.
           include_file_path: true
           retry_on_failure:
@@ -2025,7 +2045,7 @@ daemonset:
           redact_all_types: true
           summary: silent
           blocked_key_patterns:
-            - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
+            - "(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$"
           blocked_values:
             - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
             - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
@@ -2168,16 +2188,36 @@ daemonset:
                       endpoint: http://127.0.0.1:4319
         pipelines:
           logs:
-            receivers: [file_log, journald, otlp, file_log/host-auth, file_log/host-audit, file_log/kube-api-audit]
+            receivers:
+              [
+                file_log,
+                journald,
+                otlp,
+                file_log/host-auth,
+                file_log/host-audit,
+                file_log/kube-api-audit,
+              ]
             processors: [memory_limiter, resource/node, redaction/basic_v1]
             exporters: [otlp_grpc/logs]
           logs/targetallocator:
             receivers: [file_log/targetallocator]
-            processors: [memory_limiter, resource/node, transform/targetallocator, redaction/basic_v1]
+            processors:
+              [
+                memory_limiter,
+                resource/node,
+                transform/targetallocator,
+                redaction/basic_v1,
+              ]
             exporters: [otlp_grpc/watchdog]
           logs/operator:
             receivers: [file_log/operator]
-            processors: [memory_limiter, resource/node, transform/operator, redaction/basic_v1]
+            processors:
+              [
+                memory_limiter,
+                resource/node,
+                transform/operator,
+                redaction/basic_v1,
+              ]
             exporters: [otlp_grpc/watchdog]
           metrics:
             receivers: [prometheus, prometheus/kubelet, otlp]
@@ -2460,9 +2500,9 @@ large_target_metrics:
         secret:
           secretName: nktp-large-target-metrics-client-tls
           items:
-            - {key: tls.crt, path: tls.crt}
-            - {key: tls.key, path: tls.key}
-            - {key: ca.crt, path: ca.crt}
+            - { key: tls.crt, path: tls.crt }
+            - { key: tls.key, path: tls.key }
+            - { key: ca.crt, path: ca.crt }
     volumeMounts:
       - name: internal-tls-client
         mountPath: /etc/nktp/internal-tls/client
@@ -2497,7 +2537,7 @@ large_target_metrics:
           redact_all_types: true
           summary: silent
           blocked_key_patterns:
-            - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
+            - "(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$"
           blocked_values:
             - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
             - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
@@ -2765,7 +2805,8 @@ nodeless_metrics:
               values: ["true"]
             - key: app
               operator: NotIn
-              values: [kube-prometheus-stack-kubelet, prometheus-operator-kubelet]
+              values:
+                [kube-prometheus-stack-kubelet, prometheus-operator-kubelet]
         podMonitorSelector:
           matchExpressions:
             - key: nktp.nvidia.io/large-target
@@ -2827,9 +2868,9 @@ nodeless_metrics:
         secret:
           secretName: nktp-nodeless-metrics-client-tls
           items:
-            - {key: tls.crt, path: tls.crt}
-            - {key: tls.key, path: tls.key}
-            - {key: ca.crt, path: ca.crt}
+            - { key: tls.crt, path: tls.crt }
+            - { key: tls.key, path: tls.key }
+            - { key: ca.crt, path: ca.crt }
     volumeMounts:
       - name: internal-tls-client
         mountPath: /etc/nktp/internal-tls/client
@@ -2858,7 +2899,7 @@ nodeless_metrics:
           redact_all_types: true
           summary: silent
           blocked_key_patterns:
-            - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
+            - "(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$"
           blocked_values:
             - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
             - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
@@ -3108,9 +3149,9 @@ cluster_events:
         secret:
           secretName: nktp-cluster-events-client-tls
           items:
-            - {key: tls.crt, path: tls.crt}
-            - {key: tls.key, path: tls.key}
-            - {key: ca.crt, path: ca.crt}
+            - { key: tls.crt, path: tls.crt }
+            - { key: tls.key, path: tls.key }
+            - { key: ca.crt, path: ca.crt }
     volumeMounts:
       - name: internal-tls-client
         mountPath: /etc/nktp/internal-tls/client
@@ -3147,7 +3188,7 @@ cluster_events:
           redact_all_types: true
           summary: silent
           blocked_key_patterns:
-            - '(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$'
+            - "(?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$"
           blocked_values:
             - '(?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*'
             - '(?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)'
@@ -3209,7 +3250,8 @@ cluster_events:
         pipelines:
           logs:
             receivers: [k8s_events]
-            processors: [memory_limiter, transform/event_service, redaction/basic_v1]
+            processors:
+              [memory_limiter, transform/event_service, redaction/basic_v1]
             exporters: [otlp_grpc]
   # Native sidecar for this workload's own telemetry. It buffers through outages,
   # keeps only error and slow traces, and exports over gRPC to nktp-watchdog-collector:4317.
@@ -3417,7 +3459,18 @@ kube-state-metrics:
       kubernetes: {}
     workloads:
       enabled: true
-      resource_types: [deployments, statefulsets, daemonsets, replicasets, replicationcontrollers, jobs, cronjobs, horizontalpodautoscalers, poddisruptionbudgets]
+      resource_types:
+        [
+          deployments,
+          statefulsets,
+          daemonsets,
+          replicasets,
+          replicationcontrollers,
+          jobs,
+          cronjobs,
+          horizontalpodautoscalers,
+          poddisruptionbudgets,
+        ]
       track_unscheduled_pods: false
       shards: 1
       kubernetes: {}
@@ -3429,7 +3482,8 @@ kube-state-metrics:
       kubernetes: {}
     storage:
       enabled: true
-      resource_types: [persistentvolumes, persistentvolumeclaims, volumeattachments]
+      resource_types:
+        [persistentvolumes, persistentvolumeclaims, volumeattachments]
       track_unscheduled_pods: false
       shards: 1
       kubernetes: {}
@@ -3442,7 +3496,20 @@ kube-state-metrics:
       kubernetes: {}
     cluster:
       enabled: true
-      resource_types: [nodes, namespaces, storageclasses, resourcequotas, limitranges, leases, certificatesigningrequests, mutatingwebhookconfigurations, validatingadmissionpolicies, validatingadmissionpolicybindings, validatingwebhookconfigurations]
+      resource_types:
+        [
+          nodes,
+          namespaces,
+          storageclasses,
+          resourcequotas,
+          limitranges,
+          leases,
+          certificatesigningrequests,
+          mutatingwebhookconfigurations,
+          validatingadmissionpolicies,
+          validatingadmissionpolicybindings,
+          validatingwebhookconfigurations,
+        ]
       track_unscheduled_pods: false
       shards: 1
       kubernetes: {}
