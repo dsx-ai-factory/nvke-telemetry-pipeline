@@ -24,8 +24,8 @@ host metrics, and the kubelet cAdvisor scrape provides per-container resource
 use. See [Enable host process metrics](../guides/enable_host_process_metrics.md)
 to enable the `host_metrics` process scraper.
 
-Each DaemonSet collector also scrapes the kubelet `/metrics` and
-`/metrics/cadvisor` endpoints on its own node. See
+Each DaemonSet collector also scrapes the kubelet `/metrics`, `/metrics/cadvisor`,
+and `/metrics/probes` endpoints on its own node. See
 [Configure kubelet metrics](../guides/configure_kubelet_metrics.md) to change these scrapes, verify
 kubelet certificates, or run NKTP alongside kube-prometheus-stack.
 

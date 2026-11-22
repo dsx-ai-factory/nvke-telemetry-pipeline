@@ -84,7 +84,7 @@ tests:
       - notExists:
           path: spec.config.processors.batch
 
-  - it: scrapes local kubelet and filtered cAdvisor metrics directly by default
+  - it: scrapes local kubelet, filtered cAdvisor, and probe metrics directly by default
     asserts:
       - equal:
           path: spec.config.receivers["prometheus/kubelet"].config.scrape_configs
@@ -172,6 +172,35 @@ tests:
                 - source_labels: [id, pod]
                   action: drop
                   regex: .+;
+            - job_name: kubelet-probes
+              scrape_interval: 30s
+              scrape_timeout: 10s
+              scheme: https
+              metrics_path: /metrics/probes
+              authorization:
+                type: Bearer
+                credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+              tls_config:
+                insecure_skip_verify: true
+              static_configs:
+                - targets: ["127.0.0.1:10250"]
+                  labels:
+                    __tmp_kubelet_host: ${env:OTEL_K8S_NODE_IP}
+              relabel_configs:
+                - source_labels: [__tmp_kubelet_host]
+                  regex: (.+:.*)
+                  target_label: __address__
+                  replacement: "[$$1]:10250"
+                - source_labels: [__tmp_kubelet_host]
+                  regex: ([^:]+)
+                  target_label: __address__
+                  replacement: "$$1:10250"
+                - target_label: node
+                  replacement: ${env:NODE_NAME}
+                - target_label: endpoint
+                  replacement: https-metrics
+                - target_label: metrics_path
+                  replacement: /metrics/probes
       - notExists:
           path: spec.config.receivers["prometheus/kubelet"].target_allocator
 
