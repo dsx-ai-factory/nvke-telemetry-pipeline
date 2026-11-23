@@ -1,8 +1,48 @@
 # Size resources
 
-Default budgets are per Pod. Configure collector resources under
-`<component>.kubernetes.resources` and allocator resources under
-`<component>.kubernetes.targetAllocator.resources`.
+Use one sizing file from the same release as the chart:
+
+- [xlarge](../examples/sizing-xlarge.values.yaml) matches the chart defaults.
+- [small](../examples/sizing-small.values.yaml) lowers CPU requests and halves the covered Collectors' queue sizes.
+
+Each file covers gateways, watchdog, node and large-target collectors, cluster
+events, their Target Allocators and KSM. Sidecars and the nodeless collector and
+allocator keep chart defaults.
+Neither requires the other. Without a sizing file, the chart uses `xlarge` sizing.
+
+First follow the [installation setup](../../nktp/README.md#install) to register
+Helm repositories, build dependencies, and create a namespace with the
+`privileged` Pod Security label. From the repository root, set the release and
+namespace below and create `my-values.yaml` with your deployment settings:
+
+```console
+NKTP_RELEASE=nktp
+NKTP_NAMESPACE=nktp
+helm upgrade --install "$NKTP_RELEASE" ./nktp --namespace "$NKTP_NAMESPACE" \
+  --values docs/examples/sizing-small.values.yaml \
+  --values my-values.yaml
+```
+
+Later files override earlier ones. Helm merges maps but replaces lists. When overriding `env`, include the full
+list, including required variables such as `POD_NAMESPACE` and Go memory settings.
+
+For example, to override the logs gateway CPU request and queue size:
+
+```yaml
+gateway_logs:
+  kubernetes:
+    resources:
+      requests:
+        cpu: 100m
+  otelcol:
+    config:
+      exporters:
+        otlp_grpc:
+          sending_queue:
+            queue_size: 300000000
+```
+
+The following `xlarge` budgets are per Pod.
 
 | Component | CPU / memory request | CPU / memory limit |
 | --- | --- | --- |
@@ -22,11 +62,19 @@ Node collectors use a `768MiB` `GOMEMLIMIT`. Gateways use 1.5 GiB,
 large-target collectors use 7 GiB, nodeless collectors use 384 MiB and
 watchdog uses 192 MiB. These runtime memory targets are configured in
 `kubernetes.env`; container limits are in `kubernetes.resources.limits`.
-Node collector queues hold 64 MiB per signal, including in-flight payloads.
-Gateway and watchdog queues use persistent storage by default; their memory
+With `xlarge`, node collector queues hold 64 MiB per signal, including in-flight payloads.
+Gateway and watchdog queues use persistent storage by default. Their memory
 budgets cover active requests, processing, and database caching. See
 [Configure exporter queue storage](configure_exporter_queue_storage.md) for volume
 capacity, outage tolerance, and the memory-queue alternative.
+
+With `small`:
+Gateway CPU requests are 50m with a CPU HPA target of 231%.
+Watchdog uses 25m and 200%, and large-target collectors use 125m and 283%.
+Node collectors, cluster events, and the node, watchdog and large-target
+allocators request 100m. KSM requests 25m per node and 100m per deployment.
+Memory, Go settings, sidecar and nodeless resources, replica counts and memory
+HPA targets match `xlarge`.
 
 HPA targets are relative to requests. Increasing limits does not raise the
 scaling threshold. The component dashboards show observed CPU and resident

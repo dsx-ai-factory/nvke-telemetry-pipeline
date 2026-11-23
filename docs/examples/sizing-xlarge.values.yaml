@@ -1,0 +1,357 @@
+# xlarge sizing for gateways, watchdog, node and large-target collectors,
+# cluster events, their Target Allocators and KSM.
+# Apply before deployment overrides. Use with the matching chart release.
+# Helm replaces env lists, so required variables are included.
+watchdog:
+  kubernetes:
+    replicas: 2
+    autoscaler:
+      minReplicas: 2
+      maxReplicas: 16
+      targetCPUUtilization: 75
+      targetMemoryUtilization: 75
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          selectPolicy: Max
+          policies:
+          - type: Percent
+            value: 200
+            periodSeconds: 15
+          - type: Pods
+            value: 8
+            periodSeconds: 15
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: '4'
+        memory: 1Gi
+    targetAllocator:
+      resources:
+        requests:
+          cpu: 250m
+          memory: 1Gi
+        limits:
+          cpu: '1'
+          memory: 2Gi
+      replicas: 1
+    env:
+    - name: GOMEMLIMIT
+      value: 192MiB
+    - name: GOGC
+      value: '50'
+  otelcol:
+    config:
+      exporters:
+        otlp_grpc:
+          sending_queue:
+            queue_size: 85899346
+gateway_logs:
+  kubernetes:
+    replicas: 2
+    autoscaler:
+      minReplicas: 2
+      maxReplicas: 128
+      targetCPUUtilization: 60
+      targetMemoryUtilization: 100
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          selectPolicy: Max
+          policies:
+          - type: Percent
+            value: 200
+            periodSeconds: 15
+          - type: Pods
+            value: 8
+            periodSeconds: 15
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: '4'
+        memory: 4Gi
+    env:
+    - name: GOMEMLIMIT
+      value: 1536MiB
+    - name: GOGC
+      value: '50'
+  otelcol:
+    config:
+      exporters:
+        otlp_grpc:
+          sending_queue:
+            queue_size: 515396076
+gateway_metrics:
+  kubernetes:
+    replicas: 2
+    autoscaler:
+      minReplicas: 2
+      maxReplicas: 128
+      targetCPUUtilization: 60
+      targetMemoryUtilization: 100
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          selectPolicy: Max
+          policies:
+          - type: Percent
+            value: 200
+            periodSeconds: 15
+          - type: Pods
+            value: 8
+            periodSeconds: 15
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: '6'
+        memory: 4Gi
+    env:
+    - name: GOMEMLIMIT
+      value: 1536MiB
+    - name: GOGC
+      value: '50'
+  otelcol:
+    config:
+      exporters:
+        otlp_grpc:
+          sending_queue:
+            queue_size: 515396076
+gateway_traces:
+  kubernetes:
+    replicas: 2
+    autoscaler:
+      minReplicas: 2
+      maxReplicas: 128
+      targetCPUUtilization: 60
+      targetMemoryUtilization: 100
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          selectPolicy: Max
+          policies:
+          - type: Percent
+            value: 200
+            periodSeconds: 15
+          - type: Pods
+            value: 8
+            periodSeconds: 15
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: '4'
+        memory: 4Gi
+    env:
+    - name: GOMEMLIMIT
+      value: 1536MiB
+    - name: GOGC
+      value: '50'
+  otelcol:
+    config:
+      exporters:
+        otlp_grpc:
+          sending_queue:
+            queue_size: 515396076
+daemonset:
+  kubernetes:
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: '2'
+        memory: 2Gi
+    targetAllocator:
+      resources:
+        requests:
+          cpu: 250m
+          memory: 2Gi
+        limits:
+          cpu: '2'
+          memory: 4Gi
+      replicas: 1
+    env:
+    - name: GOMEMLIMIT
+      value: 768MiB
+    - name: GOGC
+      value: '50'
+    - name: NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+  otelcol:
+    config:
+      exporters:
+        otlp_grpc/logs:
+          sending_queue:
+            queue_size: 67108864
+        otlp_grpc/metrics:
+          sending_queue:
+            queue_size: 67108864
+        otlp_grpc/traces:
+          sending_queue:
+            queue_size: 67108864
+        otlp_grpc/watchdog:
+          sending_queue:
+            queue_size: 1048576
+large_target_metrics:
+  kubernetes:
+    replicas: 2
+    autoscaler:
+      minReplicas: 2
+      maxReplicas: 32
+      targetCPUUtilization: 75
+      targetMemoryUtilization: 100
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          selectPolicy: Max
+          policies:
+          - type: Percent
+            value: 200
+            periodSeconds: 15
+          - type: Pods
+            value: 8
+            periodSeconds: 15
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: '4'
+        memory: 12Gi
+    targetAllocator:
+      resources:
+        requests:
+          cpu: 250m
+          memory: 1Gi
+        limits:
+          cpu: '1'
+          memory: 2Gi
+      replicas: 1
+    env:
+    - name: GOMEMLIMIT
+      value: 7168MiB
+    - name: GOGC
+      value: '50'
+  otelcol:
+    config:
+      exporters:
+        otlp_grpc:
+          sending_queue:
+            queue_size: 134217728
+cluster_events:
+  kubernetes:
+    replicas: 2
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 512Mi
+    env:
+    - name: GOMEMLIMIT
+      value: 192MiB
+    - name: GOGC
+      value: '50'
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+  otelcol:
+    config:
+      exporters:
+        otlp_grpc:
+          sending_queue:
+            queue_size: 16777216
+kube-state-metrics:
+  daemonset:
+    kubernetes:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: '1'
+          memory: 512Mi
+  deployments:
+    unscheduled-pods:
+      shards: 1
+      kubernetes:
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: '1'
+            memory: 512Mi
+    workloads:
+      shards: 1
+      kubernetes:
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: '1'
+            memory: 512Mi
+    networking:
+      shards: 1
+      kubernetes:
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: '1'
+            memory: 512Mi
+    storage:
+      shards: 1
+      kubernetes:
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: '1'
+            memory: 512Mi
+    configuration:
+      shards: 1
+      kubernetes:
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: '1'
+            memory: 512Mi
+    cluster:
+      shards: 1
+      kubernetes:
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: '1'
+            memory: 512Mi
+  kubernetes:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: '1'
+        memory: 512Mi
