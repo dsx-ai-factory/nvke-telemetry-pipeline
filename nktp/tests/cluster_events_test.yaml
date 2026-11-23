@@ -4,6 +4,15 @@ release:
 templates:
   - templates/cluster-events.yaml
 tests:
+  - it: replaces global image pull secrets with the Collector override
+    set:
+      global.imagePullSecrets: [{name: shared-registry}]
+      cluster_events.kubernetes.imagePullSecrets: [{name: events-registry}]
+    asserts:
+      - equal:
+          path: spec.imagePullSecrets
+          value: [{name: events-registry}]
+
   - it: elects one Event reader and forwards logs through the logs gateway
     asserts:
       - equal:

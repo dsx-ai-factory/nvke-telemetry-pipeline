@@ -28,7 +28,7 @@ tests:
             - apiGroups: [coordination.k8s.io]
               resources: [leases]
               resourceNames: [nktp-cluster-events]
-              verbs: [get, update]
+              verbs: [get, update, create]
         documentSelector:
           path: kind
           value: Role
@@ -131,7 +131,7 @@ tests:
             - apiGroups: [coordination.k8s.io]
               resources: [leases]
               resourceNames: [custom-event-reader]
-              verbs: [get, update]
+              verbs: [get, update, create]
         documentSelector:
           path: kind
           value: Role

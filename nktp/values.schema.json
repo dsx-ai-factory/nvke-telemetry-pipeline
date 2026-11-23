@@ -6,6 +6,23 @@
       "type": "boolean",
       "description": "Grant monitor-watching Target Allocators read access to all Secrets and CA ConfigMaps across the cluster. Defaults to false."
     },
+    "global": {
+      "type": "object",
+      "properties": {
+        "imagePullSecrets": {
+          "type": "array",
+          "description": "Existing registry Secret references shared by NKTP Collectors and compatible dependencies.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name"],
+            "properties": {
+              "name": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    },
     "namespace": {
       "type": "object",
       "additionalProperties": false,

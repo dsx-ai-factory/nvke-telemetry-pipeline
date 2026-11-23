@@ -10,3 +10,40 @@ tests:
   - it: matches the snapshot with default values
     asserts:
       - matchSnapshot: {}
+
+  - it: propagates global image pull secrets to every NKTP Collector
+    set:
+      global.imagePullSecrets: [{name: registry-a}, {name: registry-b}]
+    asserts:
+      - equal:
+          path: spec.imagePullSecrets
+          value: [{name: registry-a}, {name: registry-b}]
+        template: templates/daemonset.yaml
+      - equal:
+          path: spec.imagePullSecrets
+          value: [{name: registry-a}, {name: registry-b}]
+        template: templates/watchdog.yaml
+      - equal:
+          path: spec.imagePullSecrets
+          value: [{name: registry-a}, {name: registry-b}]
+        template: templates/large-target-metrics.yaml
+      - equal:
+          path: spec.imagePullSecrets
+          value: [{name: registry-a}, {name: registry-b}]
+        template: templates/nodeless-metrics.yaml
+      - equal:
+          path: spec.imagePullSecrets
+          value: [{name: registry-a}, {name: registry-b}]
+        template: templates/cluster-events.yaml
+      - equal:
+          path: spec.imagePullSecrets
+          value: [{name: registry-a}, {name: registry-b}]
+        template: templates/gateway-logs.yaml
+      - equal:
+          path: spec.imagePullSecrets
+          value: [{name: registry-a}, {name: registry-b}]
+        template: templates/gateway-metrics.yaml
+      - equal:
+          path: spec.imagePullSecrets
+          value: [{name: registry-a}, {name: registry-b}]
+        template: templates/gateway-traces.yaml

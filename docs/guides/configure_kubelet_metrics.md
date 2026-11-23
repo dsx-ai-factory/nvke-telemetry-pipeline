@@ -7,13 +7,14 @@ authenticates with its projected service-account token and has read-only
 `nodes/metrics` permission.
 
 The scrape jobs are in the `prometheus/kubelet` receiver of
-`daemonset.otelcol.config` in `nktp/values.yaml`. By default there are two jobs:
+`daemonset.otelcol.config` in `nktp/values.yaml`. By default there are three jobs:
 
 - `kubelet` scrapes `/metrics`.
 - `kubelet-cadvisor` scrapes `/metrics/cadvisor`. Its `metric_relabel_configs`
   are [copied from kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/blob/4713c624771a48e99f16dec9eb55ec8204f06830/charts/kube-prometheus-stack/values.yaml#L1952).
   They drop samples that are less useful, always zero, overlapping with
   kube-state-metrics, from host network interfaces, or from cgroups with no pod.
+- `kubelet-probes` scrapes `/metrics/probes`.
 
 The chart renders this configuration exactly as written. To change the scrapes,
 change the configuration. Helm replaces a list in your values file as a whole,
@@ -22,10 +23,11 @@ file and change your copy.
 
 ## Change the scrapes
 
-- To stop scraping cAdvisor, remove the `kubelet-cadvisor` job.
+- To stop scraping cAdvisor or probes, remove the `kubelet-cadvisor` or
+  `kubelet-probes` job, respectively.
 - To change the cAdvisor filters, edit the job's `metric_relabel_configs`.
-- To scrape `/metrics/probes` or `/metrics/resource`, copy the `kubelet` job.
-  Then give the copy a new `job_name`, such as `kubelet-probes`, and set both
+- To scrape `/metrics/resource`, copy the `kubelet` job.
+  Then give the copy a new `job_name`, such as `kubelet-resource`, and set both
   `metrics_path` and the `replacement` of the `metrics_path` relabel rule to the
   new path.
 

@@ -529,6 +529,7 @@ matches the snapshot with default values:
         verbs:
           - get
           - update
+          - create
   22: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: RoleBinding
@@ -1170,6 +1171,38 @@ matches the snapshot with default values:
                     - replacement: https-metrics
                       target_label: endpoint
                     - replacement: /metrics/cadvisor
+                      target_label: metrics_path
+                  scheme: https
+                  scrape_interval: 30s
+                  scrape_timeout: 10s
+                  static_configs:
+                    - labels:
+                        __tmp_kubelet_host: ${env:OTEL_K8S_NODE_IP}
+                      targets:
+                        - 127.0.0.1:10250
+                  tls_config:
+                    insecure_skip_verify: true
+                - authorization:
+                    credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+                    type: Bearer
+                  job_name: kubelet-probes
+                  metrics_path: /metrics/probes
+                  relabel_configs:
+                    - regex: (.+:.*)
+                      replacement: '[$$1]:10250'
+                      source_labels:
+                        - __tmp_kubelet_host
+                      target_label: __address__
+                    - regex: ([^:]+)
+                      replacement: $$1:10250
+                      source_labels:
+                        - __tmp_kubelet_host
+                      target_label: __address__
+                    - replacement: ${env:NODE_NAME}
+                      target_label: node
+                    - replacement: https-metrics
+                      target_label: endpoint
+                    - replacement: /metrics/probes
                       target_label: metrics_path
                   scheme: https
                   scrape_interval: 30s

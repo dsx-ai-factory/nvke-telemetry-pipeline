@@ -4,6 +4,15 @@ release:
 templates:
   - templates/gateway-logs.yaml
 tests:
+  - it: replaces global image pull secrets with the Collector override
+    set:
+      global.imagePullSecrets: [{name: shared-registry}]
+      gateway_logs.kubernetes.imagePullSecrets: [{name: logs-registry}]
+    asserts:
+      - equal:
+          path: spec.imagePullSecrets
+          value: [{name: logs-registry}]
+
   - it: forwards only logs and sends its own telemetry through its sidecar
     asserts:
       - equal:
