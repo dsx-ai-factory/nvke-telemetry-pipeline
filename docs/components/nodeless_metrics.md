@@ -107,8 +107,9 @@ same Probe works with a blackbox exporter that NKTP does not manage; point
 ## Monitor credentials
 
 Secret and CA ConfigMap access is disabled by default. Set the chart-wide
-`targetAllocatorClusterSecretAccess: true` to grant all monitor-watching allocators Secret
-`get/list/watch` and ConfigMap `get` across the cluster, including objects not
+`targetAllocatorClusterSecretAccess: true` to grant all monitor-watching
+allocators Secret `get/list/watch` and ConfigMap `get` across the cluster,
+including objects not
 referenced by monitors. The chart also defaults their Secret watches to all
 namespaces, while preserving explicit native `prometheusCR.secretNamespaces` lists.
 

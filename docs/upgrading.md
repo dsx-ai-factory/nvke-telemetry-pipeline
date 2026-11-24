@@ -10,8 +10,8 @@ and complete any required migrations before applying those CRDs.
 
 ## Cluster-wide Secret access is opt-in
 
-`targetAllocatorClusterSecretAccess` defaults to `false`. Existing node allocator namespace
-grants remain in place when `daemonset.rbac.create` is `true` and
+`targetAllocatorClusterSecretAccess` defaults to `false`. Existing node allocator
+namespace grants remain in place when `daemonset.rbac.create` is `true` and
 `daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces` lists the
 required namespaces. Keep those settings to preserve the existing behavior.
 

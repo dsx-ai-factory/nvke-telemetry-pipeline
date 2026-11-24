@@ -10,8 +10,8 @@ nodeless allocator that also reads ordinary monitors.
 
 ## Default and precedence
 
-`targetAllocatorClusterSecretAccess` defaults to `false`, so cluster-wide reads remain
-opt-in. The node allocator also retains its existing namespace-RBAC option:
+`targetAllocatorClusterSecretAccess` defaults to `false`, so cluster-wide reads
+remain opt-in. The node allocator also retains its existing namespace-RBAC option:
 
 | Configuration | Chart-managed RBAC (Secrets `get/list/watch`, ConfigMaps `get`) |
 | --- | --- |
@@ -87,19 +87,23 @@ preserved and can narrow the watch, but the RBAC grant remains cluster-wide.
 
 ## Troubleshoot Secret watch authorization errors
 
-The Target Allocator lists and watches Secret metadata to detect credential
-changes, even when its selected monitors do not reference Secrets. With no
-explicit `prometheusCR.secretNamespaces` list, it watches the NKTP release
-namespace. Without Secret `list/watch` authorization there, its logs can contain
-an error like this example:
+When Prometheus monitor discovery is enabled, the OpenTelemetry Target Allocator
+starts a built-in Secret metadata informer: a Kubernetes client that lists
+Secrets and watches for changes. It starts this informer even when no selected
+monitor references a Secret.
+
+These requests fetch Secret metadata rather than credential values, but they
+still access the Kubernetes Secrets API and require Secrets `list/watch`
+authorization. Without an explicit `prometheusCR.secretNamespaces` list, the
+informer watches the NKTP release namespace. If its ServiceAccount lacks access
+there, a denied list request produces an error of this form (example names):
 
 ```text
 secrets is forbidden: User "system:serviceaccount:nktp:nktp-daemonset-targetallocator" cannot list resource "secrets" in API group "" in the namespace "nktp"
 ```
 
 Check the affected allocator's `secretNamespaces` and RBAC in each watched
-namespace. A metadata watch still requires Secret `list/watch` permission;
-monitor discovery does not supply it.
+namespace.
 
 For changes to an existing installation, see
 [Upgrade NKTP](../upgrading.md#cluster-wide-secret-access-is-opt-in).
