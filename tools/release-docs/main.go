@@ -59,7 +59,7 @@ func main() {
 		fmt.Printf("\n%d files would be updated. Use -write to apply changes.\n", len(changes))
 		return
 	}
-	if err := release.Apply(changes, false); err != nil {
+	if err := release.Apply(changes); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("Release documentation is current (%d files updated).\n", len(changes))

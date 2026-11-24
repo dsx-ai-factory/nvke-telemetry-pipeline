@@ -88,16 +88,13 @@ func TestPlanAndApplyReleaseDocumentation(t *testing.T) {
 	if err != nil || len(changes) != 4 {
 		t.Fatalf("unexpected plan: %v, %v", changes, err)
 	}
-	if err := Apply(changes, true); err == nil {
-		t.Fatal("check mode accepted stale documentation")
-	}
 	for name, want := range files {
 		data, err := os.ReadFile(filepath.Join(root, name))
 		if err != nil || string(data) != want {
-			t.Fatalf("planning or check mode changed %s", name)
+			t.Fatalf("planning changed %s", name)
 		}
 	}
-	if err := Apply(changes, false); err != nil {
+	if err := Apply(changes); err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"README.md", "nktp/README.md", "docs/guides/use_blueprints.md"} {

@@ -165,8 +165,8 @@ func Plan(root, from, to string, images ResolvedImages) ([]Change, error) {
 	return changes, nil
 }
 
-// Apply writes prepared changes, or reports stale files without writing in check mode.
-func Apply(changes []Change, check bool) error {
+// Apply writes prepared changes after checking that their inputs are unchanged.
+func Apply(changes []Change) error {
 	// Recheck every input before writing any output, so an edit made after Plan
 	// cannot be silently overwritten.
 	for _, change := range changes {
@@ -177,13 +177,6 @@ func Apply(changes []Change, check bool) error {
 		if !bytes.Equal(current, change.original) {
 			return fmt.Errorf("%s changed during generation; rerun the command", change.Path)
 		}
-	}
-	if check && len(changes) > 0 {
-		var paths []string
-		for _, change := range changes {
-			paths = append(paths, change.Path)
-		}
-		return fmt.Errorf("documentation needs updating: %s", strings.Join(paths, ", "))
 	}
 	for _, change := range changes {
 		if err := os.WriteFile(change.Path, change.Data, change.mode); err != nil {

@@ -4,77 +4,52 @@
 package release
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 )
 
+// TestValidateRunningPods guards against missed images and false validation
+// failures from Docker Hub shorthand, inactive Pods, or absent optional images.
 func TestValidateRunningPods(t *testing.T) {
-	known, err := discover([]byte("kind: Pod\nspec:\n  containers:\n    - image: busybox\n    - image: example.com/optional:v1\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	images := ResolvedImages{images: known}
-	pod := func(name, phase string, spec map[string]any) map[string]any {
-		return map[string]any{"metadata": map[string]string{"name": name}, "status": map[string]string{"phase": phase}, "spec": spec}
-	}
-	container := func(name, image string) map[string]string {
-		return map[string]string{"name": name, "image": image}
-	}
+	images := ResolvedImages{images: imageSet{
+		"docker.io/library/busybox:latest": {},
+		"example.com/optional:v1":          {},
+	}}
+	const known = `{"status":{"phase":"Running"},"spec":{"containers":[{"image":"busybox"}],"initContainers":[{"image":"busybox:latest"}]}}`
 	for _, tc := range []struct {
-		name string
-		pods []map[string]any
-		want []string
+		name, data string
+		want       []string
 	}{
-		{
-			name: "normalized references and absent optional image",
-			pods: []map[string]any{pod("known", "Running", map[string]any{
-				"containers":     []map[string]string{container("main", "docker.io/library/busybox:latest")},
-				"initContainers": []map[string]string{container("init", "busybox:latest")},
-			})},
-		},
+		{name: "normalized references and absent optional image", data: `{"items":[` + known + `]}`},
 		{
 			name: "all unexpected declarations with provenance",
-			pods: []map[string]any{pod("unexpected", "Running", map[string]any{
-				"containers":          []map[string]string{container("main", "busybox:other")},
-				"initContainers":      []map[string]string{container("init", "example.com/init:v1")},
-				"ephemeralContainers": []map[string]string{container("debug", "example.com/debug:v1")},
-			})},
+			data: `{"items":[{"metadata":{"name":"unexpected"},"status":{"phase":"Running"},"spec":{
+				"containers":[{"name":"main","image":"busybox:other"}],
+				"initContainers":[{"name":"init","image":"example.com/init:v1"}],
+				"ephemeralContainers":[{"name":"debug","image":"example.com/debug:v1"}]
+			}}]}`,
 			want: []string{"absent from rendered inventory", "docker.io/library/busybox:other\n    Found in these Pods' containers:\n      Pod installed/unexpected container main", "example.com/init:v1", "example.com/debug:v1", "container init", "container debug"},
 		},
 		{
 			name: "non-running Pods ignored",
-			pods: []map[string]any{
-				pod("known", "Running", map[string]any{"containers": []map[string]string{container("main", "busybox")}}),
-				pod("pending", "Pending", map[string]any{"containers": []map[string]string{container("main", "example.com/ignored:v1")}}),
-				pod("finished", "Succeeded", map[string]any{"containers": []map[string]string{container("main", "example.com/ignored:v1")}}),
-			},
+			data: `{"items":[` + known + `,
+				{"status":{"phase":"Pending"},"spec":{"containers":[{"image":"example.com/ignored:v1"}]}},
+				{"status":{"phase":"Succeeded"},"spec":{"containers":[{"image":"example.com/ignored:v1"}]}}
+			]}`,
 		},
-		{name: "empty namespace", want: []string{"no Running Pods", "installed"}},
-		{
-			name: "only pending Pods",
-			pods: []map[string]any{pod("pending", "Pending", nil)},
-			want: []string{"no Running Pods"},
-		},
+		{name: "empty namespace", data: `{"items":[]}`, want: []string{"no Running Pods", "installed"}},
+		{name: "only pending Pods", data: `{"items":[{"status":{"phase":"Pending"}}]}`, want: []string{"no Running Pods"}},
 		{
 			name: "digest is distinct from tag",
-			pods: []map[string]any{pod("digest", "Running", map[string]any{"containers": []map[string]string{
-				container("main", "busybox@sha256:"+strings.Repeat("a", 64)),
-			}})},
+			data: `{"items":[{"status":{"phase":"Running"},"spec":{"containers":[{"image":"busybox@sha256:` + strings.Repeat("a", 64) + `"}]}}]}`,
 			want: []string{"absent from rendered inventory", "docker.io/library/busybox@sha256:"},
 		},
+		{name: "invalid kubectl output", data: "not JSON", want: []string{"decode Pods"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			data, err := json.Marshal(map[string]any{"items": tc.pods})
-			if err != nil {
+			err := images.validateRunningPods([]byte(tc.data), "installed")
+			if len(tc.want) == 0 && err != nil {
 				t.Fatal(err)
-			}
-			err = images.validateRunningPods(data, "installed")
-			if len(tc.want) == 0 {
-				if err != nil {
-					t.Fatal(err)
-				}
-				return
 			}
 			for _, want := range tc.want {
 				if err == nil || !strings.Contains(err.Error(), want) {
@@ -82,9 +57,6 @@ func TestValidateRunningPods(t *testing.T) {
 				}
 			}
 		})
-	}
-	if err := images.validateRunningPods([]byte("not JSON"), "installed"); err == nil {
-		t.Fatal("invalid kubectl output passed validation")
 	}
 }
 
