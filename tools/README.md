@@ -32,9 +32,9 @@ select one kubeconfig file (using its current context) and the installed release
 namespace:
 
 ```bash
-KUBECONFIG=/path/to/kubeconfig
+KUBECONFIG_FILE=/path/to/kubeconfig
 NAMESPACE=nktp
-task docs:release -- -kubeconfig "$KUBECONFIG" -namespace "$NAMESPACE"
+task docs:release -- -kubeconfig "$KUBECONFIG_FILE" -namespace "$NAMESPACE"
 ```
 
 Validation fails if any Running Pod in the namespace declares an image absent
