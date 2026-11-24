@@ -295,7 +295,7 @@ allocator's selected monitors reference files in the Collector container. See
 ### Monitor credentials
 
 The node allocator supports namespace grants alongside the optional cluster-wide
-grant. To preserve namespace-scoped access, keep `grantClusterSecretAccess: false`
+grant. To configure namespace-scoped access, keep `targetAllocatorClusterSecretAccess: false`
 and list the namespaces containing monitors and their referenced objects:
 
 ```yaml
@@ -315,12 +315,12 @@ to the allocator's ServiceAccount in the release namespace. The binding honors
 namespace lists create no grants. Set `daemonset.rbac.create: false` to disable
 these namespace grants.
 
-Set `grantClusterSecretAccess: true` to grant all monitor-watching allocators
+Set `targetAllocatorClusterSecretAccess: true` to grant all monitor-watching allocators
 cluster-wide credential access instead. Redundant node namespace grants are
 then skipped, independently of `daemonset.rbac.create`.
 
 Both grants allow reading all Secrets in their scope, including contents not
 referenced by monitors. The node namespace option grants no access to the
 nodeless allocator, which selects the same monitors by default. See
-[Configure Secret access](../guides/configure_secret_access.md) for precedence,
-watch behavior, and upgrade considerations.
+[Configure Secret access](../guides/configure_secret_access.md) for RBAC scope
+and watch behavior.

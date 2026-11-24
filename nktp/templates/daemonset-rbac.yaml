@@ -52,7 +52,7 @@ subjects:
 {{- if and (hasKey $rbac "create") (not (kindIs "bool" $rbac.create)) }}
   {{- fail "daemonset.rbac.create must be a boolean" }}
 {{- end }}
-{{- if and $rbac.create (not .Values.grantClusterSecretAccess) }}
+{{- if and $rbac.create (not .Values.targetAllocatorClusterSecretAccess) }}
 {{- $prometheusCR := $allocator.prometheusCR | default dict }}
 {{- range $namespace := uniq ($prometheusCR.secretNamespaces | default list) }}
 {{- if not $namespace }}

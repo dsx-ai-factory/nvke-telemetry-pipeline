@@ -1,11 +1,11 @@
 # Default values for the NKTP Helm chart.
 
-# Opt in to all-namespace Secret get/list/watch and CA ConfigMap get for the node,
+# Opt in to all-namespace Secret get/list/watch and ConfigMap get for the node,
 # large-target, and nodeless Target Allocators that discover monitors. This grants
-# access to every Secret's contents, not only credentials referenced by monitors.
+# access to every Secret and ConfigMap, not only objects referenced by monitors.
 # Also defaults their Secret watches to all namespaces unless secretNamespaces is set.
 # False preserves the node allocator's namespace RBAC options below.
-grantClusterSecretAccess: false
+targetAllocatorClusterSecretAccess: false
 
 # Optionally label an existing release namespace before installing workloads.
 # Helm must still create the namespace with --create-namespace, or it must exist.
@@ -1620,7 +1620,7 @@ daemonset:
   rbac:
     # Create credential Roles and RoleBindings for the node Target Allocator in
     # kubernetes.targetAllocator.prometheusCR.secretNamespaces. Omitted/empty
-    # lists create no grants. Skipped when grantClusterSecretAccess is true.
+    # lists create no grants. Skipped when targetAllocatorClusterSecretAccess is true.
     # False disables only these namespace grants, not the cluster-wide option.
     create: true
   kubernetes:

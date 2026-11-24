@@ -1,38 +1,36 @@
 # Configure Secret access
 
-Target Allocators resolve Secret and CA ConfigMap references in ServiceMonitors,
-PodMonitors, Probes, and ScrapeConfigs. These objects live in the monitor's
-namespace. Monitor discovery and credential access are separate permissions:
-discovering a monitor does not authorize reading its credentials.
+When a ServiceMonitor, PodMonitor, Probe, or ScrapeConfig references a Secret or
+CA ConfigMap, the Target Allocator running in the NKTP release namespace needs
+RBAC authorization to read that object in the monitor's namespace. Configure
+node namespace access when the namespaces are known and the node allocator is
+responsible for the monitors, or enable cluster-wide access for all
+monitor-watching allocators. Node namespace access alone does not authorize the
+nodeless allocator that also reads ordinary monitors.
 
 ## Default and precedence
 
-`grantClusterSecretAccess` defaults to `false`, so cluster-wide reads remain
+`targetAllocatorClusterSecretAccess` defaults to `false`, so cluster-wide reads remain
 opt-in. The node allocator also retains its existing namespace-RBAC option:
 
-| Configuration | Chart-managed credential access |
+| Configuration | Chart-managed RBAC (Secrets `get/list/watch`, ConfigMaps `get`) |
 | --- | --- |
-| `grantClusterSecretAccess: true` | Cluster-wide access for the monitor-watching node, large-target, and nodeless allocators. Redundant node namespace grants are skipped. |
-| `grantClusterSecretAccess: false`, `daemonset.rbac.create: true`, and a nonempty node `secretNamespaces` list | Node allocator access in each listed namespace. |
-| `grantClusterSecretAccess: false` and `daemonset.rbac.create: false` | Neither cluster-wide nor node namespace credential grants. |
+| `targetAllocatorClusterSecretAccess: true` | Cluster-wide access for the monitor-watching node, large-target, and nodeless allocators. Redundant node namespace grants are skipped. |
+| `targetAllocatorClusterSecretAccess: false`, `daemonset.rbac.create: true`, and a nonempty node `secretNamespaces` list | Node allocator access in each listed namespace. |
+| `targetAllocatorClusterSecretAccess: false` and `daemonset.rbac.create: false` | No cluster-wide or node namespace RBAC for Secrets or ConfigMaps. |
 
-With the default empty node namespace list, the chart creates no credential
-grants, including in the release namespace. The upstream watcher still watches
-the release namespace and can log authorization errors without Secret list/watch
-permission, even when monitors do not reference Secrets. Credentialed monitors
-need the allocator to have permission to read their referenced objects.
+With the default empty node namespace list, the chart creates no RBAC allowing
+Secret or ConfigMap reads, including in the release namespace.
+`daemonset.rbac.create` controls only node namespace RBAC; the cluster-wide
+option is independent of that setting.
 
-Disabling a chart-managed grant does not revoke permissions supplied by other
-Roles or ClusterRoles. `daemonset.rbac.create` controls only node namespace grants;
-it does not disable an enabled cluster-wide grant.
+## Configure node namespace access
 
-## Preserve node namespace access
-
-The existing node allocator settings continue to work when the cluster-wide
-switch is off:
+To grant the node allocator access in specific namespaces, keep the
+cluster-wide switch off and list those namespaces:
 
 ```yaml
-grantClusterSecretAccess: false
+targetAllocatorClusterSecretAccess: false
 daemonset:
   rbac:
     create: true
@@ -42,8 +40,8 @@ daemonset:
         secretNamespaces: [metrics-monitors]
 ```
 
-For each listed namespace, Helm creates the same
-`nktp-daemonset-monitor-<release-namespace>` Role and RoleBinding as before,
+For each listed namespace, Helm creates a
+`nktp-daemonset-monitor-<release-namespace>` Role and RoleBinding,
 granting Secrets `get/list/watch` and ConfigMaps `get` to the node allocator's
 ServiceAccount. The binding honors
 `daemonset.kubernetes.targetAllocator.serviceAccount`. `daemonset.rbac.create`
@@ -57,37 +55,13 @@ access to the large-target or nodeless allocators. With default selectors, node
 and nodeless allocators read the same monitors before splitting their targets,
 so a node-only grant does not supply all permissions needed for shared monitors.
 
-## Upgrade behavior
-
-Existing node namespace grants remain in place when you retain their settings
-and keep `grantClusterSecretAccess: false`. No credential-access migration is
-required just to adopt this chart version.
-
-Enabling cluster-wide access replaces the node namespace grants with the shared
-cluster grant. Explicit native `secretNamespaces` lists are retained. Turning
-cluster access off restores node namespace grants when `daemonset.rbac.create`
-is `true` and the node list is nonempty, but removes the chart's credential grant
-for the large-target and nodeless allocators. Review their credential needs before
-making that change, then verify scrape health and allocator logs after upgrading.
-
-If your values explicitly set the node allocator's
-`daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces` to `[""]`
-(or include an empty-string entry), replace that entry with the intended named
-namespaces before disabling cluster access while `daemonset.rbac.create` is
-`true`. The empty string means all namespaces to the upstream watcher, but is
-not a valid namespace for a Role, so otherwise Helm rendering fails. Ensure
-that all allocators which need credentials have the required permissions before
-disabling the cluster grant; node namespace grants do not cover the other pools.
-This applies to explicit entries in your values, not the all-namespace watch
-default generated by the chart when cluster access is enabled.
-
 ## Opt in: cluster-wide credential access
 
 From the repository root, add this to your Helm values file and apply it through
 your normal install or upgrade process:
 
 ```yaml
-grantClusterSecretAccess: true
+targetAllocatorClusterSecretAccess: true
 ```
 
 The chart creates a ClusterRole and ClusterRoleBinding granting:
@@ -110,3 +84,22 @@ The chart defaults these allocators' Secret watches to all namespaces using the
 upstream `secretNamespaces: [""]` convention. An explicit nonempty native
 `<component>.kubernetes.targetAllocator.prometheusCR.secretNamespaces` list is
 preserved and can narrow the watch, but the RBAC grant remains cluster-wide.
+
+## Troubleshoot Secret watch authorization errors
+
+The Target Allocator lists and watches Secret metadata to detect credential
+changes, even when its selected monitors do not reference Secrets. With no
+explicit `prometheusCR.secretNamespaces` list, it watches the NKTP release
+namespace. Without Secret `list/watch` authorization there, its logs can contain
+an error like this example:
+
+```text
+secrets is forbidden: User "system:serviceaccount:nktp:nktp-daemonset-targetallocator" cannot list resource "secrets" in API group "" in the namespace "nktp"
+```
+
+Check the affected allocator's `secretNamespaces` and RBAC in each watched
+namespace. A metadata watch still requires Secret `list/watch` permission;
+monitor discovery does not supply it.
+
+For changes to an existing installation, see
+[Upgrade NKTP](../upgrading.md#cluster-wide-secret-access-is-opt-in).

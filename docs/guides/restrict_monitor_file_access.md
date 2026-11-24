@@ -44,7 +44,7 @@ Before enabling the restriction:
    through a Secret or ConfigMap, and client certificates and keys through
    Secret references. The [complete vLLM monitors](#vllm-servicemonitor-before-and-after)
    show the bearer-token change. Grant the responsible allocator access to the
-   referenced objects. Set `grantClusterSecretAccess: true` to enable cluster-wide
+   referenced objects. Set `targetAllocatorClusterSecretAccess: true` to enable cluster-wide
    Secret and CA ConfigMap reads for the monitor-watching allocators after
    reviewing the scope in [Configure Secret access](configure_secret_access.md).
 3. If another chart cannot configure these references, disable its generated
@@ -52,7 +52,7 @@ Before enabling the restriction:
    the same target selection, pool label, ports, paths, and authentication.
    Include the [bundled Kubernetes component monitors](../components/large_target_metrics.md#kubernetes-component-metrics)
    when preparing the large-target pool.
-4. Apply `grantClusterSecretAccess: true` through your normal NKTP Helm upgrade,
+4. Apply `targetAllocatorClusterSecretAccess: true` through your normal NKTP Helm upgrade,
    keeping `denyFSAccessThroughSMs: false` for each allocator being prepared.
    Confirm that the installed release includes the
    `nktp-targetallocator-secrets-<release-namespace>` ClusterRole and
@@ -158,7 +158,7 @@ The target validates the token and authorizes the ServiceAccount it identifies;
 the authentication type itself grants no permissions. Reference the Secret
 using `authorization.credentials`, as shown in the complete monitor below.
 
-Enable `grantClusterSecretAccess` after reviewing its scope as described above.
+Enable `targetAllocatorClusterSecretAccess` after reviewing its scope as described above.
 For TLS authentication, Secret
 keys must contain the PEM CA certificate, client certificate, or private key
 referenced by `tlsConfig.ca`, `cert`, or `keySecret`, respectively; replace
@@ -168,7 +168,7 @@ Probes and ScrapeConfigs reference credentials the same way, through
 
 ## Grant the large-target and nodeless allocators access
 
-The chart-wide `grantClusterSecretAccess: true` option grants Secret
+The chart-wide `targetAllocatorClusterSecretAccess: true` option grants Secret
 `get/list/watch` and CA ConfigMap `get` across all namespaces to the node,
 large-target, and nodeless allocators. See
 [Configure Secret access](configure_secret_access.md) before enabling it.

@@ -71,13 +71,12 @@ Target Allocator therefore sets `denyFSAccessThroughSMs: false`. Setting it to
 ## Monitor credentials
 
 Secret and CA ConfigMap access is disabled by default. Set the chart-wide
-`grantClusterSecretAccess: true` to grant all monitor-watching allocators Secret
+`targetAllocatorClusterSecretAccess: true` to grant all monitor-watching allocators Secret
 `get/list/watch` and ConfigMap `get` across the cluster, including objects not
 referenced by monitors. The chart also defaults their Secret watches to all
 namespaces, while preserving explicit native `prometheusCR.secretNamespaces` lists.
 
 With the switch off, credentialed monitors require the allocator to already
-have the necessary permissions. The upstream Secret watcher can log authorization
-errors without them. See
+have the necessary permissions. See
 [Configure Secret access](../guides/configure_secret_access.md) for the scope,
 default behavior, and existing ServiceAccount overrides.

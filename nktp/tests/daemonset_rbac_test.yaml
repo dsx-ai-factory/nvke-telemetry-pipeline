@@ -295,7 +295,7 @@ tests:
 
   - it: skips redundant node namespace grants when cluster access is enabled
     set:
-      grantClusterSecretAccess: true
+      targetAllocatorClusterSecretAccess: true
       daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces: [metrics-monitors]
     asserts:
       - hasDocuments:
@@ -311,7 +311,7 @@ tests:
 
   - it: allows the all-namespace watch convention when cluster access is enabled
     set:
-      grantClusterSecretAccess: true
+      targetAllocatorClusterSecretAccess: true
       daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces: [""]
     asserts:
       - hasDocuments:

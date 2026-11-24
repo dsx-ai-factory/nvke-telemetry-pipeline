@@ -320,7 +320,7 @@ tests:
 
   - it: defaults the Secret watch to all namespaces when cluster access is enabled
     set:
-      grantClusterSecretAccess: true
+      targetAllocatorClusterSecretAccess: true
     asserts:
       - equal:
           path: spec.targetAllocator.prometheusCR.secretNamespaces
@@ -333,7 +333,7 @@ tests:
 
   - it: preserves an explicit Secret namespace list with cluster access enabled
     set:
-      grantClusterSecretAccess: true
+      targetAllocatorClusterSecretAccess: true
       large_target_metrics.kubernetes.targetAllocator.prometheusCR.secretNamespaces: [metrics-monitors]
     asserts:
       - equal:
@@ -342,7 +342,7 @@ tests:
 
   - it: does not configure Secret watching when monitor discovery is disabled
     set:
-      grantClusterSecretAccess: true
+      targetAllocatorClusterSecretAccess: true
       large_target_metrics.kubernetes.targetAllocator.prometheusCR.enabled: false
     asserts:
       - notExists:

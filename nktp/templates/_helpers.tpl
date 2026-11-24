@@ -87,7 +87,7 @@ blueprints value).
   {{- end -}}
   {{- $allocator := $spec.targetAllocator -}}
   {{- $prometheusCR := $allocator.prometheusCR | default dict -}}
-  {{- if and .root.Values.grantClusterSecretAccess $allocator.enabled $prometheusCR.enabled (empty $prometheusCR.secretNamespaces) -}}
+  {{- if and .root.Values.targetAllocatorClusterSecretAccess $allocator.enabled $prometheusCR.enabled (empty $prometheusCR.secretNamespaces) -}}
     {{- /* The upstream informer uses an empty namespace string for all namespaces. */ -}}
     {{- $_ := set $prometheusCR "secretNamespaces" (list "") -}}
   {{- end -}}
