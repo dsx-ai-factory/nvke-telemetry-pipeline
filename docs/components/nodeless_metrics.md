@@ -35,9 +35,8 @@ The Target Allocator defaults `prometheusCR.denyFSAccessThroughSMs` to `false`
 for compatibility with existing monitors that reference local bearer-token or
 TLS files. See
 [Restrict monitor file access](../guides/restrict_monitor_file_access.md).
-The chart does not grant this allocator access to Secrets or ConfigMaps that
-monitors reference; see
-[Grant the large-target and nodeless allocators access](../guides/restrict_monitor_file_access.md#grant-the-large-target-and-nodeless-allocators-access).
+The chart can grant cluster-wide access to Secrets and CA ConfigMaps through
+`targetAllocatorClusterSecretAccess`; see [Monitor credentials](#monitor-credentials).
 
 Setting `nodeless_metrics.kubernetes.targetAllocator.enabled` to `false`
 will cause Helm rendering to fail. Target Allocator telemetry is sent to watchdog.
@@ -104,3 +103,17 @@ spec:
 Use the release namespace in `prober.url` if NKTP is installed elsewhere. The
 same Probe works with a blackbox exporter that NKTP does not manage; point
 `prober.url` at it.
+
+## Monitor credentials
+
+Secret and CA ConfigMap access is disabled by default. Set the chart-wide
+`targetAllocatorClusterSecretAccess: true` to grant all monitor-watching
+allocators Secret `get/list/watch` and ConfigMap `get` across the cluster,
+including objects not
+referenced by monitors. The chart also defaults their Secret watches to all
+namespaces, while preserving explicit native `prometheusCR.secretNamespaces` lists.
+
+With the switch off, credentialed monitors require the allocator to already
+have the necessary permissions. See
+[Configure Secret access](../guides/configure_secret_access.md) for the scope,
+default behavior, and existing ServiceAccount overrides.

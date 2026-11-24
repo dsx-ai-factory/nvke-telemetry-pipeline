@@ -86,6 +86,11 @@ blueprints value).
     {{- $_ := set $spec "targetAllocator" (dict) -}}
   {{- end -}}
   {{- $allocator := $spec.targetAllocator -}}
+  {{- $prometheusCR := $allocator.prometheusCR | default dict -}}
+  {{- if and .root.Values.targetAllocatorClusterSecretAccess $allocator.enabled $prometheusCR.enabled (empty $prometheusCR.secretNamespaces) -}}
+    {{- /* The upstream informer uses an empty namespace string for all namespaces. */ -}}
+    {{- $_ := set $prometheusCR "secretNamespaces" (list "") -}}
+  {{- end -}}
   {{- if not (hasKey $allocator "image") -}}
     {{- $_ := set $allocator "image" (include "nktp.targetAllocatorImage" .root) -}}
   {{- end -}}
@@ -101,6 +106,12 @@ blueprints value).
 {{- define "nktp.builder.withPriorityClass" -}}
   {{- if not (hasKey .target "priorityClassName") -}}
     {{- $_ := set .target "priorityClassName" .root.Values.priorityClass.name -}}
+  {{- end -}}
+{{- end -}}
+
+{{- define "nktp.builder.withImagePullSecrets" -}}
+  {{- if and (not (hasKey .target "imagePullSecrets")) .root.Values.global.imagePullSecrets -}}
+    {{- $_ := set .target "imagePullSecrets" (deepCopy .root.Values.global.imagePullSecrets) -}}
   {{- end -}}
 {{- end -}}
 

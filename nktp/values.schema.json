@@ -2,6 +2,27 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
+    "targetAllocatorClusterSecretAccess": {
+      "type": "boolean",
+      "description": "Grant monitor-watching Target Allocators get, list, and watch access to all Secrets and get access to all ConfigMaps across the cluster. Defaults to false."
+    },
+    "global": {
+      "type": "object",
+      "properties": {
+        "imagePullSecrets": {
+          "type": "array",
+          "description": "Existing registry Secret references shared by NKTP Collectors and compatible dependencies.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name"],
+            "properties": {
+              "name": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    },
     "namespace": {
       "type": "object",
       "additionalProperties": false,

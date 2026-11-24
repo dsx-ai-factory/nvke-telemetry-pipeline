@@ -5,6 +5,20 @@ templates:
   - charts/node-exporter/templates/*.yaml
   - templates/otel-lgtm.yaml
 tests:
+  - it: appends local image pull secrets to the global list
+    set:
+      global.imagePullSecrets: [{name: shared-registry}]
+      node-exporter.imagePullSecrets: [{name: node-registry}]
+    asserts:
+      - equal:
+          path: spec.template.spec.imagePullSecrets
+          value: [{name: shared-registry}, {name: node-registry}]
+        template: charts/node-exporter/templates/daemonset.yaml
+      - equal:
+          path: imagePullSecrets
+          value: [{name: shared-registry}]
+        template: charts/node-exporter/templates/serviceaccount.yaml
+
   - it: runs the upstream exporter on every node by default
     template: charts/node-exporter/templates/daemonset.yaml
     asserts:
@@ -42,10 +56,13 @@ tests:
           path: spec.template.spec.containers[0].ports[0].containerPort
           value: 9100
 
-  - it: turns off the cpufreq collector by default
+  - it: runs node_exporter 1.13.1, whose cpufreq collector does not hang on arm64
     template: charts/node-exporter/templates/daemonset.yaml
     asserts:
-      - contains:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: quay.io/prometheus/node-exporter:v1.13.1
+      - notContains:
           path: spec.template.spec.containers[0].args
           content: --no-collector.cpufreq
 

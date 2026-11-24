@@ -4,6 +4,15 @@ release:
 templates:
   - templates/large-target-metrics.yaml
 tests:
+  - it: replaces global image pull secrets with the Collector override
+    set:
+      global.imagePullSecrets: [{name: shared-registry}]
+      large_target_metrics.kubernetes.imagePullSecrets: [{name: large-registry}]
+    asserts:
+      - equal:
+          path: spec.imagePullSecrets
+          value: [{name: large-registry}]
+
   - it: reserves memory for large-target scrapes
     asserts:
       - equal:
@@ -308,3 +317,33 @@ tests:
           path: spec.targetAllocator.mtls
           value: {enabled: true, useCertManager: true}
         documentIndex: 0
+
+  - it: defaults the Secret watch to all namespaces when cluster access is enabled
+    set:
+      targetAllocatorClusterSecretAccess: true
+    asserts:
+      - equal:
+          path: spec.targetAllocator.prometheusCR.secretNamespaces
+          value: [""]
+
+  - it: leaves the upstream Secret watch unchanged by default
+    asserts:
+      - notExists:
+          path: spec.targetAllocator.prometheusCR.secretNamespaces
+
+  - it: preserves an explicit Secret namespace list with cluster access enabled
+    set:
+      targetAllocatorClusterSecretAccess: true
+      large_target_metrics.kubernetes.targetAllocator.prometheusCR.secretNamespaces: [metrics-monitors]
+    asserts:
+      - equal:
+          path: spec.targetAllocator.prometheusCR.secretNamespaces
+          value: [metrics-monitors]
+
+  - it: does not configure Secret watching when monitor discovery is disabled
+    set:
+      targetAllocatorClusterSecretAccess: true
+      large_target_metrics.kubernetes.targetAllocator.prometheusCR.enabled: false
+    asserts:
+      - notExists:
+          path: spec.targetAllocator.prometheusCR.secretNamespaces

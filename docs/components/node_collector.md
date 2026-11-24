@@ -24,8 +24,8 @@ host metrics, and the kubelet cAdvisor scrape provides per-container resource
 use. See [Enable host process metrics](../guides/enable_host_process_metrics.md)
 to enable the `host_metrics` process scraper.
 
-Each DaemonSet collector also scrapes the kubelet `/metrics` and
-`/metrics/cadvisor` endpoints on its own node. See
+Each DaemonSet collector also scrapes the kubelet `/metrics`, `/metrics/cadvisor`,
+and `/metrics/probes` endpoints on its own node. See
 [Configure kubelet metrics](../guides/configure_kubelet_metrics.md) to change these scrapes, verify
 kubelet certificates, or run NKTP alongside kube-prometheus-stack.
 
@@ -294,25 +294,33 @@ allocator's selected monitors reference files in the Collector container. See
 
 ### Monitor credentials
 
-To grant the allocator access to Secrets and CA ConfigMaps referenced by monitors, list
-the namespaces containing those monitors and their referenced objects:
+The node allocator supports namespace grants alongside the optional cluster-wide
+grant. To configure namespace-scoped access, keep
+`targetAllocatorClusterSecretAccess: false` and list the namespaces containing monitors and their referenced objects:
 
 ```yaml
 daemonset:
+  rbac:
+    create: true
   kubernetes:
     targetAllocator:
       prometheusCR:
         secretNamespaces: [metrics-monitors]
 ```
 
-`daemonset.rbac.create` defaults to `true`. For each explicitly
-listed namespace, Helm creates a Role granting Secrets `get/list/watch` and
-ConfigMaps `get`, bound to the allocator ServiceAccount in the release namespace.
-The binding honors `daemonset.kubernetes.targetAllocator.serviceAccount`.
-Omitting the list or setting it to `[]` creates no namespace RBAC. Set
-`daemonset.rbac.create: false` to manage these grants externally.
+`daemonset.rbac.create` defaults to `true`. Helm creates a Role and RoleBinding
+in each listed namespace granting Secrets `get/list/watch` and ConfigMaps `get`
+to the allocator's ServiceAccount in the release namespace. The binding honors
+`daemonset.kubernetes.targetAllocator.serviceAccount`. Omitted, empty, or null
+namespace lists create no grants. Set `daemonset.rbac.create: false` to disable
+these namespace grants.
 
-Grants cover all Secrets in each listed namespace. Use namespaces with trusted
-monitor authors. Secret and CA references resolve in the monitor's namespace.
-The namespaces must already exist. `secretNamespaces` controls Secret watching.
-Configure monitor and namespace selectors separately.
+Set `targetAllocatorClusterSecretAccess: true` to grant all monitor-watching
+allocators cluster-wide credential access instead. Redundant node namespace grants are
+then skipped, independently of `daemonset.rbac.create`.
+
+Both grants allow reading all Secrets in their scope, including contents not
+referenced by monitors. The node namespace option grants no access to the
+nodeless allocator, which selects the same monitors by default. See
+[Configure Secret access](../guides/configure_secret_access.md) for RBAC scope
+and watch behavior.

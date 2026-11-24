@@ -20,6 +20,7 @@ each part in depth.
 - [Configure namespace labels](guides/configure_namespace_labels.md)
 - [Secure gateway export](guides/secure_gateway_export.md)
 - [Configure kubelet metrics](guides/configure_kubelet_metrics.md)
+- [Configure Secret access](guides/configure_secret_access.md)
 - [Restrict monitor file access](guides/restrict_monitor_file_access.md)
 - [Enable host process metrics](guides/enable_host_process_metrics.md)
 - [Configure exporter queue storage](guides/configure_exporter_queue_storage.md)

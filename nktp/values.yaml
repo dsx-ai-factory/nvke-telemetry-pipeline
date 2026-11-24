@@ -1,5 +1,12 @@
 # Default values for the NKTP Helm chart.
 
+# Opt in to all-namespace Secret get/list/watch and ConfigMap get for the node,
+# large-target, and nodeless Target Allocators that discover monitors. This grants
+# access to every Secret and ConfigMap, not only objects referenced by monitors.
+# Also defaults their Secret watches to all namespaces unless secretNamespaces is set.
+# False preserves the node allocator's namespace RBAC options below.
+targetAllocatorClusterSecretAccess: false
+
 # Optionally label an existing release namespace before installing workloads.
 # Helm must still create the namespace with --create-namespace, or it must exist.
 # Leave disabled when platform automation already manages namespace labels.
@@ -38,6 +45,11 @@ global:
   #         repository: <mirror>/kubectl
   imageRegistry: ""
 
+  # Existing registry Secret references for all NKTP Collectors, their sidecars,
+  # and (through the Operator) their Target Allocators. Secrets must exist in the
+  # release namespace.
+  imagePullSecrets: []
+
   # Cluster name to set as k8s.cluster.name on telemetry that leaves NKTP for the
   # backend. The gateways, the watchdog and the watchdog sidecar read it from the
   # K8S_CLUSTER_NAME environment variable in their transform/cluster processor.
@@ -48,7 +60,7 @@ global:
 # Cluster-scoped class inherited by all NKTP Collectors and kube-state-metrics,
 # below system-critical Pods.
 # Disable creation and set name to use an existing class. With creation disabled,
-# name: "" uses the cluster's default priority. 
+# name: "" uses the cluster's default priority.
 # A workload's kubernetes.priorityClassName overrides this default; "" opts out.
 priorityClass:
   create: true
@@ -1607,10 +1619,10 @@ gateway_traces:
 # Node-level collector. Collects local telemetry and forwards received OTLP signals.
 daemonset:
   rbac:
-    # Create Roles and RoleBindings granting the target allocator read access to
-    # Secrets and ConfigMaps in namespaces listed in
-    # kubernetes.targetAllocator.prometheusCR.secretNamespaces.
-    # No Roles or RoleBindings are created when the list is omitted or empty.
+    # Create credential Roles and RoleBindings for the node Target Allocator in
+    # kubernetes.targetAllocator.prometheusCR.secretNamespaces. Omitted/empty
+    # lists create no grants. Skipped when targetAllocatorClusterSecretAccess is true.
+    # False disables only these namespace grants, not the cluster-wide option.
     create: true
   kubernetes:
     mode: daemonset
@@ -1667,10 +1679,10 @@ daemonset:
         metrics:
           enableMetrics: false # Metrics are pushed over OTLP without a ServiceMonitor.
       prometheusCR:
+        # Explicit namespaces for Secret watching and node namespace RBAC.
+        # secretNamespaces: [metrics-monitors]
         enabled: true
         denyFSAccessThroughSMs: false # Preserve compatibility with monitors that reference files in the Collector container.
-        # Explicit namespaces for chart-managed RBAC and Secret watching.
-        # secretNamespaces: [metrics-monitors]
         # Exclude monitoring CRs labeled nktp.nvidia.io/large-target: "true" and common kubelet ServiceMonitors.
         # nodeless_metrics uses the same selectors.
         serviceMonitorSelector:
@@ -2028,6 +2040,35 @@ daemonset:
                   - source_labels: [id, pod]
                     action: drop
                     regex: .+;
+              - job_name: kubelet-probes
+                scrape_interval: 30s
+                scrape_timeout: 10s
+                scheme: https
+                metrics_path: /metrics/probes
+                authorization:
+                  type: Bearer
+                  credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+                tls_config:
+                  insecure_skip_verify: true
+                static_configs:
+                  - targets: ["127.0.0.1:10250"] # Replaced with the node IP before scraping.
+                    labels:
+                      __tmp_kubelet_host: ${env:OTEL_K8S_NODE_IP}
+                relabel_configs:
+                  - source_labels: [__tmp_kubelet_host]
+                    regex: (.+:.*)
+                    target_label: __address__
+                    replacement: "[$$1]:10250"
+                  - source_labels: [__tmp_kubelet_host]
+                    regex: ([^:]+)
+                    target_label: __address__
+                    replacement: "$$1:10250"
+                  - target_label: node
+                    replacement: ${env:NODE_NAME}
+                  - target_label: endpoint
+                    replacement: https-metrics
+                  - target_label: metrics_path
+                    replacement: /metrics/probes
       processors:
         redaction/basic_v1:
           allow_all_keys: true
@@ -3550,15 +3591,11 @@ node-exporter:
   # Match the node Collector and KSM DaemonSets, including NoExecute taints.
   tolerations:
     - operator: Exists
-  # node_exporter's cpufreq collector hangs on arm64 nodes that use the
-  # cppc_cpufreq driver. A read of cpuinfo_avg_freq never returns, so scrapes of
-  # the exporter hang and time out (prometheus/node_exporter#3791). The fix,
-  # prometheus/procfs#879, is in no node_exporter release yet. Remove this once
-  # the chart's node_exporter has it. Without the collector there are no
-  # node_cpu_frequency_* or node_cpu_scaling_* series, and nothing in nktp reads
-  # them.
-  extraArgs:
-    - --no-collector.cpufreq
+  # The chart's default node_exporter, 1.12.1, hangs in its cpufreq collector on
+  # arm64 nodes that use the cppc_cpufreq driver (prometheus/node_exporter#3791).
+  # 1.13.1 has the fix. Remove this once the chart's default is 1.13.1 or later.
+  image:
+    tag: v1.13.1
   prometheus:
     monitor:
       # Declares the exporter as a scrape target, ready for a collector to pick up.

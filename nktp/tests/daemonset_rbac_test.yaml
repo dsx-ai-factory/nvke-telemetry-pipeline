@@ -240,6 +240,15 @@ tests:
       - hasDocuments:
           count: 6
 
+      - equal:
+          path: metadata.namespace
+          value: metrics-monitors
+        documentIndex: 4
+      - equal:
+          path: metadata.namespace
+          value: metrics-monitors
+        documentIndex: 5
+
   - it: allows external namespace RBAC management
     set:
       daemonset.rbac.create: false
@@ -283,3 +292,27 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces must not contain empty namespace names
+
+  - it: skips redundant node namespace grants when cluster access is enabled
+    set:
+      targetAllocatorClusterSecretAccess: true
+      daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces: [metrics-monitors]
+    asserts:
+      - hasDocuments:
+          count: 4
+      - containsDocument:
+          kind: Role
+          apiVersion: rbac.authorization.k8s.io/v1
+        not: true
+      - containsDocument:
+          kind: RoleBinding
+          apiVersion: rbac.authorization.k8s.io/v1
+        not: true
+
+  - it: allows the all-namespace watch convention when cluster access is enabled
+    set:
+      targetAllocatorClusterSecretAccess: true
+      daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces: [""]
+    asserts:
+      - hasDocuments:
+          count: 4
