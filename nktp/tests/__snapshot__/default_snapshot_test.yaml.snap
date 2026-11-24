@@ -1841,8 +1841,10 @@ matches the snapshot with default values:
         targetCPUUtilization: 60
         targetMemoryUtilization: 100
       config:
+        connectors:
+          forward/exp/metrics_egress: {}
         exporters:
-          otlp_grpc:
+          otlp_grpc/(exp/metrics_egress):
             endpoint: lgtm:4317
             retry_on_failure:
               max_elapsed_time: 30m
@@ -1871,10 +1873,12 @@ matches the snapshot with default values:
             check_interval: 500ms
             limit_percentage: 80
             spike_limit_percentage: 25
-          redaction/basic_v1:
+          redaction/(exp/metrics_egress):
             allow_all_keys: true
             blocked_key_patterns:
-              - (?i)(?:(?:^|[._-])(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie)|(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))$$
+              - (?i)^(?:password|passwd|db[._-]?password)$$
+              - (?i)^(?:(?:access|refresh|id|session|auth)[._-]?token|(?:api|private|secret)[._-]?key|(?:aws[._-]?)?secret[._-]?access[._-]?key|client[._-]?secret)$$
+              - (?i)^(?:authorization|proxy[._-]?authorization|cookie|set[._-]?cookie|http[._]request[._]header[._](?:authorization|proxy[._-]?authorization|cookie))$$
             blocked_values:
               - (?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*
               - (?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)
@@ -1902,18 +1906,24 @@ matches the snapshot with default values:
                   reload_interval: 1h
         service:
           extensions:
-            - health_check
             - file_storage/queue
+            - health_check
           pipelines:
             metrics:
               exporters:
-                - otlp_grpc
+                - forward/exp/metrics_egress
               processors:
                 - memory_limiter
-                - redaction/basic_v1
                 - transform/cluster
               receivers:
                 - otlp
+            metrics/(exp/metrics_egress):
+              exporters:
+                - otlp_grpc/(exp/metrics_egress)
+              processors:
+                - redaction/(exp/metrics_egress)
+              receivers:
+                - forward/exp/metrics_egress
           telemetry:
             logs:
               processors:
@@ -15017,8 +15027,27 @@ matches the snapshot with default values:
         targetCPUUtilization: 75
         targetMemoryUtilization: 75
       config:
+        connectors:
+          forward/exp/metrics_egress: {}
         exporters:
           otlp_grpc:
+            endpoint: lgtm:4317
+            retry_on_failure:
+              max_elapsed_time: 30m
+            sending_queue:
+              batch:
+                flush_timeout: 1s
+                max_size: 2097152
+                min_size: 1048576
+                sizer: bytes
+              block_on_overflow: true
+              num_consumers: 32
+              queue_size: 85899346
+              sizer: bytes
+              storage: file_storage/queue
+            tls:
+              insecure: true
+          otlp_grpc/(exp/metrics_egress):
             endpoint: lgtm:4317
             retry_on_failure:
               max_elapsed_time: 30m
@@ -15047,6 +15076,17 @@ matches the snapshot with default values:
             check_interval: 500ms
             limit_percentage: 80
             spike_limit_percentage: 25
+          redaction/(exp/metrics_egress):
+            allow_all_keys: true
+            blocked_key_patterns:
+              - (?i)^(?:password|passwd|db[._-]?password)$$
+              - (?i)^(?:(?:access|refresh|id|session|auth)[._-]?token|(?:api|private|secret)[._-]?key|(?:aws[._-]?)?secret[._-]?access[._-]?key|client[._-]?secret)$$
+              - (?i)^(?:authorization|proxy[._-]?authorization|cookie|set[._-]?cookie|http[._]request[._]header[._](?:authorization|proxy[._-]?authorization|cookie))$$
+            blocked_values:
+              - (?i)\bBearer\s+[A-Za-z0-9._~+/-]+=*
+              - (?i)"?\b(?:[A-Za-z0-9]+[._-])*(?:password|passwd|secret|token|(?:access|refresh|id|session|auth)[._-]?token|(?:access|secret|private|api)[._-]?key|secret[._-]?access[._-]?key|client[._-]?secret|authorization|(?:set[._-]?)?cookie|[A-Za-z0-9]*(?-i:[a-z0-9])(?:(?-i:P)(?:assword|asswd|rivate[._-]?key)|(?-i:S)ecret|(?-i:T)oken|(?-i:A)(?:pi[._-]?key|ccess[._-]?key|uthorization)|(?-i:C)ookie))"?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|(?:(?:Bearer|Basic)\s+)?[^\s,;"]+)
+            redact_all_types: true
+            summary: silent
           redaction/basic_v1:
             allow_all_keys: true
             blocked_key_patterns:
@@ -15117,8 +15157,8 @@ matches the snapshot with default values:
                     insecure_skip_verify: true
         service:
           extensions:
-            - health_check
             - file_storage/queue
+            - health_check
           pipelines:
             logs:
               exporters:
@@ -15131,15 +15171,21 @@ matches the snapshot with default values:
                 - otlp/secure
             metrics:
               exporters:
-                - otlp_grpc
+                - forward/exp/metrics_egress
               processors:
                 - memory_limiter
-                - redaction/basic_v1
                 - transform/cluster
               receivers:
                 - otlp/insecure
                 - otlp/secure
                 - prometheus
+            metrics/(exp/metrics_egress):
+              exporters:
+                - otlp_grpc/(exp/metrics_egress)
+              processors:
+                - redaction/(exp/metrics_egress)
+              receivers:
+                - forward/exp/metrics_egress
             traces:
               exporters:
                 - otlp_grpc

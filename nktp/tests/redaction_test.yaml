@@ -31,11 +31,22 @@ tests:
   - it: allows removing redaction through native overrides
     template: templates/gateway-metrics.yaml
     set:
-      gateway_metrics.otelcol.config.processors.redaction/basic_v1: null
-      gateway_metrics.otelcol.config.service.pipelines.metrics.processors: [memory_limiter]
+      gateway_metrics.otelcol.config.exporters.blueprint/metrics_egress: null
+      gateway_metrics.otelcol.config.exporters.otlp_grpc: {endpoint: lgtm:4317}
+      gateway_metrics.otelcol.config.service.pipelines.metrics.exporters: [otlp_grpc]
     asserts:
       - notExists:
-          path: spec.config.processors["redaction/basic_v1"]
+          path: spec.config.processors["redaction/(exp/metrics_egress)"]
       - equal:
-          path: spec.config.service.pipelines.metrics.processors
-          value: [memory_limiter]
+          path: spec.config.processors
+          value:
+            memory_limiter: {check_interval: 500ms, limit_percentage: 80, spike_limit_percentage: 25}
+            transform/cluster:
+              error_mode: ignore
+              metric_statements:
+                - context: resource
+                  statements:
+                    - 'set(attributes["k8s.cluster.name"], "${env:K8S_CLUSTER_NAME:-unknown}") where attributes["k8s.cluster.name"] == nil'
+      - equal:
+          path: spec.config.service.pipelines.metrics.exporters
+          value: [otlp_grpc]
