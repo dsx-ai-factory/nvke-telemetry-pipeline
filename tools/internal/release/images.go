@@ -260,7 +260,7 @@ func (images ResolvedImages) validateRunningPods(data []byte, namespace string) 
 	}
 	observed, err := observed.normalized()
 	if err != nil {
-		return fmt.Errorf("Pod inventory: %w", err)
+		return fmt.Errorf("pod inventory: %w", err)
 	}
 	var unexpected []string
 	for _, image := range slices.Sorted(maps.Keys(observed)) {
@@ -270,7 +270,7 @@ func (images ResolvedImages) validateRunningPods(data []byte, namespace string) 
 		}
 	}
 	if len(unexpected) > 0 {
-		return fmt.Errorf("Running Pod images in namespace %q absent from rendered inventory:\n  %s",
+		return fmt.Errorf("running Pod images in namespace %q absent from rendered inventory:\n  %s",
 			namespace, strings.Join(unexpected, "\n  "))
 	}
 	return nil
