@@ -512,9 +512,9 @@ The table explains when each image runs; Helm test images are excluded.
 | `ghcr.io/open-telemetry/opentelemetry-operator/opentelemetry-operator:0.162.0` | Runs only when `opentelemetry-kube-stack.opentelemetry-operator.enabled=true` |
 | `ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:0.162.0` | Runs by default for node, large-target, nodeless, and watchdog Collectors |
 | `quay.io/prometheus/blackbox-exporter:v0.29.1` | Runs only when `blackbox-exporter.enabled=true` |
-| `quay.io/prometheus/node-exporter:v1.12.1` | Runs only when `node-exporter.enabled=true` |
+| `quay.io/prometheus/node-exporter:v1.13.1` | Runs only when `node-exporter.enabled=true` |
 | `registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0` | Runs only when `kube-state-metrics.enabled=true` |
-| `registry.k8s.io/kubectl:v1.35.10` | Runs before install or upgrade when `namespace.labeling.enabled=true`; Runs before uninstall |
+| `registry.k8s.io/kubectl:v1.35.10` | Runs before install or upgrade when `namespace.labeling.enabled=true`; Runs before uninstall; Runs during Helm hooks: post-delete |
 | `registry.k8s.io/metrics-server/metrics-server:v0.9.0` | Runs only when `metrics-server.enabled=true` |
 
 <!-- END IMAGE INVENTORY -->
