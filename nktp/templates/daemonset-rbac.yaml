@@ -87,3 +87,24 @@ subjects:
     namespace: {{ $.Release.Namespace }}
 {{- end }}
 {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: nktp-daemonset-metrics-scrape-{{ .Release.Namespace }}
+rules:
+  - nonResourceURLs: [/metrics]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: nktp-daemonset-metrics-scrape-{{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: nktp-daemonset-metrics-scrape-{{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.daemonset.kubernetes.serviceAccount | default "nktp-daemonset-collector" }}
+    namespace: {{ .Release.Namespace }}

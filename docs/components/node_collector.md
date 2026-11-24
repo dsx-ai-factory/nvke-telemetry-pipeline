@@ -102,9 +102,12 @@ its sidecar but not its Target Allocator. Use an existing class with
 
 ## Kubernetes API access
 
-The node Collector's service account can only `get` `nodes/metrics`, which the
-kubelet scrapes need. Processors that read the Kubernetes API, such as
-`k8s_attributes`, need more. The chart has no setting for extra Collector
+The node Collector's service account can `get` `nodes/metrics` for kubelet
+scrapes and the `/metrics` non-resource URL for endpoints that authorize requests
+through Kubernetes, such as controller-runtime secure metrics. The `/metrics`
+grant is cluster-wide, not restricted to targets in the release namespace.
+
+Processors that read the Kubernetes API, such as `k8s_attributes`, need more. The chart has no setting for extra Collector
 permissions. Apply your own ClusterRole and ClusterRoleBinding alongside the
 release, bound either to the service account the Operator creates or to one you
 create yourself.
@@ -254,7 +257,7 @@ with `<component>.kubernetes.targetAllocator.serviceAccount`.
 
 | Collector | Default service account | Chart bindings that follow `kubernetes.serviceAccount` |
 | --- | --- | --- |
-| `daemonset` | `nktp-daemonset-collector` | `get` on `nodes/metrics` |
+| `daemonset` | `nktp-daemonset-collector` | `get` on `nodes/metrics` and the `/metrics` non-resource URL |
 | `large_target_metrics` | `nktp-large-target-metrics-collector` | `get` on the `/metrics` non-resource URL |
 | `cluster_events` | `nktp-cluster-events-collector` | Events `get/list/watch`, and `get/update` on the election Lease |
 | `watchdog` | `nktp-watchdog-collector` | `get` on the Operator's `/metrics`, rendered only when the bundled Operator is enabled with `clusterRole.create` and `manager.metrics.secure` (the defaults) |

@@ -7,7 +7,7 @@ tests:
   - it: grants read-only discovery without Secret or ConfigMap access
     asserts:
       - hasDocuments:
-          count: 4
+          count: 6
       - equal:
           path: rules
           value:
@@ -121,12 +121,20 @@ tests:
           path: metadata.name
           value: nktp-daemonset-kubelet-metrics-binding-telemetry
 
-  - it: does not create namespace-scoped Collector RBAC with custom receiver configuration
+  - it: grants metrics access independently of receiver configuration without namespace-scoped Collector RBAC
     set:
       daemonset.otelcol.config.receivers: null
     asserts:
       - hasDocuments:
-          count: 4
+          count: 6
+      - equal:
+          path: rules
+          value:
+            - nonResourceURLs: [/metrics]
+              verbs: [get]
+        documentSelector:
+          path: $[?(@.kind == "ClusterRole")].metadata.name
+          value: nktp-daemonset-metrics-scrape-nktp
       - containsDocument:
           kind: Role
           apiVersion: rbac.authorization.k8s.io/v1
@@ -146,7 +154,7 @@ tests:
       daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces: [team-b, "null", team-b]
     asserts:
       - hasDocuments:
-          count: 8
+          count: 10
       - equal:
           path: rules
           value:
@@ -223,7 +231,7 @@ tests:
       daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces: [metrics-monitors]
     asserts:
       - hasDocuments:
-          count: 6
+          count: 8
       - equal:
           path: subjects
           value:
@@ -238,24 +246,23 @@ tests:
       daemonset.kubernetes.targetAllocator.prometheusCR.allowNamespaces: [other-monitors]
     asserts:
       - hasDocuments:
-          count: 6
+          count: 8
 
-      - equal:
-          path: metadata.namespace
-          value: metrics-monitors
-        documentIndex: 4
-      - equal:
-          path: metadata.namespace
-          value: metrics-monitors
-        documentIndex: 5
-
-  - it: allows external namespace RBAC management
+  - it: allows external namespace RBAC management without removing metrics access
     set:
       daemonset.rbac.create: false
       daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces: [metrics-monitors]
     asserts:
       - hasDocuments:
-          count: 4
+          count: 6
+      - equal:
+          path: rules
+          value:
+            - nonResourceURLs: [/metrics]
+              verbs: [get]
+        documentSelector:
+          path: $[?(@.kind == "ClusterRole")].metadata.name
+          value: nktp-daemonset-metrics-scrape-nktp
       - containsDocument:
           kind: Role
           apiVersion: rbac.authorization.k8s.io/v1
@@ -270,14 +277,78 @@ tests:
       daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces: []
     asserts:
       - hasDocuments:
-          count: 4
+          count: 6
 
   - it: does not grant Secret or ConfigMap access in the release namespace for a null list
     set:
       daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces: null
     asserts:
       - hasDocuments:
-          count: 4
+          count: 6
+
+  - it: grants the collector read-only access to authorized metrics endpoints
+    asserts:
+      - equal:
+          path: rules
+          value:
+            - nonResourceURLs: [/metrics]
+              verbs: [get]
+        documentSelector:
+          path: $[?(@.kind == "ClusterRole")].metadata.name
+          value: nktp-daemonset-metrics-scrape-nktp
+      - equal:
+          path: roleRef
+          value:
+            apiGroup: rbac.authorization.k8s.io
+            kind: ClusterRole
+            name: nktp-daemonset-metrics-scrape-nktp
+        documentSelector:
+          path: $[?(@.kind == "ClusterRoleBinding")].metadata.name
+          value: nktp-daemonset-metrics-scrape-nktp
+      - equal:
+          path: subjects
+          value:
+            - kind: ServiceAccount
+              name: nktp-daemonset-collector
+              namespace: nktp
+        documentSelector:
+          path: $[?(@.kind == "ClusterRoleBinding")].metadata.name
+          value: nktp-daemonset-metrics-scrape-nktp
+
+  - it: binds metrics access to a custom collector account in another release namespace
+    release:
+      name: custom-release
+      namespace: telemetry
+    set:
+      daemonset.kubernetes.serviceAccount: existing-collector
+      daemonset.kubernetes.targetAllocator.serviceAccount: existing-allocator
+    asserts:
+      - equal:
+          path: rules
+          value:
+            - nonResourceURLs: [/metrics]
+              verbs: [get]
+        documentSelector:
+          path: $[?(@.kind == "ClusterRole")].metadata.name
+          value: nktp-daemonset-metrics-scrape-telemetry
+      - equal:
+          path: roleRef
+          value:
+            apiGroup: rbac.authorization.k8s.io
+            kind: ClusterRole
+            name: nktp-daemonset-metrics-scrape-telemetry
+        documentSelector:
+          path: $[?(@.kind == "ClusterRoleBinding")].metadata.name
+          value: nktp-daemonset-metrics-scrape-telemetry
+      - equal:
+          path: subjects
+          value:
+            - kind: ServiceAccount
+              name: existing-collector
+              namespace: telemetry
+        documentSelector:
+          path: $[?(@.kind == "ClusterRoleBinding")].metadata.name
+          value: nktp-daemonset-metrics-scrape-telemetry
 
   - it: rejects a string instead of a boolean RBAC switch
     set:
