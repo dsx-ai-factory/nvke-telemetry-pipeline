@@ -370,7 +370,7 @@ tests:
       daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces: [metrics-monitors]
     asserts:
       - hasDocuments:
-          count: 4
+          count: 6
       - containsDocument:
           kind: Role
           apiVersion: rbac.authorization.k8s.io/v1
@@ -386,4 +386,4 @@ tests:
       daemonset.kubernetes.targetAllocator.prometheusCR.secretNamespaces: [""]
     asserts:
       - hasDocuments:
-          count: 4
+          count: 6
