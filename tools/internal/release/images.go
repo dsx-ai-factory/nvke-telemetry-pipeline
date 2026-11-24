@@ -9,6 +9,7 @@ import (
 	"context"
 	_ "crypto/sha256" // Register the standard image digest algorithm.
 	_ "crypto/sha512"
+	"encoding/json"
 	"fmt"
 	"io"
 	"maps"
@@ -30,7 +31,7 @@ func (images imageSet) normalized() (imageSet, error) {
 	for image, uses := range images {
 		named, err := reference.ParseNormalizedNamed(image)
 		if err != nil {
-			return nil, fmt.Errorf("invalid rendered image reference %q: %w", image, err)
+			return nil, fmt.Errorf("invalid image reference %q: %w", image, err)
 		}
 		for use := range uses {
 			result.add(reference.TagNameOnly(named).String(), use)
@@ -213,6 +214,66 @@ func render(ctx context.Context, root string) (imageSet, error) {
 type ResolvedImages struct {
 	Table          string
 	operatorImages []string
+	images         imageSet
+}
+
+// ValidateRunningPods reads the installed namespace without changing the cluster
+// and rejects Pod image declarations absent from the rendered inventory.
+func (images ResolvedImages) ValidateRunningPods(ctx context.Context, kubeconfig, namespace string) error {
+	command := exec.CommandContext(ctx, "kubectl", "--kubeconfig", kubeconfig,
+		"--namespace", namespace, "get", "pods", "--field-selector=status.phase=Running",
+		"--request-timeout=30s", "-o", "json")
+	var stderr bytes.Buffer
+	command.Stderr = &stderr
+	data, err := command.Output()
+	if err != nil {
+		return fmt.Errorf("read Running Pods in namespace %q: %w\n%s", namespace, err, stderr.String())
+	}
+	return images.validateRunningPods(data, namespace)
+}
+
+func (images ResolvedImages) validateRunningPods(data []byte, namespace string) error {
+	var pods struct {
+		Items []struct {
+			Metadata struct{ Name string }
+			Spec     map[string]any
+			Status   struct{ Phase string }
+		}
+	}
+	if err := json.Unmarshal(data, &pods); err != nil {
+		return fmt.Errorf("decode Pods in namespace %q: %w", namespace, err)
+	}
+	observed := make(imageSet)
+	running := 0
+	for _, pod := range pods.Items {
+		if pod.Status.Phase != "Running" {
+			continue
+		}
+		running++
+		for _, container := range containers(pod.Spec) {
+			observed.add(text(container["image"]), fmt.Sprintf("Pod %s/%s container %s",
+				namespace, pod.Metadata.Name, text(container["name"])))
+		}
+	}
+	if running == 0 {
+		return fmt.Errorf("no Running Pods found in namespace %q; install the chart before validating", namespace)
+	}
+	observed, err := observed.normalized()
+	if err != nil {
+		return fmt.Errorf("Pod inventory: %w", err)
+	}
+	var unexpected []string
+	for _, image := range slices.Sorted(maps.Keys(observed)) {
+		if _, found := images.images[image]; !found {
+			unexpected = append(unexpected, fmt.Sprintf("%s\n    Found in these Pods' containers:\n      %s", image,
+				strings.Join(slices.Sorted(maps.Keys(observed[image])), "\n      ")))
+		}
+	}
+	if len(unexpected) > 0 {
+		return fmt.Errorf("Running Pod images in namespace %q absent from rendered inventory:\n  %s",
+			namespace, strings.Join(unexpected, "\n  "))
+	}
+	return nil
 }
 
 func (images ResolvedImages) operatorVersion() (string, error) {
@@ -245,7 +306,7 @@ func Inventory(ctx context.Context, root string) (ResolvedImages, error) {
 	if err != nil {
 		return ResolvedImages{}, err
 	}
-	resolved := ResolvedImages{Table: markdown(images)}
+	resolved := ResolvedImages{Table: markdown(images), images: images}
 	for image, uses := range images {
 		if uses["Operator"] {
 			resolved.operatorImages = append(resolved.operatorImages, image)

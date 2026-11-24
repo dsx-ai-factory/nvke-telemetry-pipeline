@@ -222,7 +222,7 @@ NKTP values file.
 
 ```bash
 set -euo pipefail
-KUBECONFIG_FILE=/path/to/kubeconfig
+KUBECONFIG=/path/to/kubeconfig
 CONTEXT=kind-my-cluster
 NAMESPACE=nktp
 RELEASE=nktp
@@ -230,7 +230,7 @@ umask 077
 CERT_DIR="$(mktemp -d /tmp/nktp-tls.XXXXXX)"
 
 k() {
-  kubectl --kubeconfig "$KUBECONFIG_FILE" --context "$CONTEXT" \
+  kubectl --kubeconfig "$KUBECONFIG" --context "$CONTEXT" \
     --namespace "$NAMESPACE" "$@"
 }
 ```

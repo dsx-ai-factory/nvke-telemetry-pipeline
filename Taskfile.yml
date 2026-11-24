@@ -117,7 +117,7 @@ tasks:
       - go run ./package-blueprints -check
 
   docs:release:
-    desc: "Refresh dependency versions, image table, and Operator links; optionally update chart references (-- -from OLD -to NEW)"
+    desc: "Preview the image table and documentation updates; pass -- -write to apply"
     dir: tools
     deps: [chart:deps]
     cmds:

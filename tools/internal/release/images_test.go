@@ -4,9 +4,89 @@
 package release
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
+
+func TestValidateRunningPods(t *testing.T) {
+	known, err := discover([]byte("kind: Pod\nspec:\n  containers:\n    - image: busybox\n    - image: example.com/optional:v1\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	images := ResolvedImages{images: known}
+	pod := func(name, phase string, spec map[string]any) map[string]any {
+		return map[string]any{"metadata": map[string]string{"name": name}, "status": map[string]string{"phase": phase}, "spec": spec}
+	}
+	container := func(name, image string) map[string]string {
+		return map[string]string{"name": name, "image": image}
+	}
+	for _, tc := range []struct {
+		name string
+		pods []map[string]any
+		want []string
+	}{
+		{
+			name: "normalized references and absent optional image",
+			pods: []map[string]any{pod("known", "Running", map[string]any{
+				"containers":     []map[string]string{container("main", "docker.io/library/busybox:latest")},
+				"initContainers": []map[string]string{container("init", "busybox:latest")},
+			})},
+		},
+		{
+			name: "all unexpected declarations with provenance",
+			pods: []map[string]any{pod("unexpected", "Running", map[string]any{
+				"containers":          []map[string]string{container("main", "busybox:other")},
+				"initContainers":      []map[string]string{container("init", "example.com/init:v1")},
+				"ephemeralContainers": []map[string]string{container("debug", "example.com/debug:v1")},
+			})},
+			want: []string{"absent from rendered inventory", "docker.io/library/busybox:other\n    Found in these Pods' containers:\n      Pod installed/unexpected container main", "example.com/init:v1", "example.com/debug:v1", "container init", "container debug"},
+		},
+		{
+			name: "non-running Pods ignored",
+			pods: []map[string]any{
+				pod("known", "Running", map[string]any{"containers": []map[string]string{container("main", "busybox")}}),
+				pod("pending", "Pending", map[string]any{"containers": []map[string]string{container("main", "example.com/ignored:v1")}}),
+				pod("finished", "Succeeded", map[string]any{"containers": []map[string]string{container("main", "example.com/ignored:v1")}}),
+			},
+		},
+		{name: "empty namespace", want: []string{"no Running Pods", "installed"}},
+		{
+			name: "only pending Pods",
+			pods: []map[string]any{pod("pending", "Pending", nil)},
+			want: []string{"no Running Pods"},
+		},
+		{
+			name: "digest is distinct from tag",
+			pods: []map[string]any{pod("digest", "Running", map[string]any{"containers": []map[string]string{
+				container("main", "busybox@sha256:"+strings.Repeat("a", 64)),
+			}})},
+			want: []string{"absent from rendered inventory", "docker.io/library/busybox@sha256:"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			data, err := json.Marshal(map[string]any{"items": tc.pods})
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = images.validateRunningPods(data, "installed")
+			if len(tc.want) == 0 {
+				if err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
+			for _, want := range tc.want {
+				if err == nil || !strings.Contains(err.Error(), want) {
+					t.Errorf("wanted error containing %q, got %v", want, err)
+				}
+			}
+		})
+	}
+	if err := images.validateRunningPods([]byte("not JSON"), "installed"); err == nil {
+		t.Fatal("invalid kubectl output passed validation")
+	}
+}
 
 const manifests = `kind: Deployment
 metadata:
