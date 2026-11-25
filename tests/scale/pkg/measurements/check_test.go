@@ -30,6 +30,10 @@ func TestCheckValidation(t *testing.T) {
 		{name: "hold exceeds duration", entry: "check: {expr: up == 0, for: 2m}"},
 		{name: "numeric expression", entry: "check: {expr: 1}"},
 		{name: "unsupported action", entry: "check: {expr: up == 0, action: unknown}"},
+		{name: "numeric description", entry: "check: {expr: up == 0, description: 1}"},
+		{name: "null description", entry: "check: {expr: up == 0, description: null}"},
+		{name: "empty description", entry: "check: {expr: up == 0, description: ' '}"},
+		{name: "description sequence", entry: "check: {expr: up == 0, description: [unavailable]}"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			spec := fmt.Sprintf("endpoint: http://localhost:9090\nduration: 1m\nmeasurements:\n  - name: unavailable\n    %s\n", test.entry)

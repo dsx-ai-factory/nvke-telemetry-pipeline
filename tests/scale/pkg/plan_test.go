@@ -34,9 +34,11 @@ stages:
 // TestParse checks named components and stage declaration order.
 func TestParse(t *testing.T) {
 	data := strings.Replace(planYAML, "name: load", "name: load, start_delay: 10s", 1)
-	plan, err := Parse([]byte(data), nil)
+	data = strings.Replace(data, "{name: available, query: up}", "{name: available, check: {expr: up, description: '{{ .Args.signal }} available'}}", 1)
+	plan, err := Parse([]byte(data), map[string]string{"signal": "Metrics"})
 	require.NoError(t, err)
 	assert.Equal(t, time.Minute, plan.Timeout)
+	assert.Empty(t, plan.Description)
 	require.Len(t, plan.Stages, 2)
 	require.Len(t, plan.Stages[0].Generators, 1)
 	assert.Equal(t, "load", plan.Stages[0].Generators[0].Name)
@@ -46,6 +48,12 @@ func TestParse(t *testing.T) {
 	assert.Zero(t, plan.Stages[1].Generators[0].StartDelay)
 	stages, err := prepareStages(plan.Stages, "/example/kubeconfig")
 	require.NoError(t, err)
+	var spec struct {
+		Measurements []measurements.Measurement `yaml:"measurements"`
+	}
+	require.NoError(t, plan.Stages[0].Measurement.Spec.Decode(&spec))
+	require.Len(t, spec.Measurements, 1)
+	assert.Equal(t, "Metrics available", spec.Measurements[0].Check.Description)
 	assert.Equal(t, 10*time.Second, stages[0].generators[0].startDelay)
 }
 
@@ -121,7 +129,8 @@ func executionPlanYAML(t *testing.T) string {
 
 // TestExecutePlan checks report identity and reuse of a parsed plan.
 func TestExecutePlan(t *testing.T) {
-	plan, err := Parse([]byte(executionPlanYAML(t)), nil)
+	data := executionPlanYAML(t) + "description: Observe {{ .Args.signal }} during empty Pod batches\n"
+	plan, err := Parse([]byte(data), map[string]string{"signal": "metrics"})
 	require.NoError(t, err)
 	var previousID string
 	for range 2 {
@@ -132,6 +141,8 @@ func TestExecutePlan(t *testing.T) {
 		assert.Equal(t, args[runIDArgument], report.RunID)
 		assert.NotEqual(t, previousID, report.RunID)
 		assert.Equal(t, "smoke", report.Plan)
+		assert.Equal(t, "Observe metrics during empty Pod batches", plan.Description)
+		assert.Equal(t, plan.Description, report.Description)
 		previousID = report.RunID
 		require.Len(t, report.Stages, 2)
 		for i, name := range []string{"first", "second"} {

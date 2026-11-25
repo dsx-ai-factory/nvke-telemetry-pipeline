@@ -1,4 +1,10 @@
 name: kwok
+description: |-
+  - **Nodes:** Two emulated nodes with four CPU cores, 8 GiB memory and 30 Pod slots each, retained for
+    three minutes.
+  - **Pods:** 20 simulated Pods scheduled onto this run's emulated nodes, each requesting 100m CPU and 128
+    MiB memory and completing after about 30 seconds of simulated Running time. No workload container images
+    executed.
 timeout: 6m
 stages:
   - name: emulation

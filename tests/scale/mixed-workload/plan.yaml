@@ -1,6 +1,21 @@
 # Mixed workload on 100 real workers. See README.md.
 # Install values.yaml first. Only runId is a plan argument.
 name: mixed-workload
+description: |-
+  - **Metrics:** 24.4001M synthetic series: 5,000 scraped targets with 200 series each, 400 node-local
+    targets with 20,000 each, 4,000 OTLP sources with 250 each, large targets comprising 24 with 150,000
+    each, 24 with 300,000 each and six with 600,000 each, plus one fixed nodeless target with 100 series.
+    Scrape cadence: 30 seconds for the 5,000 scraped targets, 400 node-local targets, OTLP adapters and
+    fixed nodeless target, and 60 seconds for large targets, with no series churn. Run generators
+    contribute 24.4M series.
+  - **Logs:** 9,000 stdout sources at 16 records/s with 100 B bodies, plus 400 at four records/s with 64 KiB
+    bodies. Designed total: 145,600 records/s and 119.258 MB/s of log bodies.
+  - **Traces:** 4,000 sources at 16 spans/s with 1 KiB payloads, plus 200 at four spans/s with 64 KiB
+    payloads. Designed total: 64,800 spans/s and 117.965 MB/s payload.
+  - **Events:** 100 producers across 100 workers at 10 updates/s each, retaining 100 objects per producer
+    with 1 KiB messages. Designed total: 1,000 updates/s across 10,000 objects.
+  - **Ramp:** 10,154 run-owned generator Pods across 100 workers, scheduled for creation in four cohorts
+    at 0, 5, 10 and 15 minutes with cumulative Pod counts of 104, 2,539, 5,078 and 10,154.
 timeout: 120m
 stages:
   - name: load
@@ -692,6 +707,10 @@ stages:
           # Update these totals with generator sizes. Ready Pods are already scheduled.
           - name: full_load
             check:
+              description: >-
+                **Source readiness and activity:** Requires exactly 10,154 ready generator Pods, 9,400 stdout sources
+                emitting records over five-minute windows, 4,000 available OTLP metric sources and 5,454 healthy
+                workload scrape targets.
               action: complete
               for: 30m
               expr: |-
@@ -715,6 +734,10 @@ stages:
           # Every NKTP Collector Pod needs main-container and sidecar budgets.
           - name: resource_budgets
             check:
+              description: >-
+                **Collector resource requests:** At least one NKTP collector Pod must be observed, and every observed
+                collector Pod must have positive CPU and memory requests for both its main container and sidecar.
+                Request observations must be less than 90 seconds old.
               action: complete
               for: 30m
               expr: |-
@@ -739,6 +762,13 @@ stages:
           # Nine one-minute samples allow one missing observation.
           - name: metrics_to_gateway
             check:
+              description: >-
+                **Metrics to gateway:** Over ten minutes, the metrics gateway's aggregate receive rate in data points/s
+                must be within 1% of the combined rate sent by node, large-target and nodeless collectors, including
+                background traffic. Over five minutes, every workload worker must send metrics and each of the
+                large-target and nodeless collector pools must have nonzero aggregate exports, and the send and receive
+                counters must be less than 90 seconds old, have no resets, contain at least nine observations over ten
+                minutes and be present at both ends of that window.
               action: complete
               for: 30m
               expr: |-
@@ -824,6 +854,12 @@ stages:
                 )
           - name: metrics_to_blackhole
             check:
+              description: >-
+                **Metrics to test sink:** The gateway must send metric data points at a nonzero rate, and the test
+                sink's aggregate receive rate in data points/s must be within 1% of the gateway's send rate, using
+                ten-minute averages that include background traffic. Each send and receive counter must be less than 90
+                seconds old, have no resets and have at least nine observations over ten minutes, with the same counters
+                present at the start and end.
               action: complete
               for: 30m
               expr: |-
@@ -876,6 +912,12 @@ stages:
                 )
           - name: logs_to_gateway
             check:
+              description: >-
+                **Logs to gateway:** Over ten minutes, the logs gateway's aggregate receive rate must be within 1% of
+                the combined rate sent by node and Event collectors, including background traffic. Every workload worker
+                and the Event collector must send logs over five minutes, and the ten-minute send and receive counters
+                must be less than 90 seconds old, have no resets, contain at least nine observations and be present at
+                both ends of the window.
               action: complete
               for: 30m
               expr: |-
@@ -951,6 +993,11 @@ stages:
                 )
           - name: logs_to_blackhole
             check:
+              description: >-
+                **Logs to test sink:** The gateway must send logs at a nonzero rate, and the test sink's aggregate
+                receive rate must be within 1% of the gateway's send rate, using ten-minute averages that include
+                background traffic. Each send and receive counter must be less than 90 seconds old, have no resets and
+                have at least nine observations over ten minutes, with the same counters present at the start and end.
               action: complete
               for: 30m
               expr: |-
@@ -1003,6 +1050,11 @@ stages:
                 )
           - name: traces_to_gateway
             check:
+              description: >-
+                **Traces to gateway:** Over ten minutes, the traces gateway's aggregate receive rate must be within 1%
+                of the rate sent by node collectors, including background traffic. Every workload worker must send spans
+                over five minutes, and the ten-minute send and receive counters must be less than 90 seconds old, have
+                no resets, contain at least nine observations and be present at both ends of the window.
               action: complete
               for: 30m
               expr: |-
@@ -1067,6 +1119,11 @@ stages:
                 )
           - name: traces_to_blackhole
             check:
+              description: >-
+                **Traces to test sink:** The gateway must send spans at a nonzero rate, and the test sink's aggregate
+                receive rate must be within 1% of the gateway's send rate, using ten-minute averages that include
+                background traffic. Each send and receive counter must be less than 90 seconds old, have no resets and
+                have at least nine observations over ten minutes, with the same counters present at the start and end.
               action: complete
               for: 30m
               expr: |-
@@ -1119,6 +1176,12 @@ stages:
                 )
           - name: event_producers
             check:
+              description: >-
+                **Event producers:** Exactly 100 Event producers across 100 distinct workers must each produce
+                successful Event updates over five-minute windows, with no recorded failed updates or dropped generator
+                iterations in the preceding 120 minutes. Success counters must be less than 90 seconds old, have no
+                resets and have at least four observations over five minutes, with the same counters present at the
+                start and end.
               action: complete
               for: 30m
               expr: |-
@@ -1161,6 +1224,11 @@ stages:
                 )
           - name: event_delivery
             check:
+              description: >-
+                **Cluster-wide Event receipt:** The Event collector's total receive rate must be between 99% and 101% of
+                the run's successful Event update rate over five minutes, with 10 records/s added only to the upper
+                bound. Receive counters must be less than 90 seconds old, have no resets and have at least four
+                observations over five minutes, with the same counters present at the start and end.
               action: complete
               for: 30m
               expr: |-

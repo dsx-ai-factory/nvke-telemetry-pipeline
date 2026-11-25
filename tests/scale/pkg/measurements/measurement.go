@@ -33,9 +33,10 @@ type Measurement struct {
 // Check acts when a PromQL result contains a series for the specified duration.
 // Expr must return an instant vector. Action defaults to Fail and For to immediate.
 type Check struct {
-	Expr   string        `yaml:"expr"`
-	For    time.Duration `yaml:"for,omitempty"`
-	Action Action        `yaml:"action,omitempty"`
+	Description string        `yaml:"description,omitempty"`
+	Expr        string        `yaml:"expr"`
+	For         time.Duration `yaml:"for,omitempty"`
+	Action      Action        `yaml:"action,omitempty"`
 }
 
 // validateMeasurements checks entry fields before decoding can coerce scalar types.
@@ -96,7 +97,7 @@ func validateCheck(node yaml.Node) error {
 	}
 	for i := 0; i < len(node.Content); i += 2 {
 		key, value := node.Content[i], node.Content[i+1]
-		if key.Tag != "!!str" || (key.Value != "expr" && key.Value != "for" && key.Value != "action") {
+		if key.Tag != "!!str" || (key.Value != "expr" && key.Value != "for" && key.Value != "action" && key.Value != "description") {
 			return fmt.Errorf("unknown check field %q", key.Value)
 		}
 		if value.Kind != yaml.ScalarNode || value.Tag != "!!str" || strings.TrimSpace(value.Value) == "" {

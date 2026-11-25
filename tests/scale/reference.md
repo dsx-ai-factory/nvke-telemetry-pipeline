@@ -37,6 +37,11 @@ scrape configuration that expose that label as `test_run_id`.
 
 ```yaml
 name: stdout-overview
+description: |-
+  - **Logs:** One stdout source at 16 records/s with 100 B bodies, plus one at four records/s with 64 KiB
+    bodies, each running for up to five minutes until qualification completes. Designed total: 20 records/s
+    and 263,744 body bytes/s.
+  - **Baseline:** 30 seconds of gateway memory observations before starting the sources.
 timeout: 8m                       # Shared deadline across all stages.
 stages:                           # Sequential. Each stage cleans up before the next.
   - name: baseline                 # Observation-only: generators may be omitted.
@@ -87,6 +92,9 @@ stages:                           # Sequential. Each stage cleans up before the 
               )
           - name: gateway_unavailable
             check:
+              description: >-
+                **Logs gateway availability:** Fails when any logs gateway scrape target is down or all targets are
+                absent for 30 seconds.
               action: fail        # Default action. Cancels peers and stops the plan.
               for: 30s            # The same labels must match throughout the hold.
               # Pipeline-wide. Also fail when the gateway target disappears.
@@ -95,6 +103,9 @@ stages:                           # Sequential. Each stage cleans up before the 
                 or absent(up{job="nktp-gateway-logs"})
           - name: producers_active
             check:
+              description: >-
+                **Log producers:** Completes when both log producers emit over one-minute windows with samples less than
+                30 seconds old for 30 seconds.
               action: complete    # Stop generators, await cleanup, finish this stage.
               for: 30s            # Failure still takes precedence over completion.
               # Both producers must emit and have a sample less than 30s old.
@@ -116,6 +127,7 @@ stages:                           # Sequential. Each stage cleans up before the 
 | Field | Meaning |
 | --- | --- |
 | `name` | Nonempty plan name |
+| `description` | Optional plan purpose, resolved with arguments and retained in JSON |
 | `timeout` | Positive execution deadline, including workload startup and recovery |
 | `stages` | Nonempty list executed in declaration order |
 | `stages[].name` | Nonempty, unique stage name |
@@ -178,6 +190,7 @@ resolution and the outer Go test timeout.
 | `query_timeout` | Positive timeout per query. Default `10s` |
 | `measurements` | Nonempty list. Each entry has a unique `name` and exactly one of `query` or `check` |
 | Entry `units` | Optional display units. `bytes` and `bytes/s` scale automatically |
+| `check.description` | Optional nonempty description of the check condition, retained in JSON |
 
 | Entry | Behavior |
 | --- | --- |

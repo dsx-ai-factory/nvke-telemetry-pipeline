@@ -1,4 +1,9 @@
 name: telemetrygen
+description: |-
+  - **Metrics:** One telemetrygen Job with one worker at 10 gauge points/s for three minutes, creating new
+    series identities throughout the run.
+  - **Logs:** One telemetrygen Job with one worker at 10 records/s for three minutes.
+  - **Traces:** One telemetrygen Job with one worker at 10 spans/s for three minutes.
 timeout: 6m
 stages:
   - name: load

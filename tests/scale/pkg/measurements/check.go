@@ -14,10 +14,11 @@ import (
 // CheckReport retains the action, hold duration and matching series.
 // Completion status clears when a later result no longer satisfies the hold.
 type CheckReport struct {
-	Action  Action         `json:"action"`
-	For     string         `json:"for"`
-	FiredAt *time.Time     `json:"fired_at,omitempty"`
-	Series  []model.Metric `json:"series,omitempty"`
+	Description string         `json:"description,omitempty"`
+	Action      Action         `json:"action"`
+	For         string         `json:"for"`
+	FiredAt     *time.Time     `json:"fired_at,omitempty"`
+	Series      []model.Metric `json:"series,omitempty"`
 }
 
 // checkState tracks each series independently within one measurement run.

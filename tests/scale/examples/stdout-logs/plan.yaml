@@ -1,4 +1,8 @@
 name: stdout-logs
+description: |-
+  - **Logs:** One Vector source at 16 records/s with 100 B bodies, plus one at four records/s with 64 KiB
+    bodies, both running for three minutes after readiness. Designed total: 20 records/s and 263,744 body
+    bytes/s.
 timeout: 6m
 stages:
   - name: load

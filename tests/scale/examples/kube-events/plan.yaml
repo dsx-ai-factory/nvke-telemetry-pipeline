@@ -1,4 +1,7 @@
 name: kube-events
+description: |-
+  - **Events:** One k6 producer at 10 updates/s for three minutes, retaining 100 Kubernetes Event objects
+    with 1 KiB messages.
 timeout: 8m
 stages:
   - name: events
