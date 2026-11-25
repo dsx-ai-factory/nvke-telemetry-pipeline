@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dsx-ai-factory/nvke-telemetry-pipeline/tests/internal/funcs"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -29,7 +30,8 @@ import (
 
 func TestDCGMMetrics(t *testing.T) {
 	// Requires a ready dcgm-exporter with Kubernetes pod mapping, a
-	// ServiceMonitor with honorLabels=false, and an allocatable GPU.
+	// ServiceMonitor with honorLabels=false, and an allocatable whole GPU on an
+	// exporter node; skips without one, as when every GPU is MIG-partitioned.
 	namespace := testenv.EnvConf().Namespace()
 	var pod corev1.Pod
 	created := false
@@ -60,6 +62,16 @@ func TestDCGMMetrics(t *testing.T) {
 			if exporter == nil {
 				t.Skip("dcgm-exporter is not installed and ready")
 			}
+			// The CUDA workload requests a whole nvidia.com/gpu, which a node
+			// whose GPUs are all MIG-partitioned reports as 0.
+			var nodes corev1.NodeList
+			require.NoError(t, c.Client().Resources().List(setupCtx, &nodes), "listing nodes")
+			gpuNodes := funcs.NodesWithAllocatable(nodes.Items, exporterNodes, "nvidia.com/gpu")
+			if len(gpuNodes) == 0 {
+				t.Skipf("no dcgm-exporter node has an allocatable nvidia.com/gpu (exporter nodes: %s); "+
+					"nodes whose GPUs are all MIG-partitioned report nvidia.com/gpu: 0",
+					strings.Join(exporterNodes, ", "))
+			}
 
 			require.NoError(t, decoder.DecodeFile(os.DirFS("manifests/dcgm-metrics"), "pod.yaml", &pod,
 				decoder.MutateNamespace(namespace)), "loading CUDA workload manifest")
@@ -70,7 +82,7 @@ func TestDCGMMetrics(t *testing.T) {
 						NodeSelectorTerms: []corev1.NodeSelectorTerm{{
 							MatchFields: []corev1.NodeSelectorRequirement{{
 								Key: "metadata.name", Operator: corev1.NodeSelectorOpIn,
-								Values: exporterNodes,
+								Values: gpuNodes,
 							}},
 						}},
 					},
