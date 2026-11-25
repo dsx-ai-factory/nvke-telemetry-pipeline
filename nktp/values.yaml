@@ -140,6 +140,58 @@ blueprints:
           {{ required "otlp_backend: signal is required" .values.signal }}:
             receivers: [{{ .forward }}]
             exporters: [otlp_grpc]
+    otlp_watchdog:
+      version: 0.1.0
+      description: |
+        Sends telemetry to the NKTP watchdog over OTLP gRPC, with mTLS using the
+        client certificate mounted at /etc/nktp/internal-tls/client.
+        Use it in a logs, a metrics, and a traces pipeline, or set signal to use it for one signal only.
+        Parameters:
+          queue_size (required): bytes per signal in the in-memory sending queue.
+          signal (optional): logs, metrics, or traces, the only signal it sends.
+          block_on_overflow (optional): when the queue is full, wait for space instead of refusing new data. Defaults to false.
+          tls (optional): replaces the default mTLS settings, such as {insecure: true}.
+      template: |
+        exporters:
+          otlp_grpc:
+            endpoint: nktp-watchdog-collector:4317
+            {{- with .values.tls }}
+            tls: {{ toJson . }}
+            {{- else }}
+            tls:
+              cert_file: /etc/nktp/internal-tls/client/tls.crt
+              key_file: /etc/nktp/internal-tls/client/tls.key
+              ca_file: /etc/nktp/internal-tls/client/ca.crt
+              reload_interval: 1h
+            {{- end }}
+            retry_on_failure:
+              max_elapsed_time: 30m
+            sending_queue:
+              block_on_overflow: {{ .values.block_on_overflow | default false | toJson }} # The SDK cannot wait or retry, so blocking would only move the loss out of view.
+              sizer: bytes
+              queue_size: {{ required "otlp_watchdog: queue_size is required" .values.queue_size | toJson }}
+              num_consumers: 2
+              batch:
+                sizer: bytes
+                min_size: 65536
+                max_size: 262144
+                flush_timeout: 1s
+        pipelines:
+          {{- if .values.signal }}
+          {{ .values.signal }}:
+            receivers: [{{ .forward }}]
+            exporters: [otlp_grpc]
+          {{- else }}
+          logs:
+            receivers: [{{ .forward }}]
+            exporters: [otlp_grpc]
+          metrics:
+            receivers: [{{ .forward }}]
+            exporters: [otlp_grpc]
+          traces:
+            receivers: [{{ .forward }}]
+            exporters: [otlp_grpc]
+          {{- end }}
 # END DEFAULT BLUEPRINTS
 
 # OTel workloads. Each workload uses the same structure:
@@ -873,25 +925,8 @@ gateway_logs:
                   span:
                     - end_time_unix_nano - start_time_unix_nano > 1000000000
         exporters:
-          otlp_grpc:
-            endpoint: nktp-watchdog-collector:4317
-            tls:
-              cert_file: /etc/nktp/internal-tls/client/tls.crt
-              key_file: /etc/nktp/internal-tls/client/tls.key
-              ca_file: /etc/nktp/internal-tls/client/ca.crt
-              reload_interval: 1h
-            retry_on_failure:
-              max_elapsed_time: 30m
-            sending_queue:
-              block_on_overflow: false # The SDK cannot wait or retry, so blocking would only move the loss out of view.
-              sizer: bytes
-              queue_size: 16777216 # 16MiB for each of the 3 signal queues, 48MiB in total. When full, the sidecar refuses new data.
-              num_consumers: 2
-              batch:
-                sizer: bytes
-                min_size: 65536
-                max_size: 262144
-                flush_timeout: 1s
+          blueprint/otlp_watchdog:
+            queue_size: 16777216 # 16MiB for each of the 3 signal queues, 48MiB in total. When full, the sidecar refuses new data.
         service:
           extensions: [health_check]
           telemetry:
@@ -919,15 +954,15 @@ gateway_logs:
             metrics:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp_grpc]
+              exporters: [blueprint/otlp_watchdog]
             logs:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp_grpc]
+              exporters: [blueprint/otlp_watchdog]
             traces:
               receivers: [otlp]
               processors: [memory_limiter, tail_sampling]
-              exporters: [otlp_grpc]
+              exporters: [blueprint/otlp_watchdog]
 
 # Metric gateway. Exports all metrics from the cluster.
 gateway_metrics:
@@ -1212,25 +1247,8 @@ gateway_metrics:
                   span:
                     - end_time_unix_nano - start_time_unix_nano > 1000000000
         exporters:
-          otlp_grpc:
-            endpoint: nktp-watchdog-collector:4317
-            tls:
-              cert_file: /etc/nktp/internal-tls/client/tls.crt
-              key_file: /etc/nktp/internal-tls/client/tls.key
-              ca_file: /etc/nktp/internal-tls/client/ca.crt
-              reload_interval: 1h
-            retry_on_failure:
-              max_elapsed_time: 30m
-            sending_queue:
-              block_on_overflow: false # The SDK cannot wait or retry, so blocking would only move the loss out of view.
-              sizer: bytes
-              queue_size: 16777216 # 16MiB for each of the 3 signal queues, 48MiB in total. When full, the sidecar refuses new data.
-              num_consumers: 2
-              batch:
-                sizer: bytes
-                min_size: 65536
-                max_size: 262144
-                flush_timeout: 1s
+          blueprint/otlp_watchdog:
+            queue_size: 16777216 # 16MiB for each of the 3 signal queues, 48MiB in total. When full, the sidecar refuses new data.
         service:
           extensions: [health_check]
           telemetry:
@@ -1258,15 +1276,15 @@ gateway_metrics:
             metrics:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp_grpc]
+              exporters: [blueprint/otlp_watchdog]
             logs:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp_grpc]
+              exporters: [blueprint/otlp_watchdog]
             traces:
               receivers: [otlp]
               processors: [memory_limiter, tail_sampling]
-              exporters: [otlp_grpc]
+              exporters: [blueprint/otlp_watchdog]
 
 # Trace gateway. Exports all traces from the cluster.
 gateway_traces:
@@ -1551,25 +1569,8 @@ gateway_traces:
                   span:
                     - end_time_unix_nano - start_time_unix_nano > 1000000000
         exporters:
-          otlp_grpc:
-            endpoint: nktp-watchdog-collector:4317
-            tls:
-              cert_file: /etc/nktp/internal-tls/client/tls.crt
-              key_file: /etc/nktp/internal-tls/client/tls.key
-              ca_file: /etc/nktp/internal-tls/client/ca.crt
-              reload_interval: 1h
-            retry_on_failure:
-              max_elapsed_time: 30m
-            sending_queue:
-              block_on_overflow: false # The SDK cannot wait or retry, so blocking would only move the loss out of view.
-              sizer: bytes
-              queue_size: 16777216 # 16MiB for each of the 3 signal queues, 48MiB in total. When full, the sidecar refuses new data.
-              num_consumers: 2
-              batch:
-                sizer: bytes
-                min_size: 65536
-                max_size: 262144
-                flush_timeout: 1s
+          blueprint/otlp_watchdog:
+            queue_size: 16777216 # 16MiB for each of the 3 signal queues, 48MiB in total. When full, the sidecar refuses new data.
         service:
           extensions: [health_check]
           telemetry:
@@ -1597,15 +1598,15 @@ gateway_traces:
             metrics:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp_grpc]
+              exporters: [blueprint/otlp_watchdog]
             logs:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp_grpc]
+              exporters: [blueprint/otlp_watchdog]
             traces:
               receivers: [otlp]
               processors: [memory_limiter, tail_sampling]
-              exporters: [otlp_grpc]
+              exporters: [blueprint/otlp_watchdog]
 
 # Node-level collector. Collects local telemetry and forwards received OTLP signals.
 daemonset:
@@ -2158,25 +2159,10 @@ daemonset:
               min_size: 1048576
               max_size: 2097152
               flush_timeout: 1s
-        otlp_grpc/watchdog:
-          endpoint: nktp-watchdog-collector:4317
-          tls:
-            ca_file: /etc/nktp/internal-tls/client/ca.crt
-            cert_file: /etc/nktp/internal-tls/client/tls.crt
-            key_file: /etc/nktp/internal-tls/client/tls.key
-            reload_interval: 1h
-          retry_on_failure:
-            max_elapsed_time: 30m
-          sending_queue:
-            block_on_overflow: true
-            sizer: bytes
-            queue_size: 1048576
-            num_consumers: 2
-            batch:
-              sizer: bytes
-              min_size: 65536
-              max_size: 262144
-              flush_timeout: 1s
+        blueprint/otlp_watchdog:
+          signal: logs
+          block_on_overflow: true
+          queue_size: 1048576
       service:
         extensions: [health_check, file_storage/log-checkpoints]
         telemetry:
@@ -2215,11 +2201,11 @@ daemonset:
           logs/targetallocator:
             receivers: [file_log/targetallocator]
             processors: [memory_limiter, resource/node, transform/targetallocator, redaction/basic_v1]
-            exporters: [otlp_grpc/watchdog]
+            exporters: [blueprint/otlp_watchdog]
           logs/operator:
             receivers: [file_log/operator]
             processors: [memory_limiter, resource/node, transform/operator, redaction/basic_v1]
-            exporters: [otlp_grpc/watchdog]
+            exporters: [blueprint/otlp_watchdog]
           metrics:
             receivers: [prometheus, prometheus/kubelet, otlp]
             processors: [memory_limiter, resource/node, redaction/basic_v1]
@@ -2309,25 +2295,8 @@ daemonset:
                   span:
                     - end_time_unix_nano - start_time_unix_nano > 1000000000
         exporters:
-          otlp_grpc:
-            endpoint: nktp-watchdog-collector:4317
-            tls:
-              cert_file: /etc/nktp/internal-tls/client/tls.crt
-              key_file: /etc/nktp/internal-tls/client/tls.key
-              ca_file: /etc/nktp/internal-tls/client/ca.crt
-              reload_interval: 1h
-            retry_on_failure:
-              max_elapsed_time: 30m
-            sending_queue:
-              block_on_overflow: false # The SDK cannot wait or retry, so blocking would only move the loss out of view.
-              sizer: bytes
-              queue_size: 4194304 # 4MiB for each of the 3 signal queues, 12MiB in total. When full, the sidecar refuses new data.
-              num_consumers: 2
-              batch:
-                sizer: bytes
-                min_size: 65536
-                max_size: 262144
-                flush_timeout: 1s
+          blueprint/otlp_watchdog:
+            queue_size: 4194304 # 4MiB for each of the 3 signal queues, 12MiB in total. When full, the sidecar refuses new data.
         service:
           extensions: [health_check]
           telemetry:
@@ -2356,15 +2325,15 @@ daemonset:
             metrics:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp_grpc]
+              exporters: [blueprint/otlp_watchdog]
             logs:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp_grpc]
+              exporters: [blueprint/otlp_watchdog]
             traces:
               receivers: [otlp]
               processors: [memory_limiter, tail_sampling]
-              exporters: [otlp_grpc]
+              exporters: [blueprint/otlp_watchdog]
 
 # Scrapes monitoring CRs labeled nktp.nvidia.io/large-target: "true".
 large_target_metrics:
@@ -2683,25 +2652,8 @@ large_target_metrics:
                   span:
                     - end_time_unix_nano - start_time_unix_nano > 1000000000
         exporters:
-          otlp_grpc:
-            endpoint: nktp-watchdog-collector:4317
-            tls:
-              cert_file: /etc/nktp/internal-tls/client/tls.crt
-              key_file: /etc/nktp/internal-tls/client/tls.key
-              ca_file: /etc/nktp/internal-tls/client/ca.crt
-              reload_interval: 1h
-            retry_on_failure:
-              max_elapsed_time: 30m
-            sending_queue:
-              block_on_overflow: false # The SDK cannot wait or retry, so blocking would only move the loss out of view.
-              sizer: bytes
-              queue_size: 4194304 # 4MiB for each of the 3 signal queues, 12MiB in total. When full, the sidecar refuses new data.
-              num_consumers: 2
-              batch:
-                sizer: bytes
-                min_size: 65536
-                max_size: 262144
-                flush_timeout: 1s
+          blueprint/otlp_watchdog:
+            queue_size: 4194304 # 4MiB for each of the 3 signal queues, 12MiB in total. When full, the sidecar refuses new data.
         service:
           extensions: [health_check]
           telemetry:
@@ -2729,15 +2681,15 @@ large_target_metrics:
             metrics:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp_grpc]
+              exporters: [blueprint/otlp_watchdog]
             logs:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp_grpc]
+              exporters: [blueprint/otlp_watchdog]
             traces:
               receivers: [otlp]
               processors: [memory_limiter, tail_sampling]
-              exporters: [otlp_grpc]
+              exporters: [blueprint/otlp_watchdog]
 
 # Scrapes the targets that have no node for a daemonset Collector to own, such
 # as Probes and static ScrapeConfigs. It selects the same monitoring CRs as the
@@ -3040,25 +2992,8 @@ nodeless_metrics:
                   span:
                     - end_time_unix_nano - start_time_unix_nano > 1000000000
         exporters:
-          otlp_grpc:
-            endpoint: nktp-watchdog-collector:4317
-            tls:
-              cert_file: /etc/nktp/internal-tls/client/tls.crt
-              key_file: /etc/nktp/internal-tls/client/tls.key
-              ca_file: /etc/nktp/internal-tls/client/ca.crt
-              reload_interval: 1h
-            retry_on_failure:
-              max_elapsed_time: 30m
-            sending_queue:
-              block_on_overflow: false # The SDK cannot wait or retry, so blocking would only move the loss out of view.
-              sizer: bytes
-              queue_size: 4194304 # 4MiB for each of the 3 signal queues, 12MiB in total. When full, the sidecar refuses new data.
-              num_consumers: 2
-              batch:
-                sizer: bytes
-                min_size: 65536
-                max_size: 262144
-                flush_timeout: 1s
+          blueprint/otlp_watchdog:
+            queue_size: 4194304 # 4MiB for each of the 3 signal queues, 12MiB in total. When full, the sidecar refuses new data.
         service:
           extensions: [health_check]
           telemetry:
@@ -3086,15 +3021,15 @@ nodeless_metrics:
             metrics:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp_grpc]
+              exporters: [blueprint/otlp_watchdog]
             logs:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp_grpc]
+              exporters: [blueprint/otlp_watchdog]
             traces:
               receivers: [otlp]
               processors: [memory_limiter, tail_sampling]
-              exporters: [otlp_grpc]
+              exporters: [blueprint/otlp_watchdog]
 
 # Cluster event reader. One elected replica watches Kubernetes Events.
 cluster_events:
@@ -3329,25 +3264,8 @@ cluster_events:
                   span:
                     - end_time_unix_nano - start_time_unix_nano > 1000000000
         exporters:
-          otlp_grpc:
-            endpoint: nktp-watchdog-collector:4317
-            tls:
-              cert_file: /etc/nktp/internal-tls/client/tls.crt
-              key_file: /etc/nktp/internal-tls/client/tls.key
-              ca_file: /etc/nktp/internal-tls/client/ca.crt
-              reload_interval: 1h
-            retry_on_failure:
-              max_elapsed_time: 30m
-            sending_queue:
-              block_on_overflow: false # The SDK cannot wait or retry, so blocking would only move the loss out of view.
-              sizer: bytes
-              queue_size: 4194304 # 4MiB for each of the 3 signal queues, 12MiB in total. When full, the sidecar refuses new data.
-              num_consumers: 2
-              batch:
-                sizer: bytes
-                min_size: 65536
-                max_size: 262144
-                flush_timeout: 1s
+          blueprint/otlp_watchdog:
+            queue_size: 4194304 # 4MiB for each of the 3 signal queues, 12MiB in total. When full, the sidecar refuses new data.
         service:
           extensions: [health_check]
           telemetry:
@@ -3375,15 +3293,15 @@ cluster_events:
             metrics:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp_grpc]
+              exporters: [blueprint/otlp_watchdog]
             logs:
               receivers: [otlp]
               processors: [memory_limiter]
-              exporters: [otlp_grpc]
+              exporters: [blueprint/otlp_watchdog]
             traces:
               receivers: [otlp]
               processors: [memory_limiter, tail_sampling]
-              exporters: [otlp_grpc]
+              exporters: [blueprint/otlp_watchdog]
 
 # Default in-cluster backend. MUST be disabled for production use.
 otel-lgtm:

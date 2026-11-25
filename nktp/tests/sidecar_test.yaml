@@ -174,7 +174,7 @@ tests:
               readOnly: true
       - matchRegex:
           path: spec.initContainers[0].args[0]
-          pattern: &watchdogMTLSExporter '"exporters":\{"otlp_grpc":\{"endpoint":"nktp-watchdog-collector:4317",[^\n]*"tls":\{"ca_file":"/etc/nktp/internal-tls/client/ca\.crt","cert_file":"/etc/nktp/internal-tls/client/tls\.crt","key_file":"/etc/nktp/internal-tls/client/tls\.key","reload_interval":"1h"\}\}\}'
+          pattern: &watchdogMTLSExporter '"exporters":\{"otlp_grpc/\(exp/otlp_watchdog\)":\{"endpoint":"nktp-watchdog-collector:4317",[^\n]*"tls":\{"ca_file":"/etc/nktp/internal-tls/client/ca\.crt","cert_file":"/etc/nktp/internal-tls/client/tls\.crt","key_file":"/etc/nktp/internal-tls/client/tls\.key","reload_interval":"1h"\}\}\}'
       - matchRegex:
           path: spec.initContainers[0].args[0]
           pattern: '"receivers":\{"otlp":\{"protocols":\{"http":\{"endpoint":"127\.0\.0\.1:4319","keepalive":\{"idle_timeout":"5m"\}\}\}\}\}'
@@ -229,13 +229,22 @@ tests:
           pattern: *watchdogMTLSExporter
       - matchRegex:
           path: spec.initContainers[0].args[0]
-          pattern: '"logs":\{"exporters":\["otlp_grpc"\]'
+          pattern: '"logs":\{"exporters":\["forward/exp/otlp_watchdog"\]'
       - matchRegex:
           path: spec.initContainers[0].args[0]
-          pattern: '"metrics":\{"exporters":\["otlp_grpc"\]'
+          pattern: '"logs/\(exp/otlp_watchdog\)":\{"exporters":\["otlp_grpc/\(exp/otlp_watchdog\)"\],"receivers":\["forward/exp/otlp_watchdog"\]\}'
       - matchRegex:
           path: spec.initContainers[0].args[0]
-          pattern: '"traces":\{"exporters":\["otlp_grpc"\]'
+          pattern: '"metrics":\{"exporters":\["forward/exp/otlp_watchdog"\]'
+      - matchRegex:
+          path: spec.initContainers[0].args[0]
+          pattern: '"metrics/\(exp/otlp_watchdog\)":\{"exporters":\["otlp_grpc/\(exp/otlp_watchdog\)"\],"receivers":\["forward/exp/otlp_watchdog"\]\}'
+      - matchRegex:
+          path: spec.initContainers[0].args[0]
+          pattern: '"traces":\{"exporters":\["forward/exp/otlp_watchdog"\]'
+      - matchRegex:
+          path: spec.initContainers[0].args[0]
+          pattern: '"traces/\(exp/otlp_watchdog\)":\{"exporters":\["otlp_grpc/\(exp/otlp_watchdog\)"\],"receivers":\["forward/exp/otlp_watchdog"\]\}'
 
   - it: passes sidecar configuration values and native expressions unchanged
     template: templates/gateway-logs.yaml

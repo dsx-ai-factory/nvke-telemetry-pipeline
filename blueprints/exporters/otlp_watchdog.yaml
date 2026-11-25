@@ -1,0 +1,54 @@
+blueprints:
+  exporters:
+    otlp_watchdog:
+      version: 0.1.0
+      description: |
+        Sends telemetry to the NKTP watchdog over OTLP gRPC, with mTLS using the
+        client certificate mounted at /etc/nktp/internal-tls/client.
+        Use it in a logs, a metrics, and a traces pipeline, or set signal to use it for one signal only.
+        Parameters:
+          queue_size (required): bytes per signal in the in-memory sending queue.
+          signal (optional): logs, metrics, or traces, the only signal it sends.
+          block_on_overflow (optional): when the queue is full, wait for space instead of refusing new data. Defaults to false.
+          tls (optional): replaces the default mTLS settings, such as {insecure: true}.
+      template: |
+        exporters:
+          otlp_grpc:
+            endpoint: nktp-watchdog-collector:4317
+            {{- with .values.tls }}
+            tls: {{ toJson . }}
+            {{- else }}
+            tls:
+              cert_file: /etc/nktp/internal-tls/client/tls.crt
+              key_file: /etc/nktp/internal-tls/client/tls.key
+              ca_file: /etc/nktp/internal-tls/client/ca.crt
+              reload_interval: 1h
+            {{- end }}
+            retry_on_failure:
+              max_elapsed_time: 30m
+            sending_queue:
+              block_on_overflow: {{ .values.block_on_overflow | default false | toJson }} # The SDK cannot wait or retry, so blocking would only move the loss out of view.
+              sizer: bytes
+              queue_size: {{ required "otlp_watchdog: queue_size is required" .values.queue_size | toJson }}
+              num_consumers: 2
+              batch:
+                sizer: bytes
+                min_size: 65536
+                max_size: 262144
+                flush_timeout: 1s
+        pipelines:
+          {{- if .values.signal }}
+          {{ .values.signal }}:
+            receivers: [{{ .forward }}]
+            exporters: [otlp_grpc]
+          {{- else }}
+          logs:
+            receivers: [{{ .forward }}]
+            exporters: [otlp_grpc]
+          metrics:
+            receivers: [{{ .forward }}]
+            exporters: [otlp_grpc]
+          traces:
+            receivers: [{{ .forward }}]
+            exporters: [otlp_grpc]
+          {{- end }}

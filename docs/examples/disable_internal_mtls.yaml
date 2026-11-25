@@ -53,7 +53,7 @@ gateway_logs:
     otelcol:
       config:
         exporters:
-          otlp_grpc:
+          blueprint/otlp_watchdog:
             tls:
               insecure: true
               ca_file: null
@@ -80,7 +80,7 @@ gateway_metrics:
     otelcol:
       config:
         exporters:
-          otlp_grpc:
+          blueprint/otlp_watchdog:
             tls:
               insecure: true
               ca_file: null
@@ -107,7 +107,7 @@ gateway_traces:
     otelcol:
       config:
         exporters:
-          otlp_grpc:
+          blueprint/otlp_watchdog:
             tls:
               insecure: true
               ca_file: null
@@ -173,7 +173,7 @@ daemonset:
             key_file: null
             reload_interval: null
         # Operator and Target Allocator logs go directly to watchdog.
-        otlp_grpc/watchdog:
+        blueprint/otlp_watchdog:
           tls:
             insecure: true
             ca_file: null
@@ -186,7 +186,7 @@ daemonset:
     otelcol:
       config:
         exporters:
-          otlp_grpc:
+          blueprint/otlp_watchdog:
             tls:
               insecure: true
               ca_file: null
@@ -214,7 +214,7 @@ large_target_metrics:
     otelcol:
       config:
         exporters:
-          otlp_grpc:
+          blueprint/otlp_watchdog:
             tls:
               insecure: true
               ca_file: null
@@ -242,7 +242,7 @@ cluster_events:
     otelcol:
       config:
         exporters:
-          otlp_grpc:
+          blueprint/otlp_watchdog:
             tls:
               insecure: true
               ca_file: null

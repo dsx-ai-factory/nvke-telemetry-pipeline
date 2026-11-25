@@ -11,7 +11,7 @@ templates:
   - templates/nodeless-metrics.yaml
   - templates/cluster-events.yaml
 tests:
-  - it: leaves default configurations without blueprint definitions or connectors
+  - it: strips blueprint definitions and expands only declared blueprints in default configurations
     asserts:
       - notExists:
           path: spec.config.blueprints
@@ -19,7 +19,12 @@ tests:
           path: spec.config.connectors["forward/exp/otlp_backend"]
       - notMatchRegex:
           path: spec.initContainers[0].args[0]
-          pattern: '"blueprints"|forward/exp/'
+          pattern: '"blueprints"|forward/exp/otlp_backend'
+      # The watchdog's sidecar declares no blueprints.
+      - notMatchRegex:
+          path: spec.initContainers[0].args[0]
+          pattern: forward/exp/
+        template: templates/watchdog.yaml
 
   - it: expands otlp_backend into the same exporter as the logs gateway's default
     template: templates/gateway-logs.yaml
@@ -78,6 +83,88 @@ tests:
       - matchRegex:
           path: spec.initContainers[0].args[0]
           pattern: '"traces":\{"exporters":\["forward/exp/otlp_backend"\]'
+
+  # The literals are complete exporters, so these fail if the blueprint or a
+  # default declaration of it changes.
+  - it: expands otlp_watchdog into the gateway sidecars' exporter to watchdog
+    templates:
+      - templates/gateway-logs.yaml
+      - templates/gateway-metrics.yaml
+      - templates/gateway-traces.yaml
+    asserts:
+      - matchRegex:
+          path: spec.initContainers[0].args[0]
+          pattern: '"exporters":\{"otlp_grpc/\(exp/otlp_watchdog\)":\{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":\{"max_elapsed_time":"30m"\},"sending_queue":\{"batch":\{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"\},"block_on_overflow":false,"num_consumers":2,"queue_size":16777216,"sizer":"bytes"\},"tls":\{"ca_file":"/etc/nktp/internal-tls/client/ca\.crt","cert_file":"/etc/nktp/internal-tls/client/tls\.crt","key_file":"/etc/nktp/internal-tls/client/tls\.key","reload_interval":"1h"\}\}\}'
+
+  - it: expands otlp_watchdog into the node, metrics pool, and cluster events sidecars' exporter to watchdog
+    templates:
+      - templates/daemonset.yaml
+      - templates/large-target-metrics.yaml
+      - templates/nodeless-metrics.yaml
+      - templates/cluster-events.yaml
+    asserts:
+      - matchRegex:
+          path: spec.initContainers[0].args[0]
+          pattern: '"exporters":\{"otlp_grpc/\(exp/otlp_watchdog\)":\{"endpoint":"nktp-watchdog-collector:4317","retry_on_failure":\{"max_elapsed_time":"30m"\},"sending_queue":\{"batch":\{"flush_timeout":"1s","max_size":262144,"min_size":65536,"sizer":"bytes"\},"block_on_overflow":false,"num_consumers":2,"queue_size":4194304,"sizer":"bytes"\},"tls":\{"ca_file":"/etc/nktp/internal-tls/client/ca\.crt","cert_file":"/etc/nktp/internal-tls/client/tls\.crt","key_file":"/etc/nktp/internal-tls/client/tls\.key","reload_interval":"1h"\}\}\}'
+
+  - it: expands otlp_watchdog into the node Collector's blocking, logs-only exporter to watchdog
+    template: templates/daemonset.yaml
+    asserts:
+      - equal:
+          path: spec.config.exporters["otlp_grpc/(exp/otlp_watchdog)"]
+          value:
+            endpoint: nktp-watchdog-collector:4317
+            tls:
+              ca_file: /etc/nktp/internal-tls/client/ca.crt
+              cert_file: /etc/nktp/internal-tls/client/tls.crt
+              key_file: /etc/nktp/internal-tls/client/tls.key
+              reload_interval: 1h
+            retry_on_failure:
+              max_elapsed_time: 30m
+            sending_queue:
+              block_on_overflow: true
+              sizer: bytes
+              queue_size: 1048576
+              num_consumers: 2
+              batch:
+                sizer: bytes
+                min_size: 65536
+                max_size: 262144
+                flush_timeout: 1s
+      - equal:
+          path: spec.config.connectors
+          value:
+            forward/exp/otlp_watchdog: {}
+      - equal:
+          path: spec.config.service.pipelines["logs/(exp/otlp_watchdog)"]
+          value:
+            receivers: [forward/exp/otlp_watchdog]
+            exporters: [otlp_grpc/(exp/otlp_watchdog)]
+      - notExists:
+          path: spec.config.service.pipelines["metrics/(exp/otlp_watchdog)"]
+      - notExists:
+          path: spec.config.service.pipelines["traces/(exp/otlp_watchdog)"]
+
+  - it: replaces otlp_watchdog's default mTLS settings with its tls parameter
+    template: templates/gateway-logs.yaml
+    set:
+      gateway_logs.sidecar.otelcol.config.exporters.blueprint/otlp_watchdog.tls:
+        insecure: true
+    asserts:
+      - matchRegex:
+          path: spec.initContainers[0].args[0]
+          pattern: '"otlp_grpc/\(exp/otlp_watchdog\)":\{[^\n]*"tls":\{"insecure":true\}\}'
+      - notMatchRegex:
+          path: spec.initContainers[0].args[0]
+          pattern: /etc/nktp/internal-tls/
+
+  - it: requires otlp_watchdog's queue_size
+    template: templates/gateway-logs.yaml
+    set:
+      gateway_logs.sidecar.otelcol.config.exporters.blueprint/otlp_watchdog.queue_size: null
+    asserts:
+      - failedTemplate:
+          errorPattern: 'otlp_watchdog: queue_size is required'
 
   - it: uses a configuration's own definition over the blueprints value
     template: templates/gateway-logs.yaml
