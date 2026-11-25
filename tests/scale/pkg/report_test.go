@@ -26,15 +26,15 @@ func TestWriteReport(t *testing.T) {
 			"value": 0, "empty": []string{}, "missing": nil,
 			"non_finite": model.SampleValue(math.NaN()),
 			"queries": map[string]measurements.QueryReport{
-				"ready": {Expression: "up", Check: &measurements.CheckReport{Action: measurements.Complete, For: "30m0s"}},
+				"ready": {Expression: "up", Check: &measurements.CheckReport{Description: "Ready target observed", Action: measurements.Complete, For: "30m0s"}},
 			},
 		},
 	}
-	report := PlanReport{Plan: "load", RunID: "run-1", Stages: []StageReport{stage}}
+	report := PlanReport{Plan: "load", Description: "Observe metrics under load", RunID: "run-1", Stages: []StageReport{stage}}
 	var output bytes.Buffer
 	require.NoError(t, WriteReport(&output, []byte("name: load"), map[string]string{"runId": "run-1"}, report, errors.New("run failed")))
 	require.JSONEq(t, `{
-		"version": 1, "plan": "load", "run_id": "run-1",
+		"version": 1, "plan": "load", "description": "Observe metrics under load", "run_id": "run-1",
 		"plan_source": "name: load", "arguments": {"runId": "run-1"},
 		"error": "run failed",
 		"stages": [{
@@ -45,7 +45,7 @@ func TestWriteReport(t *testing.T) {
 				"value": 0, "empty": [], "missing": null, "non_finite": "NaN",
 				"queries": {"ready": {
 					"expression": "up", "observations": null,
-					"check": {"action": "complete", "for": "30m0s"}
+					"check": {"description": "Ready target observed", "action": "complete", "for": "30m0s"}
 				}}
 			}
 		}]

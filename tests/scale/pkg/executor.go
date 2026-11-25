@@ -50,9 +50,10 @@ type GeneratorReport struct {
 
 // PlanReport contains started stages in declaration order.
 type PlanReport struct {
-	Plan   string
-	RunID  string
-	Stages []StageReport
+	Plan        string
+	Description string
+	RunID       string
+	Stages      []StageReport
 }
 
 // Executor validates and runs plans. Its zero value supports observation-only plans.
@@ -94,7 +95,7 @@ func (e Executor) Execute(ctx context.Context, plan Plan, runID string) (PlanRep
 	defer cancel()
 	reports, err := executeStages(runCtx, logger, stages)
 	logger.InfoContext(ctx, "plan completed", "stages", len(reports), "error", err)
-	return PlanReport{Plan: plan.Name, RunID: runID, Stages: reports}, err
+	return PlanReport{Plan: plan.Name, Description: plan.Description, RunID: runID, Stages: reports}, err
 }
 
 // preparedStage binds validated specifications to fresh, inert runnables.

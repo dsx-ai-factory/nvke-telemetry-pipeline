@@ -1,4 +1,7 @@
 name: pod-churn
+description: |-
+  - **Pods:** Two Jobs with two concurrent Pods and six completions per Job. Designed total: 12 Pods, with
+    up to four running at once. Each Pod sleeps for 30 seconds and requests 10m CPU and 32 MiB memory.
 timeout: 6m
 stages:
   - name: churn

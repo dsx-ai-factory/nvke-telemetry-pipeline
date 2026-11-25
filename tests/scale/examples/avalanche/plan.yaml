@@ -1,4 +1,8 @@
 name: avalanche
+description: |-
+  - **Metrics:** Two Avalanche targets with 1,000 stable gauge series each, from 10 metric families with 100
+    series per family. Designed total: 2,000 series. One target per node-local and large-target route,
+    scraped every 15 seconds with a 10-second timeout, running for three minutes after readiness.
 timeout: 6m
 stages:
   - name: metrics

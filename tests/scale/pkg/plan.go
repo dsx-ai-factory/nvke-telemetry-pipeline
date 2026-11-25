@@ -17,9 +17,10 @@ import (
 // Plan describes sequential stages that share an execution deadline.
 // Timeout must be positive.
 type Plan struct {
-	Name    string        `yaml:"name"`
-	Timeout time.Duration `yaml:"timeout"`
-	Stages  []Stage       `yaml:"stages"`
+	Name        string        `yaml:"name"`
+	Description string        `yaml:"description,omitempty"`
+	Timeout     time.Duration `yaml:"timeout"`
+	Stages      []Stage       `yaml:"stages"`
 
 	// runID retains the validated argument supplied to Parse and is empty when omitted.
 	runID string

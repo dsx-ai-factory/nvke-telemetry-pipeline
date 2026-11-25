@@ -24,15 +24,16 @@ func WriteReport(w io.Writer, source []byte, args map[string]string, report Plan
 		Error       string              `json:"measurement_error,omitempty"`
 	}
 	output := struct {
-		Version   int               `json:"version"`
-		Plan      string            `json:"plan"`
-		RunID     string            `json:"run_id"`
-		Source    string            `json:"plan_source"`
-		Arguments map[string]string `json:"arguments"`
-		Stages    []stage           `json:"stages"`
-		Error     string            `json:"error,omitempty"`
+		Version     int               `json:"version"`
+		Plan        string            `json:"plan"`
+		Description string            `json:"description,omitempty"`
+		RunID       string            `json:"run_id"`
+		Source      string            `json:"plan_source"`
+		Arguments   map[string]string `json:"arguments"`
+		Stages      []stage           `json:"stages"`
+		Error       string            `json:"error,omitempty"`
 	}{
-		Version: 1, Plan: report.Plan, RunID: report.RunID,
+		Version: 1, Plan: report.Plan, Description: report.Description, RunID: report.RunID,
 		Source: string(source), Arguments: args, Stages: []stage{},
 		Error: errorText(runErr),
 	}

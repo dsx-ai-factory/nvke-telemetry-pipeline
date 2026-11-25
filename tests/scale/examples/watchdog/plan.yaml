@@ -1,4 +1,9 @@
 name: watchdog
+description: |-
+  - **Metrics:** Three source Pods at 100 points/minute each, in batches of 100 points, running for three
+    minutes after readiness. Designed total: 300 points/minute.
+  - **Logs:** The same three source Pods at 100 records/minute each with 1 KiB bodies, in batches of 10
+    records, running for three minutes after readiness. Designed total: 300 records/minute.
 timeout: 6m
 stages:
   - name: node-collectors

@@ -485,7 +485,7 @@ duration: 80ms
 interval: 5ms
 measurements:
   - name: a_ready
-    check: {expr: ready, action: complete}
+    check: {expr: ready, action: complete, description: Ready target observed}
   - name: z_guard
     check: {expr: unhealthy}
 `))
@@ -499,6 +499,10 @@ measurements:
 				}
 				queries := report["queries"].(map[string]QueryReport)
 				assert.NotEmpty(t, queries["a_ready"].Observations)
+				assert.Equal(t, "Ready target observed", queries["a_ready"].Check.Description)
+				guard, marshalErr := json.Marshal(queries["z_guard"].Check)
+				require.NoError(t, marshalErr)
+				assert.NotContains(t, string(guard), "description")
 				if test.slowGuard {
 					assert.NotNil(t, queries["a_ready"].Check.FiredAt)
 					assert.Empty(t, queries["z_guard"].Observations)

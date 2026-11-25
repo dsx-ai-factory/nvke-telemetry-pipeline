@@ -1,6 +1,17 @@
 # Small mixed workload with seven generator Pods. See README.md.
 # Install values.yaml first. Only runId is a plan argument.
 name: mixed-workload-demo
+description: |-
+  - **Metrics:** 950 scraped series from targets with 200, 500 and 150 series plus one fixed nodeless target
+    with 100 series, alongside one OTLP series at one point/s. Scrape cadence: 30 seconds for the 200-series
+    and 500-series targets and the fixed nodeless target, and 60 seconds for the 150-series large target.
+  - **Logs:** Two stdout sources at one record/s with 100 B bodies, plus one at one record every five
+    seconds with 64 KiB bodies. Designed total: 2.2 records/s and 13,307.2 body bytes/s.
+  - **Traces:** One source at two spans/s with 1 KiB payloads, plus one at one span/s with a 64 KiB payload.
+    Designed total: three spans/s and 67,584 payload bytes/s.
+  - **Events:** One producer updating one Event with a 1 KiB message approximately once per second.
+  - **Workload:** Seven run-owned generator Pods starting together without a ramp, plus the fixed nodeless
+    source Pod.
 timeout: 15m
 stages:
   - name: load
@@ -354,6 +365,11 @@ stages:
         measurements:
           - name: ready
             check:
+              description: >-
+                **Readiness and signal activity:** Requires exactly seven ready generator Pods, three healthy workload
+                scrape targets, one healthy nodeless target and one observed OTLP metric series. It also requires
+                exactly three active stdout sources, successful Event updates and nonzero metrics, logs and traces
+                gateway exports over two-minute windows, with all checked observations less than 90 seconds old.
               action: complete
               for: 2m
               expr: >-
