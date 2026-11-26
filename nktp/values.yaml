@@ -3393,7 +3393,7 @@ otel-lgtm:
   image:
     registry: "" # Empty pulls from the image's default registry (Docker Hub for this repository).
     repository: grafana/otel-lgtm
-    tag: 0.41.0
+    tag: 0.41.1
   # Container resource requests/limits and Pod placement.
   resources: {}
   nodeSelector: {}
