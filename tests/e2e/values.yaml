@@ -176,6 +176,13 @@ blackbox-exporter:
 # than the rest of the chart put together. Each one watches a handful of
 # resource types on a cluster that holds almost nothing.
 kube-state-metrics:
+  deployments:
+    secrets:
+      enabled: true
+      resource_types: [secrets]
+      namespaces: [nktp] # The Go suite substitutes its selected release namespace.
+      shards: 1
+      kubernetes: {}
   kubernetes:
     resources:
       requests:

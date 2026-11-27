@@ -66,7 +66,7 @@ tests:
       - equal:
           path: spec.config.service.pipelines
           value:
-            metrics: {receivers: [otlp], processors: [memory_limiter, redaction/basic_v1, transform/cluster], exporters: [otlp_grpc]}
+            metrics: {receivers: [otlp], processors: [memory_limiter, redaction/basic_v1, transform/ksm_restore, transform/cluster], exporters: [otlp_grpc]}
       - equal:
           path: spec.config.processors.memory_limiter
           value:
